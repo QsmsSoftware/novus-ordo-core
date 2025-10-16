@@ -1,0 +1,261 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Domain\Password;
+use App\Models\Deployment;
+use App\Models\Division;
+use App\Models\Game;
+use App\Models\Nation;
+use App\Models\Territory;
+use App\Models\Turn;
+use App\Models\User;
+use App\Models\UserAlreadyExists;
+use App\Utils\HttpStatusCode;
+use App\Utils\MapsValidatorToInstance;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\View\View;
+
+readonly class AddUserRequest {
+    use MapsValidatorToInstance;
+    public function __construct(
+        public string $username,
+        public ?string $password
+    ) {}
+}
+
+readonly class LoginUserRequest {
+    use MapsValidatorToInstance;
+    public function __construct(
+        public int $user_id
+    ) {}
+}
+
+readonly class SetPasswordRequest {
+    use MapsValidatorToInstance;
+    public function __construct(
+        public int $user_id,
+        public string $new_password
+    ) {}
+}
+
+readonly class DivisionRequest {
+    use MapsValidatorToInstance;
+    public function __construct(
+        public int $division_id
+    ) {}
+}
+
+readonly class DeploymentRequest {
+    use MapsValidatorToInstance;
+    public function __construct(
+        public int $deployment_id
+    ) {}
+}
+
+readonly class DivisionInfo {
+    public function __construct(
+        public int $division_id,
+        public int $turn_id,
+        public int $nation_id,
+        public int $territory_id,
+        public bool $is_active,
+    ) {}
+}
+
+readonly class DevDeploymentInfo {
+    public function __construct(
+        public int $deployment_id,
+        public int $turn_id,
+        public int $nation_id,
+        public int $territory_id,
+        public bool $has_been_deployed,
+    ) {}
+}
+
+class DevController extends Controller
+{   
+    // public function assignTerritory(int $territoryId, int $nationId) :RedirectResponse {
+    //     $territory = Territory::notNull(Territory::find($territoryId));
+    //     $nation = Nation::notNull(Game::getCurrent()->nations()->find($nationId));
+
+    //     $territory->getDetail()->assignOwner($nation);
+
+    //     return redirect()->route('territory_info', ["territoryId" => $territoryId]);
+    // }
+
+    // public function deployDivision(int $territoryId, int $nationId) :JsonResponse|RedirectResponse {
+    //     $territory = Territory::notNull(Territory::find($territoryId));
+    //     $nation = Nation::notNull(Game::getCurrent()->nations()->find($nationId));
+
+    //     if ($nation->getDetail()->getMaxRemainingDeployments() < 1) {
+    //         return response()->json(['errors' => ['nation_id' => 'This nation can\'t deploy any more divisions.']], HttpStatusCode::UnprocessableContent);
+    //     }
+
+    //     $deployment = Deployment::create($nation, $territory);
+
+    //     return redirect()->route('dev.ajax.deployment', ['deployment_id' => $deployment->getId()]);
+    // }
+
+    public function ajaxDivision(Request $request) :JsonResponse {
+         $validator = Validator::make($request->all(),
+            [
+                'division_id' => 'required|integer'
+            ]
+        );
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], HttpStatusCode::BadRequest);
+        }
+
+        $divisionRequest = DivisionRequest::fromValidator($validator);
+
+        $game = Game::getCurrent();
+        $divisionOrNull = $game->getDivisionWithIdOrNull($divisionRequest->division_id);
+        if ($divisionOrNull === null) {
+            return response()->json(['errors' => ['division_id' => 'No divisions with that ID in the current game.']], HttpStatusCode::NotFound);
+        }
+        $division = Division::notNull($divisionOrNull);
+
+        return response()->json(new DivisionInfo(
+            $division->getId(),
+            Turn::getCurrentForGame($game)->getId(),
+            $division->getNation()->getId(),
+            $division->getMostRecentDetail()->getTerritory()->getId(),
+            $division->getMostRecentDetail()->isActive()));
+    }
+
+    public function ajaxDeployment(Request $request) :JsonResponse {
+         $validator = Validator::make($request->all(),
+            [
+                'deployment_id' => 'required|integer|min:1'
+            ]
+        );
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], HttpStatusCode::BadRequest);
+        }
+
+        $deploymentRequest = DeploymentRequest::fromValidator($validator);
+
+        $game = Game::getCurrent();
+        $deploymentOrNull = $game->getDeploymentWithIdOrNull($deploymentRequest->deployment_id);
+        if ($deploymentOrNull === null) {
+            return response()->json(['errors' => ['deployment_id' => 'No deployment with that ID in the current game.']], HttpStatusCode::NotFound);
+        }
+        $deployment = Deployment::notNull($deploymentOrNull);
+
+        return response()->json(new DevDeploymentInfo(
+            deployment_id: $deployment->getId(),
+            turn_id: $deployment->getTurn()->getId(),
+            nation_id: $deployment->getNation()->getId(),
+            territory_id: $deployment->getTerritory()->getId(),
+            has_been_deployed: $deployment->hasBeenDeployed()
+        ));
+    }
+
+    public function panel() :View {
+        $gameOrNull = Game::getCurrentOrNull();
+
+        if ($gameOrNull === null) {
+            $game_id = "no active game";
+            $turn_number = "";
+        }
+        else {
+            $game_id = $gameOrNull->getId();
+            $turn_number = Turn::getCurrentForGame($gameOrNull)->getNumber();
+        }
+
+        return view('dev.panel', [
+            'game_id' => $game_id,
+            'turn_number' => $turn_number,
+            'users' => User::all(),
+        ]);
+    }
+    
+    public function startGame() :RedirectResponse {
+        Game::createNew();
+
+        return redirect()->route('dev.panel');
+    }
+
+    public function nextTurn() :RedirectResponse {
+        Game::getCurrent()->nextTurn();
+
+        return redirect()->route('dev.panel');
+    }
+
+    public function rollbackTurn() :RedirectResponse {
+        Game::getCurrent()->rollbackLastTurn();
+
+        return redirect()->route('dev.panel');
+    }
+    
+    public function addUser(Request $request) :RedirectResponse {
+        $validator = Validator::make($request->all(),
+            [
+                'username' => 'required|string|min:1',
+                'password' => 'nullable|string'
+            ]
+        );
+        $validator->validate();
+        $addRequest = AddUserRequest::fromValidator($validator);
+
+        $userOrError = User::create($addRequest->username, $addRequest->password ? Password::fromString($addRequest->password) : Password::randomize());
+
+        if ($userOrError instanceof UserAlreadyExists) {
+            $validator->errors()->add('username', 'A user with that name already exists.');
+        }
+
+        if ($validator->errors()->any()) {
+            return redirect()->route('dev.panel')->withErrors($validator->errors())->withInput();
+        }
+
+        $user = User::as($userOrError);
+
+        return redirect()->route('dev.panel')->with('message', "User {$user->getName()} added.");
+    }
+
+    public function loginUser(Request $request) :RedirectResponse {
+        $validator = Validator::make($request->all(),
+            ['user_id' => 'required|integer']
+        );
+        $validator->validate();
+        $loginRequest = LoginUserRequest::fromValidator($validator);
+
+        $user = User::notNull(User::find($loginRequest->user_id));
+
+        Auth::login($user);
+
+        return redirect()->route('dashboard');
+    }
+
+    public function ajaxSetUserPassword(Request $request) :JsonResponse {
+        $validator = Validator::make($request->all(),
+            [
+                'user_id' => 'required|integer',
+                'new_password' => 'required|string|min:1'
+            ]
+        );
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], HttpStatusCode::UnprocessableContent);
+        }
+
+        $setPasswordRequest = SetPasswordRequest::fromValidator($validator);
+
+        $user = User::notNull(User::find($setPasswordRequest->user_id));
+
+        $user->setPassword(Password::fromString($setPasswordRequest->new_password));
+
+        return response()->json([]);
+    }
+
+    public function ajaxGeneratePassword() :JsonResponse {
+        return response()->json(['password' => Password::randomize()->value]);
+    }
+}

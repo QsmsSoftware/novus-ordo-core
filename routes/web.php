@@ -1,0 +1,101 @@
+<?php
+
+use App\Http\Controllers\DeploymentController;
+use App\Http\Controllers\DevController;
+use App\Http\Controllers\DivisionController;
+use App\Http\Controllers\GameController;
+use App\Http\Controllers\NationController;
+use App\Http\Controllers\TerritoryController;
+use App\Http\Controllers\UiController;
+use App\Http\Controllers\UserController;
+use App\Http\Middleware\EnsureWhenRunningInDevelopmentOnly;
+use App\Models\User;
+use Illuminate\Support\Facades\Route;
+
+// Laravel default index.
+Route::get('/', function () {
+    return view('welcome');
+});
+
+// Development panel and endpoints
+Route::middleware(['auth', EnsureWhenRunningInDevelopmentOnly::class])->group(function () {
+    Route::get('/dev-panel', [DevController::class, 'panel'])->name('dev.panel');
+    Route::post('/dev-panel/start-game', [DevController::class, 'startGame'])->name('dev.start-game');
+    Route::post('/dev-panel/next-turn', [DevController::class, 'nextTurn'])->name('dev.next-turn');
+    Route::post('/dev-panel/rollback-turn', [DevController::class, 'rollbackTurn'])->name('dev.rollback-turn');
+    Route::post('/dev-panel/add-user', [DevController::class, 'addUser'])->name('dev.add-user');
+    Route::get('/dev-panel/login-user', [DevController::class, 'loginUser'])->name('dev.login-user');
+    Route::post('/dev-panel/ajax-set-user-password', [DevController::class, 'ajaxSetUserPassword'])->name('dev.ajax.set-user-password');
+    Route::get('/dev-panel/ajax-generate-password', [DevController::class, 'ajaxGeneratePassword'])->name('dev.ajax.generate-password');
+    Route::get('/dev-panel/ajax-division', [DevController::class, 'ajaxDivision'])->name('dev.ajax.division');
+    Route::get('/dev-panel/ajax-deployment', [DevController::class, 'ajaxDeployment'])->name('dev.ajax.deployment');
+
+    //Temporary endpoints:
+    // Route::get('/dev/territory-assign/{territoryId}/{nationId}', [DevController::class, 'assignTerritory'])
+    //     ->whereNumber('territoryId', 'nationId');
+    // Route::get('/dev/division-deploy/{territoryId}/{nationId}', [DevController::class, 'deployDivision'])
+    //     ->whereNumber('territoryId', 'nationId');
+});
+
+// User and login/logout routes.
+Route::get('login', function () {
+    return view('login', ['adminExists' => User::adminExists()]);
+})->name('login');
+Route::middleware('auth')->group(function () {
+    Route::get('/logout', [UserController::class, 'logoutCurrentUser'])->name('logout');
+    Route::get('/user', [UserController::class, 'info']);
+});
+
+//Game routes
+Route::get('/game', [GameController::class, 'info']);
+
+//Nation routes.
+Route::middleware('auth')->group(function () {
+    Route::get('/nation', [NationController::class, 'ownNationInfo']);
+    Route::get('/nation/budget', [NationController::class, 'budgetInfo']);
+    Route::get('/nation/battle-logs/', [NationController::class, 'lastTurnBattleLogs']);
+});
+Route::get('/nations/{nationId}', [NationController::class, 'info'])
+    ->whereNumber('nationId');
+
+//Territory routes.
+Route::middleware('auth')->group(function () {
+    Route::get('/nation/territories', [TerritoryController::class, 'allOwnedTerritories']);
+});
+Route::get('/territories', [TerritoryController::class, 'allTerritories']);
+Route::get('/territories/{territoryId}', [TerritoryController::class, 'info'])
+    ->whereNumber('territoryId');
+
+//Division routes.
+Route::middleware('auth')->group(function () {
+    Route::get('/nation/divisions', [DivisionController::class, 'allOwnedDivisions']);
+    Route::post('/nation/divisions:send-move-orders', [DivisionController::class, 'sendMoveOrders'])
+        ->name('division.send-move-orders');
+    Route::post('/nation/divisions:cancel-orders', [DivisionController::class, 'cancelOrders'])
+        ->name('division.cancel-orders');
+    Route::get('/nation/divisions/{divisionId}', [DivisionController::class, 'ownedDivision'])
+        ->whereNumber('divisionId');
+});
+
+// Deployment routes
+Route::middleware('auth')->group(function () {
+    Route::post('nation/deployments:cancel', [DeploymentController::class, 'cancelDeployments'])
+        ->name('deployment.cancel');
+    Route::get('nation/territories/{territoryId}/deployments', [DeploymentController::class, 'allDeploymentsInOwnedTerritory'])
+        ->whereNumber('territoryId');
+    Route::post('nation/territories/{territoryId}/deployments', [DeploymentController::class, 'deployInOwnedTerritory'])
+        ->whereNumber('territoryId')
+        ->name('deployment.store');
+});
+
+//UI
+Route::middleware('auth')->group(function () {
+    Route::get('/dashboard', [UiController::class, 'dashboard'])
+        ->name('dashboard');
+    Route::get('/create-nation', [UiController::class, 'createNation'])
+        ->name('nation.create');
+    Route::post('/create-nation', [UiController::class, 'storeNation'])
+        ->name('nation.store');
+});
+Route::post('/login-user', [UiController::class, 'loginUser'])
+    ->name('user.login');
