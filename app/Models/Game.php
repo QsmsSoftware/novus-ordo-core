@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Collection;
 use LogicException;
 use PhpOption\Option;
@@ -56,15 +57,23 @@ class Game extends Model
     const int NumberOfStartingTerritories = 5;
     const float RequiredOwnershipRatioForVictory = 0.5;
 
-    public function nations() :HasMany {
+    public function nations(): HasMany {
         return $this->hasMany(Nation::class);
     }
 
-    public function territories() :HasMany {
+    public function territories(): HasMany {
         return $this->hasMany(Territory::class);
     }
 
-    public function freeTerritoriesInTurn(?Turn $turnOrNull = null) :HasMany {
+    public function currentTurn(): HasOne {
+        return $this->hasOne(Turn::class)->latestOfMany(Turn::FIELD_TURN_NUMBER);
+    }
+
+    public function getCurrentTurn(): Turn {
+        return $this->currentTurn;
+    }
+
+    public function freeTerritoriesInTurn(?Turn $turnOrNull = null): HasMany {
         $turn = Turn::as($turnOrNull, fn () => Turn::getCurrentForGame($this));
         return $this->territories()
             ->whereHas('details', fn (Builder $query) => $query
@@ -73,15 +82,15 @@ class Game extends Model
             );
     }
 
-    public function getTerritoryWithId(int $territoryId) :Territory {
+    public function getTerritoryWithId(int $territoryId): Territory {
         return $this->territories()->find($territoryId);
     }
 
-    public function divisions() :HasMany {
+    public function divisions(): HasMany {
         return $this->hasMany(Division::class);
     }
 
-    public function activeDivisionsInTurn(?Turn $turnOrNull = null) :HasMany {
+    public function activeDivisionsInTurn(?Turn $turnOrNull = null): HasMany {
         $turn = Turn::as($turnOrNull, fn () => Turn::getCurrentForGame($this));
         return $this->divisions()
             ->whereHas('details', fn (Builder $query) => $query
@@ -90,15 +99,15 @@ class Game extends Model
             );
     }
 
-    public function deployments() :HasMany {
+    public function deployments(): HasMany {
         return $this->hasMany(Deployment::class);
     }
 
-    public function getDeploymentWithIdOrNull(int $deploymentId) :?Deployment {
+    public function getDeploymentWithIdOrNull(int $deploymentId): ?Deployment {
         return $this->deployments()->find($deploymentId);
     }
 
-    public function exportForTurn(?Turn $turnOrNull = null) :GameInfo {
+    public function exportForTurn(?Turn $turnOrNull = null): GameInfo {
         $turn = $turnOrNull ?? Turn::getCurrentForGame($this);
         return new GameInfo(
             game_id: $this->getId(),
@@ -118,15 +127,15 @@ class Game extends Model
         ];
     }
 
-    public function getId() :int {
+    public function getId(): int {
         return $this->getKey();
     }
     
-    public function getVictoryStatus() :VictoryStatus {
+    public function getVictoryStatus(): VictoryStatus {
         return VictoryStatus::from($this->victory_status);
     }
 
-    public function nextTurn() :void {
+    public function nextTurn(): void {
         $currentTurn = Turn::getCurrentForGame($this);
         $nextTurn = $currentTurn->createNext();
 
@@ -161,7 +170,7 @@ class Game extends Model
         $this->save();
     }
 
-    public function rollbackLastTurn() :void {
+    public function rollbackLastTurn(): void {
         $lastTurn = Turn::getCurrentForGame($this);
 
         if ($lastTurn->getNumber() == 1) {
@@ -176,7 +185,7 @@ class Game extends Model
         $currentTurn->orders()->rawUpdate([ Order::FIELD_HAS_BEEN_EXECUTED => false]);
     }
     
-    private function updateVictoryStatus() :void {
+    private function updateVictoryStatus(): void {
         $winnerOrNull = $this->getWinnerOrNull();
 
         if ($winnerOrNull !== null) {
@@ -184,22 +193,22 @@ class Game extends Model
         }
     }
 
-    public function disable() :void {
+    public function disable(): void {
         $this->is_active = false;
     }
 
-    public function getRequiredTerritoriesForVictory() :int {
+    public function getRequiredTerritoriesForVictory(): int {
         return floor(Game::RequiredOwnershipRatioForVictory * $this->territories()->count()) + 1;
     }
 
-    public function getVictoryProgression() :Collection {
+    public function getVictoryProgression(): Collection {
         $requiredTerritories = $this->getRequiredTerritoriesForVictory();
         return $this->nations()->get()
             ->map(fn (Nation $nation) => new VictoryProgress($nation->getId(), $nation->getDetail()->territories()->count(), $requiredTerritories))
             ->sortByDesc(fn (VictoryProgress $p) => $p->progress);
     }
 
-    public function getWinnerOrNull() :?Nation {
+    public function getWinnerOrNull(): ?Nation {
         $progressions = $this->getVictoryProgression();
 
         $victoryOrNull = $progressions->first(fn (VictoryProgress $p, int $nationId) => $p->isVictorious);
@@ -210,19 +219,19 @@ class Game extends Model
         };
     }
     
-    public function hasNationWithUsualName(string $usualName) :bool {
+    public function hasNationWithUsualName(string $usualName): bool {
         return $this->nations()->whereRaw('LOWER(' . Nation::FIELD_USUAL_NAME . ') = ?', strtolower($usualName))->first() !== null;
     }
 
-    public function getNationWithIdOrNull(int $nationId) :?Nation {
+    public function getNationWithIdOrNull(int $nationId): ?Nation {
         return $this->nations()->find($nationId);
     }
 
-    public function getDivisionWithIdOrNull(int $divisionId) :?Division {
+    public function getDivisionWithIdOrNull(int $divisionId): ?Division {
         return $this->divisions()->find($divisionId);
     }
 
-    public function hasEnoughTerritoriesForNewNation() :NotEnoughFreeTerritories|EnoughFreeTerritories {
+    public function hasEnoughTerritoriesForNewNation(): NotEnoughFreeTerritories|EnoughFreeTerritories {
         $freeTerritories = $this->freeTerritoriesInTurn()->take(Game::NumberOfStartingTerritories)->get();
 
         if ($freeTerritories->count() < Game::NumberOfStartingTerritories) {
@@ -232,12 +241,12 @@ class Game extends Model
         return new EnoughFreeTerritories();
     }
 
-    public static function getCurrentOrNull() :?Game {
+    public static function getCurrentOrNull(): ?Game {
         return Game::where('is_active', 1)
             ->first();
     }
 
-    public static function getCurrent() :Game {
+    public static function getCurrent(): Game {
         return Game::where('is_active', 1)
             ->first();
     }

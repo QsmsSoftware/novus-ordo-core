@@ -63,10 +63,10 @@ class DivisionDetail extends Model
         return $this->getOrderOrNull();
     }
 
-    public static function createRuleValidActiveDivision(Nation $nation, Turn $turn): Exists {
+    public static function createRuleValidActiveDivision(Nation $nation): Exists {
         return Rule::exists(DivisionDetail::class, 'division_id')
             ->where(DivisionDetail::whereNation($nation))
-            ->where(DivisionDetail::whereTurn($turn))
+            ->where(DivisionDetail::whereTurn($nation->getGame()->getCurrentTurn()))
             ->where(DivisionDetail::whereActive());
     }
 

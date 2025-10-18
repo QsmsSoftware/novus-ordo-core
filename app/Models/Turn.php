@@ -10,6 +10,8 @@ class Turn extends Model
 {
     use GuardsForAssertions;
 
+    public const string FIELD_TURN_NUMBER = 'number';
+
     public function deployments() :HasMany {
         return $this->hasMany(Deployment::class);
     }

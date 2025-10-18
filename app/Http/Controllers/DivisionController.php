@@ -46,7 +46,7 @@ readonly class CancelOrdersRequest {
 
 class DivisionController extends Controller
 {
-    public function sendMoveOrders(Request $request, NationContext $context) :JsonResponse {
+    public function sendMoveOrders(Request $request, NationContext $context): JsonResponse {
         $nation = $context->getNation();
 
         $validated = $request->validate([
@@ -54,7 +54,7 @@ class DivisionController extends Controller
             'orders.*.division_id' => [
                 'required',
                 'integer',
-                DivisionDetail::createRuleValidActiveDivision($nation, $context->getCurrentTurn()),
+                DivisionDetail::createRuleValidActiveDivision($nation),
             ],
             'orders.*.destination_territory_id' => [
                 'required',
@@ -77,7 +77,7 @@ class DivisionController extends Controller
         return response()->json($sentOrderIds);
     }
 
-    public function cancelOrders(Request $request, NationContext $context) :JsonResponse {
+    public function cancelOrders(Request $request, NationContext $context): JsonResponse {
         $nation = $context->getNation();
 
         $validated = $request->validate([
@@ -85,7 +85,7 @@ class DivisionController extends Controller
             'division_ids.*' => [
                 'required',
                 'integer',
-                DivisionDetail::createRuleValidActiveDivision($nation, $context->getCurrentTurn())
+                DivisionDetail::createRuleValidActiveDivision($nation)
             ]
         ]);
 
@@ -102,7 +102,7 @@ class DivisionController extends Controller
         return response()->json($hadOrderCancelled);
     }
     
-    public function allOwnedDivisions(NationContext $context) : JsonResponse {
+    public function allOwnedDivisions(NationContext $context): JsonResponse {
         $nation = $context->getNation();
 
         $divisions = $nation->getDetail()->activeDivisions()->get()->map(fn (Division $d) => $d->getDetail()->exportForOwner())->all();
@@ -110,7 +110,7 @@ class DivisionController extends Controller
         return response()->json($divisions);
     }
 
-    public function ownedDivision(NationContext $context, int $divisionId) : JsonResponse {
+    public function ownedDivision(NationContext $context, int $divisionId): JsonResponse {
         $nation = $context->getNation();
 
         $division = Division::asOrNotFound($nation->getDetail()->activeDivisions()->find($divisionId), "Current nation doesn't own an active division with that ID: $divisionId");

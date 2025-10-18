@@ -4,10 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Models\Deployment;
 use App\Models\Nation;
+use App\Models\Territory;
+use App\Services\NationContext;
 use App\Utils\HttpStatusCode;
 use App\Utils\MapsArrayToInstance;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 readonly class DeployInTerritoryRequest {
     use MapsArrayToInstance;
@@ -31,47 +34,40 @@ readonly class CancelDeploymentsRequest {
 
 class DeploymentController extends Controller
 {
-    public function cancelDeployments(Request $request) :JsonResponse {
-        $nation = Nation::getCurrent();
+    public function cancelDeployments(Request $request, NationContext $context): JsonResponse {
+        $nation = $context->getNation();
 
         $validated = $request->validate([
             'deployment_ids' => 'required|array|min:1',
-            'deployment_ids.*' => 'integer',
+            'deployment_ids.*' => [
+                'required',
+                'integer',
+                Deployment::createRuleValidDeployment($nation)
+            ],
         ]);
 
         $cancelRequest = CancelDeploymentsRequest::fromArray($validated);
 
         $foundDeployments = $nation->deploymentByIds(...$cancelRequest->deployment_ids)->get();
-
-        $missingIds = collect($cancelRequest->deployment_ids)->diff($foundDeployments->map(fn (Deployment $d) => $d->getId()));
-
-        if ($missingIds->count() > 0) {
-            return response()->json(['errors' => ['deployment_ids' => 'Not found: ' . $missingIds->join(", ")]], HttpStatusCode::BadRequest);
-        }
-
-        $cancelledDeploymentIds = [];
-            
-        $foundDeployments->each(function (Deployment $d) use (&$cancelledDeploymentIds) {
-            $cancelledDeploymentIds[] = $d->getId();
-            $d->cancel();
-        });
         
-        return response()->json($cancelledDeploymentIds);
+        $foundDeployments->each(fn (Deployment $d) => $d->cancel());
+        
+        return response()->json();
     }
-    public function allDeploymentsInOwnedTerritory(int $territoryId) :JsonResponse {
-        $nation = Nation::getCurrent();
-        $territory = $nation->getDetail()->getTerritoryById($territoryId);
+    public function allDeploymentsInOwnedTerritory(NationContext $context, int $territoryId): JsonResponse {
+        $nation = $context->getNation();
+        $territory = Territory::asOrNotFound($nation->getDetail()->territories()->find($territoryId), "Current nation doesn't own territory: $territoryId");
 
         return response()->json($nation->getDetail()->deploymentsInTerritory($territory)->get()->map(fn (Deployment $d) => $d->export()));
     }
 
-    public function deployInOwnedTerritory(Request $request, int $territoryId) :JsonResponse {
+    public function deployInOwnedTerritory(Request $request, NationContext $context, int $territoryId): JsonResponse {
         $validated = $request->validate([
             'number_of_divisions' => 'required|int|min:1',
         ]);
         $request = DeployInTerritoryRequest::fromArray($validated);
-        $nation = Nation::getCurrent();
-        $territory = $nation->getDetail()->getTerritoryById($territoryId); // TODO: gérer erreur not found
+        $nation = $context->getNation();
+        $territory = Territory::asOrNotFound($nation->getDetail()->territories()->find($territoryId), "Current nation doesn't own territory: $territoryId");
         
         $deployments = array_map(fn (Deployment $d) => $d->export(), $nation->deploy($territory, $request->number_of_divisions));
         return response()->json($deployments, HttpStatusCode::Created);

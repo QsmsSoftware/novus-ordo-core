@@ -6,6 +6,8 @@ use App\Utils\GuardsForAssertions;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Exists;
 use LogicException;
 
 readonly class DeploymentInfo {
@@ -62,6 +64,14 @@ class Deployment extends Model
 
     public function hasBeenDeployed() :int {
         return $this->has_been_deployed;
+    }
+
+    public static function createRuleValidDeployment(Nation $nation): Exists {
+        return Rule::exists(Deployment::class, 'id')
+            ->where('nation_id', $nation->getId())
+            ->where('turn_id', $nation->getGame()->getCurrentTurn()->getId())
+            ->whereNull('deleted_at')
+            ->where(Deployment::FIELD_HAS_BEEN_DEPLOYED, false);
     }
 
     public function export() :DeploymentInfo {
