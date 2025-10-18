@@ -10,11 +10,12 @@ use App\Http\Controllers\UiController;
 use App\Http\Controllers\UserController;
 use App\Http\Middleware\EnsureWhenRunningInDevelopmentOnly;
 use App\Models\User;
+use App\Services\NationContext;
 use Illuminate\Support\Facades\Route;
 
 // Laravel default index.
 Route::get('/', function () {
-    return view('welcome');
+    return redirect()->route('dashboard');
 });
 
 // Development panel and endpoints
@@ -41,6 +42,10 @@ Route::middleware(['auth', EnsureWhenRunningInDevelopmentOnly::class])->group(fu
 Route::get('login', function () {
     return view('login', ['adminExists' => User::adminExists()]);
 })->name('login');
+Route::middleware('throttle:login')->group(function () {
+    Route::post('/login-user', [UiController::class, 'loginUser'])
+        ->name('user.login');
+});
 Route::middleware('auth')->group(function () {
     Route::get('/logout', [UserController::class, 'logoutCurrentUser'])->name('logout');
     Route::get('/user', [UserController::class, 'info']);
@@ -97,5 +102,3 @@ Route::middleware('auth')->group(function () {
     Route::post('/create-nation', [UiController::class, 'storeNation'])
         ->name('nation.store');
 });
-Route::post('/login-user', [UiController::class, 'loginUser'])
-    ->name('user.login');

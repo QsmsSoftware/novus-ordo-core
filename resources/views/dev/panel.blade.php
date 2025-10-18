@@ -58,10 +58,7 @@
                 $("#user_set_password_password").val("");
 
                 $.get({
-                    url: @json(route('dev.ajax.generate-password')),
-                    data: {
-                        _token: @json(csrf_token()),
-                    }
+                    url: @json(route('dev.ajax.generate-password'))
                 })
                 .done(function(data) {
                     $.post({
@@ -74,7 +71,7 @@
                     })
                     .done(function() {
                         $("#error_messages").html("");
-                        $("#user_set_password_ok_message_text").html(`<div>Changed password for user ${setPasswordUserOrNull.username}! New password: ${shortPassword}</div>`);
+                        $("#user_set_password_ok_message_text").html(`<div>Changed password for user ${setPasswordUserOrNull.username}! New password: ${data.password}</div>`);
                         $("#user_set_password_ok_message").show();
                     })
                     .fail(function(data) {

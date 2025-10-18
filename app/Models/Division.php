@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Utils\GuardsForAssertions;
+use Closure;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -33,14 +35,14 @@ class Division extends Model
     }
 
     public function getMostRecentDetail(?Turn $turnOrNull = null): DivisionDetail {
-        $turn = Turn::as($turnOrNull, fn () => Turn::getCurrentForGame($this->getNation()->getGame()));
+        $turn = Turn::as($turnOrNull, fn () => Turn::getCurrentForGame($this->getGame()));
         return $this->details()
             ->where('turn_id', '<=', $turn->getId())
             ->orderByDesc('turn_id')->first();
     }
 
     public function getDetail(?Turn $turnOrNull = null): DivisionDetail {
-        $turn = Turn::as($turnOrNull, fn () => Turn::getCurrentForGame($this->getNation()->getGame()));
+        $turn = Turn::as($turnOrNull, fn () => Turn::getCurrentForGame($this->getGame()));
         return $this->details()->where('turn_id', $turn->getId())->first();
     }
 

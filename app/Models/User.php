@@ -8,6 +8,7 @@ use App\Domain\Password;
 use App\Utils\GuardsForAssertions;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Http\Request;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Auth;
 
@@ -104,6 +105,12 @@ class User extends Authenticatable
         sleep(1);
 
         return new UserCredentialsRejected;
+    }
+
+    public static function logoutCurrentUser(): void {
+        Auth::logout();
+        request()->session()->invalidate();
+        request()->session()->regenerateToken();
     }
 
     public static function create(string $name, Password $password): User|UserAlreadyExists {

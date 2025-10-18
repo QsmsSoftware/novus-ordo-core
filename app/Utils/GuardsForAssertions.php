@@ -15,7 +15,7 @@ trait GuardsForAssertions {
      * Asserts the value is either an instance of the implementing class, null, Some of that class or that the specified closure will return
      * an instance of the implementing class, Some of that class or null. Returns the instance of that class or null.
      */
-    public static function asOrNull(mixed $valueOrOption, ?Closure $fallback = null) :static|null {
+    public static function asOrNull(mixed $valueOrOption, ?Closure $fallback = null): static|null {
         $valueOrNone = Option::ensure($valueOrOption);
 
         if (isset($fallback) && $valueOrNone->isEmpty()) {
@@ -39,8 +39,22 @@ trait GuardsForAssertions {
      * Asserts the value is either an instance of the implementing class or Some of that class or that the specified closure will return
      * an instance of the implementing class or Some of class. Returns the instance of that class.
      */
-    public static function as(mixed $valueOrOption, ?Closure $fallback = null) :static {
+    public static function as(mixed $valueOrOption, ?Closure $fallback = null): static {
         return static::notNull(static::asOrNull($valueOrOption, $fallback));
+    }
+
+    /**
+     * Asserts the value is either an instance of the implementing class or Some of that class. Returns the instance of that class
+     * or abort the request with a Not Found response (404) embedding the specified error message.
+     */
+    public static function asOrNotFound(mixed $valueOrOption, string $errorMessage): static {
+        $valueOrNull = static::asOrNull($valueOrOption);
+
+        if (is_null($valueOrNull)) {
+            abort(HttpStatusCode::NotFound, $errorMessage);
+        }
+
+        return $valueOrNull;
     }
     
     /**
@@ -48,7 +62,7 @@ trait GuardsForAssertions {
      *
      * Throws a LogicException if null or not an instance of the implementing class.
      */
-    public static function notNull(mixed $value) :static {
+    public static function notNull(mixed $value): static {
         if (!$value instanceof static) {
             $type = is_object($value) ? $value::class : gettype($value);
 

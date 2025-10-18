@@ -6,6 +6,7 @@ use Closure;
 use LogicException;
 use ReflectionClass;
 use ReflectionFunction;
+use ReflectionProperty;
 
 /**
  * Utility class that groups reflection helper static methods.
@@ -32,6 +33,15 @@ final class Reflection {
         }
 
         return $constr->getParameters();
+    }
+
+    /**
+     * Returns the class' public properties as an array of  instances.
+     */
+    public static function getPublicProperties(string $className) :array {
+        $class = new ReflectionClass($className);
+
+        return $class->getProperties(ReflectionProperty::IS_PUBLIC);
     }
 
     /**

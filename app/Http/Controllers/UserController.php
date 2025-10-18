@@ -22,10 +22,8 @@ class UserController extends Controller
         return response()->json(new UserInfo($user->getName()));
     }
     
-    public function logoutCurrentUser(Request $request) :Response {
-        Auth::logout();
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
+    public function logoutCurrentUser() :Response {
+        User::logoutCurrentUser();
 
         return response('Logged out. <a href="' . route('login') . '">go to login</a>');
     }

@@ -4,8 +4,11 @@ namespace App\Models;
 
 use App\Domain\OrderType;
 use App\ModelTraits\ReplicatesForTurns;
+use Closure;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Exists;
 
 readonly class OwnedDivisionInfo {
     public function __construct(
@@ -26,49 +29,68 @@ class DivisionDetail extends Model
 
     use ReplicatesForTurns;
 
-    public function division() :BelongsTo {
+    public function division(): BelongsTo {
         return $this->belongsTo(Division::class);
     }
 
-    public function getDivision() :Division {
+    public function getDivision(): Division {
         return $this->division;
     }
 
-    public function nation() :BelongsTo {
+    public function nation(): BelongsTo {
         return $this->belongsTo(Nation::class);
     }
 
-    public function getNation() :Nation {
+    public function getNation(): Nation {
         return $this->nation;
     }
 
-    public function territory() :BelongsTo {
+    public function territory(): BelongsTo {
         return $this->belongsTo(Territory::class);
     }
 
-    public function getTerritory() :Territory {
+    public function getTerritory(): Territory {
         return $this->territory;
     }
 
-    public function getOrderOrNull() :?Order {
+    public function getOrderOrNull(): ?Order {
         return $this->getDivision()->orders()
             ->where('turn_id', $this->turn_id)
             ->first();
     }
 
-    public function getOrder() :Order {
+    public function getOrder(): Order {
         return $this->getOrderOrNull();
     }
 
-    public function getUpkeep() :int {
+    public static function createRuleValidActiveDivision(Nation $nation, Turn $turn): Exists {
+        return Rule::exists(DivisionDetail::class, 'division_id')
+            ->where(DivisionDetail::whereNation($nation))
+            ->where(DivisionDetail::whereTurn($turn))
+            ->where(DivisionDetail::whereActive());
+    }
+
+    private static function whereTurn(Turn $turn): Closure {
+        return fn ($builder) => $builder->where('turn_id', $turn->getId());
+    }
+
+    private static function whereNation(Nation $nation): Closure {
+        return fn ($builder) => $builder->where('nation_id', $nation->getId());
+    }
+
+    private static function whereActive(): Closure {
+        return fn ($builder) => $builder->where(DivisionDetail::FIELD_IS_ACTIVE, true);
+    }
+
+    public function getUpkeep(): int {
         return DivisionDetail::UPKEEP_PER_DIVISION;
     }
 
-    public function isActive() :bool {
+    public function isActive(): bool {
         return $this->is_active;
     }
 
-    public function isMoving() :bool {
+    public function isMoving(): bool {
         $orderOrNull = $this->getOrderOrNull();
 
         return ($order = $orderOrNull??false)
@@ -76,7 +98,7 @@ class DivisionDetail extends Model
             && $this->getNation()->equals($order->getDestinationTerritory()->getDetail()->getOwnerOrNull());
     }
 
-    public function isAttacking() :bool {
+    public function isAttacking(): bool {
         $orderOrNull = $this->getOrderOrNull();
 
         return ($order = $orderOrNull??false)
@@ -84,7 +106,7 @@ class DivisionDetail extends Model
             && !$this->getNation()->equals($order->getDestinationTerritory()->getDetail()->getOwnerOrNull());
     }
 
-    public function exportForOwner() :OwnedDivisionInfo {
+    public function exportForOwner(): OwnedDivisionInfo {
         $division = $this->getDivision();
         return new OwnedDivisionInfo(
             division_id: $division->getId(),
@@ -94,16 +116,16 @@ class DivisionDetail extends Model
         );
     }
 
-    public function onNextTurn(DivisionDetail $current) :void {
+    public function onNextTurn(DivisionDetail $current): void {
         $this->save();
     }
 
-    public function moveTo(Territory $territory) :void {
+    public function moveTo(Territory $territory): void {
         $this->territory_id = $territory->getId();
         $this->save();
     }
 
-    public function disband() :void {
+    public function disband(): void {
         $this->is_active = false;
         $this->save();
     }
@@ -123,7 +145,7 @@ class DivisionDetail extends Model
     public static function create(
         Division $division,
         Territory $territory
-    ) :DivisionDetail {
+    ): DivisionDetail {
         $details = new DivisionDetail();
 
         $details->game_id = $division->getGame()->getId();
