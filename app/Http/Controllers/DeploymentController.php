@@ -3,14 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\Deployment;
-use App\Models\Nation;
 use App\Models\Territory;
 use App\Services\NationContext;
 use App\Utils\HttpStatusCode;
 use App\Utils\MapsArrayToInstance;
+use App\Utils\MapsValidatedDataToFormRequest;
+use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 
 readonly class DeployInTerritoryRequest {
     use MapsArrayToInstance;
@@ -22,31 +22,35 @@ readonly class DeployInTerritoryRequest {
     }
 }
 
-readonly class CancelDeploymentsRequest {
-    use MapsArrayToInstance;
+class CancelDeploymentsRequest extends FormRequest {
+    use MapsValidatedDataToFormRequest;
+
+    public readonly array $deployment_ids;
+
     public function __construct(
-        public array $deployment_ids
+        private readonly NationContext $context
     )
     {
         
+    }
+
+    public function rules(): array
+    {
+        return [
+            'deployment_ids' => 'required|array|min:1',
+            'deployment_ids.*' => [
+                'required',
+                'integer',
+                Deployment::createRuleValidDeployment($this->context->getNation())
+            ],
+        ];
     }
 }
 
 class DeploymentController extends Controller
 {
-    public function cancelDeployments(Request $request, NationContext $context): JsonResponse {
+    public function cancelDeployments(CancelDeploymentsRequest $cancelRequest, NationContext $context): JsonResponse {
         $nation = $context->getNation();
-
-        $validated = $request->validate([
-            'deployment_ids' => 'required|array|min:1',
-            'deployment_ids.*' => [
-                'required',
-                'integer',
-                Deployment::createRuleValidDeployment($nation)
-            ],
-        ]);
-
-        $cancelRequest = CancelDeploymentsRequest::fromArray($validated);
 
         $foundDeployments = $nation->deploymentByIds(...$cancelRequest->deployment_ids)->get();
         
