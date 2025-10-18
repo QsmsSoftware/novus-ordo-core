@@ -355,7 +355,7 @@
                         htmlRef.html += '<li>';
                         htmlRef.html += `#${d.division_id}`;
                         if (d.order.order_type == 'Move') {
-                            let isMoving = ownTerritoriesById.has(d.destination_territory_id);
+                            let isMoving = ownTerritoriesById.has(d.order.destination_territory_id);
 
                             htmlRef.html += isMoving ? ' is moving to ' : ' is attacking ';
                             htmlRef.html += formatTerritoryName(territoriesById.get(d.order.destination_territory_id))
