@@ -71,7 +71,7 @@
                     })
                     .done(function() {
                         $("#error_messages").html("");
-                        $("#user_set_password_ok_message_text").html(`<div>Changed password for user ${setPasswordUserOrNull.username}! New password: ${data.password}</div>`);
+                        $("#user_set_password_ok_message_text").html(`<div>Changed password for user ${setPasswordUserOrNull.username}! New password: <span id="new-password">${data.password}</span>${renderCopyToClipboardButton("new-password")}</div>`);
                         $("#user_set_password_ok_message").show();
                     })
                     .fail(function(data) {
@@ -85,6 +85,7 @@
         {{ $page_title }}
         </h1>
         <x-error />
+        <x-copy-to-clipboard-button />
         <div>
             Active game ID: {{$game_id}}
             <form method="post" enctype="multipart/form-data" action="{{route('dev.start-game')}}">
