@@ -106,7 +106,7 @@ class NationDetail extends Model
     }
 
     public function exportForOwner() :OwnedNationInfo {
-        return new OwnedNationInfo($this->getNation()->getId(), $this->getTurn()->getId(), $this->getNation()->getUsualName());
+        return new OwnedNationInfo($this->getNation()->getId(), $this->getTurn()->getNumber(), $this->getNation()->getUsualName());
     }
 
     public function deployments() :HasMany {
