@@ -87,7 +87,7 @@ class Division extends Model
     public function onMovePhase(Turn $currentTurn, Turn $nextTurn): void {
         if ($this->getDetail($currentTurn)->isMoving()) {
             $this->getDetail($nextTurn)->moveTo($this->getDetail($currentTurn)->getOrder()->getDestinationTerritory());
-            $this->getDetail($nextTurn)->getOrder()->onExecution();
+            $this->getDetail($currentTurn)->getOrder()->onExecution();
         }
     }
 
