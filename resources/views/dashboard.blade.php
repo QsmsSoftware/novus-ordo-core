@@ -36,6 +36,9 @@
                 SelectTerritory: 3,
             };
 
+            {!! $js_client_services !!}
+            let services = new NovusOrdoServices(@json(url("")), @json(csrf_token()));
+
             class PendingDeploymentRequest {
                 #_territoryId;
 
@@ -185,7 +188,7 @@
 
             function cancelOrder(divisionId) {
                 $.post({
-                    url: @json(route('division.cancel-orders')),
+                    url: @json(route('ajax.division.cancel-orders')),
                     data: {
                         _token: @json(csrf_token()),
                         division_ids: [divisionId]

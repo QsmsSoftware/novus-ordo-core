@@ -40,11 +40,7 @@ class TerritoryController extends Controller
         ]);
 
         $game = Game::getCurrent();
-        $territoryOrNull = $game->getTerritoryWithIdOrNull($territoryId);
-        if ($territoryOrNull === null) {
-            return response()->json(['errors' => ['territoryId' => "No territory with that ID in the current game."]], HttpStatusCode::NotFound);
-        }
-        $territory = Territory::notNull($territoryOrNull);
+        $territory = Territory::asOrNotFound($game->territories()->find($territoryId), "No territory with ID $territoryId in the current game.");
 
         if (isset($validated['turn_number'])) {
             $params = TerritoryForTurnParams::fromArray($validated);

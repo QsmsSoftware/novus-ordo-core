@@ -16,6 +16,7 @@ use App\Models\UserCredentials;
 use App\Models\UserCredentialsRejected;
 use App\Models\UserLogedIn;
 use App\Models\VictoryStatus;
+use App\Services\JavascriptClientServicesGenerator;
 use App\Utils\MapsValidatorToInstance;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -95,7 +96,7 @@ class UiController extends Controller
         return view('new_nation');
     }
 
-    public function dashboard() : View|RedirectResponse {
+    public function dashboard(JavascriptClientServicesGenerator $servicesGenerator) : View|RedirectResponse {
         $nationOrNull = Nation::getCurrentOrNull();
         if ($nationOrNull === null) {
             return redirect()->route('nation.create');
@@ -123,7 +124,8 @@ class UiController extends Controller
                     ->mapWithKeys(fn (Territory $t) => [$t->getId() => $t->getDetail()->export()]),
                 'battleLogs' => $nation->getDetail()
                     ->getAllBattlesWhereParticipant()
-                    ->map(fn (Battle $b) => $b->exportForParticipant())
+                    ->map(fn (Battle $b) => $b->exportForParticipant()),
+                'js_client_services' => $servicesGenerator->generateClientService("NovusOrdoServices", "ajax"),
             ]),
             VictoryStatus::HasBeenWon => view('gameover', [
                 'winner' => Nation::notNull($game->getWinnerOrNull())->getUsualName(),

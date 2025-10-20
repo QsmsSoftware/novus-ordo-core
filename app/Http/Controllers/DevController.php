@@ -11,12 +11,15 @@ use App\Models\Territory;
 use App\Models\Turn;
 use App\Models\User;
 use App\Models\UserAlreadyExists;
+use App\Services\JavascriptClientServicesGenerator;
 use App\Utils\HttpStatusCode;
 use App\Utils\MapsValidatorToInstance;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\View\View;
 
@@ -79,29 +82,12 @@ readonly class DevDeploymentInfo {
 
 class DevController extends Controller
 {   
-    // public function assignTerritory(int $territoryId, int $nationId) :RedirectResponse {
-    //     $territory = Territory::notNull(Territory::find($territoryId));
-    //     $nation = Nation::notNull(Game::getCurrent()->nations()->find($nationId));
+    public function generateServices(JavascriptClientServicesGenerator $servicesGenerator): Response {
 
-    //     $territory->getDetail()->assignOwner($nation);
+        return new Response($servicesGenerator->generateClientService("NovusOrdoServices", "ajax"));
+    }
 
-    //     return redirect()->route('territory_info', ["territoryId" => $territoryId]);
-    // }
-
-    // public function deployDivision(int $territoryId, int $nationId) :JsonResponse|RedirectResponse {
-    //     $territory = Territory::notNull(Territory::find($territoryId));
-    //     $nation = Nation::notNull(Game::getCurrent()->nations()->find($nationId));
-
-    //     if ($nation->getDetail()->getMaxRemainingDeployments() < 1) {
-    //         return response()->json(['errors' => ['nation_id' => 'This nation can\'t deploy any more divisions.']], HttpStatusCode::UnprocessableContent);
-    //     }
-
-    //     $deployment = Deployment::create($nation, $territory);
-
-    //     return redirect()->route('dev.ajax.deployment', ['deployment_id' => $deployment->getId()]);
-    // }
-
-    public function ajaxDivision(Request $request) :JsonResponse {
+    public function ajaxDivision(Request $request): JsonResponse {
          $validator = Validator::make($request->all(),
             [
                 'division_id' => 'required|integer'
@@ -129,7 +115,7 @@ class DevController extends Controller
             $division->getMostRecentDetail()->isActive()));
     }
 
-    public function ajaxDeployment(Request $request) :JsonResponse {
+    public function ajaxDeployment(Request $request): JsonResponse {
          $validator = Validator::make($request->all(),
             [
                 'deployment_id' => 'required|integer|min:1'
@@ -158,7 +144,7 @@ class DevController extends Controller
         ));
     }
 
-    public function panel() :View {
+    public function panel(JavascriptClientServicesGenerator $servicesGenerator): View {
         $gameOrNull = Game::getCurrentOrNull();
 
         if ($gameOrNull === null) {
@@ -173,29 +159,31 @@ class DevController extends Controller
         return view('dev.panel', [
             'game_id' => $game_id,
             'turn_number' => $turn_number,
+            'js_dev_client_services' => $servicesGenerator->generateClientService("DevPanelServices", "dev.ajax"),
+            'js_client_services' => $servicesGenerator->generateClientService("NovusOrdoServices", "ajax"),
             'users' => User::all(),
         ]);
     }
     
-    public function startGame() :RedirectResponse {
+    public function startGame(): RedirectResponse {
         Game::createNew();
 
         return redirect()->route('dev.panel');
     }
 
-    public function nextTurn() :RedirectResponse {
+    public function nextTurn(): RedirectResponse {
         Game::getCurrent()->nextTurn();
 
         return redirect()->route('dev.panel');
     }
 
-    public function rollbackTurn() :RedirectResponse {
+    public function rollbackTurn(): RedirectResponse {
         Game::getCurrent()->rollbackLastTurn();
 
         return redirect()->route('dev.panel');
     }
     
-    public function addUser(Request $request) :RedirectResponse {
+    public function addUser(Request $request): RedirectResponse {
         $validator = Validator::make($request->all(),
             [
                 'username' => 'required|string|min:1',
@@ -205,7 +193,7 @@ class DevController extends Controller
         $validator->validate();
         $addRequest = AddUserRequest::fromValidator($validator);
 
-        $userOrError = User::create($addRequest->username, $addRequest->password ? Password::fromString($addRequest->password) : Password::randomize());
+        $userOrError = User::create($addRequest->username, $addRequest->password ? Password::fromString($addRequest->password):  Password::randomize());
 
         if ($userOrError instanceof UserAlreadyExists) {
             $validator->errors()->add('username', 'A user with that name already exists.');
@@ -220,7 +208,7 @@ class DevController extends Controller
         return redirect()->route('dev.panel')->with('message', "User {$user->getName()} added.");
     }
 
-    public function loginUser(Request $request) :RedirectResponse {
+    public function loginUser(Request $request): RedirectResponse {
         $validator = Validator::make($request->all(),
             ['user_id' => 'required|integer']
         );
@@ -234,7 +222,7 @@ class DevController extends Controller
         return redirect()->route('dashboard');
     }
 
-    public function ajaxSetUserPassword(Request $request) :JsonResponse {
+    public function ajaxSetUserPassword(Request $request): JsonResponse {
         $validator = Validator::make($request->all(),
             [
                 'user_id' => 'required|integer',
@@ -255,7 +243,7 @@ class DevController extends Controller
         return response()->json([]);
     }
 
-    public function ajaxGeneratePassword() :JsonResponse {
+    public function ajaxGeneratePassword(): JsonResponse {
         return response()->json(['password' => Password::randomize()->value]);
     }
 }

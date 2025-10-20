@@ -12,6 +12,11 @@
     </head>
     <body>
         <script>
+            {{ $js_dev_client_services }}
+            let devServices = new DevPanelServices(@json(url("")), @json(csrf_token()));
+            {{ $js_client_services }}
+            let services = new NovusOrdoServices(@json(url("")), @json(csrf_token()));
+
             let users = @json($users->map(fn (User $user) => $user->exportForDevPanel())->all());
             var setPasswordUserOrNull = null;
             
@@ -134,6 +139,10 @@
                 <h4>Set password for user <span id="user_set_password_username"></span></h4>
                 New password: <input id="user_set_password_password" type="password" autocomplete="off"></text> <a href="javascript:void(0)" onclick="setPasswordForSelectedUser()">set password</a> <a href="javascript:void(0)" onclick="setRandomPasswordForSelectedUser()">set a random password</a>
             </div>
+        </div>
+        <div>
+            <h3>Javascript client services</h3>
+            <a href="{{@route('dev.generate-js-client-services')}}">Generate Javascript client services code</a>
         </div>
     </body>
 </html>

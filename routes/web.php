@@ -30,6 +30,7 @@ Route::middleware(['auth', EnsureWhenRunningInDevelopmentOnly::class])->group(fu
     Route::get('/dev-panel/ajax-generate-password', [DevController::class, 'ajaxGeneratePassword'])->name('dev.ajax.generate-password');
     Route::get('/dev-panel/ajax-division', [DevController::class, 'ajaxDivision'])->name('dev.ajax.division');
     Route::get('/dev-panel/ajax-deployment', [DevController::class, 'ajaxDeployment'])->name('dev.ajax.deployment');
+    Route::get('/dev-panel/services', [DevController::class, 'generateServices'])->name('dev.generate-js-client-services');
 
     //Temporary endpoints:
     // Route::get('/dev/territory-assign/{territoryId}/{nationId}', [DevController::class, 'assignTerritory'])
@@ -56,9 +57,12 @@ Route::get('/game', [GameController::class, 'info']);
 
 //Nation routes.
 Route::middleware('auth')->group(function () {
-    Route::get('/nation', [NationController::class, 'ownNationInfo']);
-    Route::get('/nation/budget', [NationController::class, 'budgetInfo']);
-    Route::get('/nation/battle-logs/', [NationController::class, 'lastTurnBattleLogs']);
+    Route::get('/nation', [NationController::class, 'ownNationInfo'])
+        ->name('ajax.get-own-nation');
+    Route::get('/nation/budget', [NationController::class, 'budgetInfo'])
+        ->name('ajax.get-own-budget');
+    Route::get('/nation/battle-logs/', [NationController::class, 'lastTurnBattleLogs'])
+        ->name('ajax.get-own-battle-logs');
 });
 Route::get('/nations/{nationId}', [NationController::class, 'info'])
     ->whereNumber('nationId');
@@ -67,9 +71,11 @@ Route::get('/nations/{nationId}', [NationController::class, 'info'])
 Route::middleware('auth')->group(function () {
     Route::get('/nation/territories', [TerritoryController::class, 'allOwnedTerritories']);
 });
-Route::get('/territories', [TerritoryController::class, 'allTerritories']);
+Route::get('/territories', [TerritoryController::class, 'allTerritories'])
+    ->name('ajax.get-all-territory');
 Route::get('/territories/{territoryId}', [TerritoryController::class, 'info'])
-    ->whereNumber('territoryId');
+    ->whereNumber('territoryId')
+    ->name('ajax.get-territory');
 
 //Division routes.
 Route::middleware('auth')->group(function () {
@@ -77,7 +83,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/nation/divisions:send-move-orders', [DivisionController::class, 'sendMoveOrders'])
         ->name('division.send-move-orders');
     Route::post('/nation/divisions:cancel-orders', [DivisionController::class, 'cancelOrders'])
-        ->name('division.cancel-orders');
+        ->name('ajax.division.cancel-orders');
     Route::get('/nation/divisions/{divisionId}', [DivisionController::class, 'ownedDivision'])
         ->whereNumber('divisionId');
 });
