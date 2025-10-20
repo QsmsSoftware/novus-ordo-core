@@ -7,6 +7,7 @@ use App\Models\ProvisionedUser;
 use App\Models\User;
 use App\Models\UserAlreadyExists;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Artisan;
 use LogicException;
 
 class CommissionServer extends Command
@@ -30,25 +31,23 @@ class CommissionServer extends Command
      */
     public function handle(): int
     {
+        $resultMigrate = Artisan::call('migrate');
+        if ($resultMigrate != Command::SUCCESS) {
+            return $resultMigrate;
+        }
+
         $adminUser = $this->option('admin-user');
         if (empty($adminUser)) {
             echo "Error: --admin-user=ADMIN_USER_NAME must be specified." . PHP_EOL;
-            return 1;
+            return Command::FAILURE;
         }
-        $provisionedOrError = User::provisionAdministrator($adminUser); 
-        if ($provisionedOrError instanceof ProvisionedUser) {
-            echo "Admin user $adminUser provisioned with password: {$provisionedOrError->password->value}\n";
-        }
-        else if ($provisionedOrError instanceof UserAlreadyExists) {
-            echo "User $adminUser already exists.\n";
-            return 1;
-        }
-        else {
-            throw new LogicException("Unexpected result.");
+        $resultProvisionAdmin = Artisan::call('provision-admin', ["userName" => $adminUser]);
+        if ($resultProvisionAdmin != Command::SUCCESS) {
+            return $resultProvisionAdmin;
         }
 
         Game::createNew();
 
-        return 0;
+        return Command::SUCCESS;
     }
 }

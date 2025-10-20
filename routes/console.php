@@ -5,6 +5,7 @@ use App\Models\ProvisionedUser;
 use App\Models\Turn;
 use App\Models\User;
 use App\Models\UserAlreadyExists;
+use Illuminate\Console\Command;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 
@@ -32,11 +33,11 @@ Artisan::command('provision-admin {userName}', function (string $userName): int 
 
     if ($provisionedOrError instanceof ProvisionedUser) {
         echo "Admin user $userName provisioned with password: {$provisionedOrError->password->value}\n";
-        return 0;
+        return Command::SUCCESS;
     }
     else if ($provisionedOrError instanceof UserAlreadyExists) {
         echo "User $userName already exists.\n";
-        return 1;
+        return Command::FAILURE;
     }
     else {
         throw new LogicException("Unexpected result.");
