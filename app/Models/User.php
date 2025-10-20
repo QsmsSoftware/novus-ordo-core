@@ -4,6 +4,7 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 
+use App\Domain\NationSetupStatus;
 use App\Domain\Password;
 use App\Utils\GuardsForAssertions;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -80,6 +81,12 @@ class User extends Authenticatable
 
     public function exportForDevPanel(): array {
         return ["user_id" => $this->getId(), "username" => $this->getName()];
+    }
+
+    public function getNationSetupStatus(Game $game): NationSetupStatus {
+        $nationOrNull = Nation::getForUserOrNull($game, $this);
+
+        return is_null($nationOrNull) ? NationSetupStatus::NotCreated : NationSetupStatus::FinishedSetup;
     }
 
     /**

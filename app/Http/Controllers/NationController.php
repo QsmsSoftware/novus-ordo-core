@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Battle;
 use App\Models\Game;
 use App\Models\Nation;
+use App\Services\LoggedInGameContext;
 use App\Utils\HttpStatusCode;
 use Illuminate\Http\JsonResponse;
 
@@ -18,6 +19,10 @@ class NationController extends Controller
         $nation = Nation::notNull($currentNationOrNull);
 
         return response()->json($nation->getDetail()->exportForOwner());
+    }
+
+    public function setupStatus(LoggedInGameContext $context) :JsonResponse {
+        return response()->json(["nation_setup_status" => $context->getUser()->getNationSetupStatus($context->getGame())->name]);
     }
 
     public function budgetInfo() :JsonResponse {
