@@ -91,15 +91,12 @@ class DivisionController extends Controller
 
         $cancelRequest = CancelOrdersRequest::fromArray($validated);
 
-        $hadOrderCancelled = [];
-
         foreach($cancelRequest->division_ids as $divisionId) {
             $division = $nation->getDetail()->getActiveDivisionWithId($divisionId);
             $division->cancelOrder();
-            $hadOrderCancelled[] = $division->getId();
         };
         
-        return response()->json($hadOrderCancelled);
+        return response()->json();
     }
     
     public function allOwnedDivisions(NationContext $context): JsonResponse {
