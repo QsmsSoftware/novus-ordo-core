@@ -61,7 +61,7 @@ class Territory extends Model
         $newDetail->onNextTurn($currentDetail);
     }
 
-    public static function create(Game $game, string $name, int $x, int $y, TerrainType $terrainType, float $usableLandRatio) :Territory {
+    public static function create(Game $game, int $x, int $y, TerrainType $terrainType, float $usableLandRatio) :Territory {
         if ($x < 0 || $x > MapData::WIDTH) {
             throw new LogicException("x coordinate is invalid: $x");
         }
@@ -78,7 +78,9 @@ class Territory extends Model
         $territory->y = $y;
         $territory->terrain_type = $terrainType;
         $territory->usable_land_ratio = $usableLandRatio;
-        $territory->name = $name;
+        $territory->name = TerrainType::getDescription($terrainType);
+        $territory->save();
+        $territory->name = "{$territory->name} #{$territory->id}";
         $territory->save();
 
         TerritoryDetail::create($territory);

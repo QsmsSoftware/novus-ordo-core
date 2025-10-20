@@ -277,7 +277,6 @@ class Game extends Model
 
         foreach($mapData->territories as $territoryData) {
             Territory::create($game,
-                name: TerrainType::getDescription($territoryData["terrain_type"]),
                 x: $territoryData["x"],
                 y: $territoryData["y"],
                 terrainType: $territoryData["terrain_type"],
