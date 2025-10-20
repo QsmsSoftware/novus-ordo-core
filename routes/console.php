@@ -28,7 +28,7 @@ Artisan::command('start-game', function () {
 })->purpose('Start a new game.');
 
 Artisan::command('provision-admin {userName}', function (string $userName): int {
-    $provisionedOrError = User::provisionAdministrator($userName); 
+    $provisionedOrError = User::provisionAdministrator($userName);
 
     if ($provisionedOrError instanceof ProvisionedUser) {
         echo "Admin user $userName provisioned with password: {$provisionedOrError->password->value}\n";
