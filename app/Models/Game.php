@@ -183,14 +183,16 @@ class Game extends Model
 
         $currentTurn->deployments()->rawUpdate([ Deployment::FIELD_HAS_BEEN_DEPLOYED => false]);
         $currentTurn->orders()->rawUpdate([ Order::FIELD_HAS_BEEN_EXECUTED => false]);
+
+        $this->updateVictoryStatus();
     }
     
     private function updateVictoryStatus(): void {
         $winnerOrNull = $this->getWinnerOrNull();
 
-        if ($winnerOrNull !== null) {
-            $this->victory_status = VictoryStatus::HasBeenWon->value;
-        }
+        $this->victory_status = is_null($winnerOrNull) ? VictoryStatus::HasNotBeenWon : VictoryStatus::HasBeenWon->value;
+
+        $this->save();
     }
 
     public function disable(): void {
