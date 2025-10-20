@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Domain\GenerationData;
+use App\Domain\TerrainType;
 use App\Utils\GuardsForAssertions;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -272,12 +273,16 @@ class Game extends Model
 
         Turn::createFirst($game);
 
-        $territoryNames = GenerationData::ListOfTerritoryNames;
+        $mapData = GenerationData::getMapData();
 
-        shuffle($territoryNames);
-
-        for($i = 0; $i < Game::NumberOfTerritories; $i++) {
-            Territory::create($game, array_pop($territoryNames));
+        foreach($mapData->territories as $territoryData) {
+            Territory::create($game,
+                name: TerrainType::getDescription($territoryData["terrain_type"]),
+                x: $territoryData["x"],
+                y: $territoryData["y"],
+                terrainType: $territoryData["terrain_type"],
+                usableLandRatio: $territoryData["usable_land_ratio"],
+            );
         }
 
         return $game;

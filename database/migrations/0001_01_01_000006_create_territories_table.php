@@ -15,7 +15,13 @@ return new class extends Migration
             $table->id();
             $table->timestamps();
             $table->foreignId('game_id')->constrained('games')->onDelete('cascade');
+            $table->integer('x');
+            $table->integer('y');
+            $table->integer('terrain_type');
+            $table->decimal('usable_land_ratio', total: 3, places: 2);
             $table->string('name');
+
+            $table->index(['game_id', 'x', 'y']);
         });
     }
 

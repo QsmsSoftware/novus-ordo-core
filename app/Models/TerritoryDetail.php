@@ -13,6 +13,10 @@ readonly class TerritoryInfo {
     public function __construct(
         public int $territory_id,
         public int $turn_number,
+        public int $x,
+        public int $y,
+        public int $terrain_type,
+        public float $usable_land_ratio,
         public string $name,
         public ?int $owner_nation_id,
     ) {}
@@ -22,6 +26,10 @@ readonly class OwnedTerritoryInfo {
     public function __construct(
         public int $territory_id,
         public int $turn_number,
+        public int $x,
+        public int $y,
+        public int $terrain_type,
+        public float $usable_land_ratio,
         public string $name,
         public ?int $owner_nation_id,
     ) {}
@@ -81,22 +89,32 @@ class TerritoryDetail extends Model
 
     public function export(): TerritoryInfo {
         $ownerOrNull = $this->getOwnerOrNull();
+        $territory = $this->getTerritory();
 
         return new TerritoryInfo(
-            territory_id: $this->getTerritory()->getId(),
+            territory_id: $territory->getId(),
             turn_number: $this->getTurn()->getNumber(),
-            name: $this->getTerritory()->getName(),
+            x: $territory->getX(),
+            y: $territory->getY(),
+            terrain_type: $territory->getTerrainType()->value,
+            usable_land_ratio: $territory->getUsableLandRatio(),
+            name: $territory->getName(),
             owner_nation_id: $ownerOrNull?->getId()
         );
     }
 
     public function exportForOwner(): OwnedTerritoryInfo {
         $ownerOrNull = $this->getOwnerOrNull();
+        $territory = $this->getTerritory();
 
         return new OwnedTerritoryInfo(
-            territory_id: $this->getTerritory()->getId(),
+            territory_id: $territory->getId(),
             turn_number: $this->getTurn()->getNumber(),
-            name: $this->getTerritory()->getName(),
+            x: $territory->getX(),
+            y: $territory->getY(),
+            terrain_type: $territory->getTerrainType()->value,
+            usable_land_ratio: $territory->getUsableLandRatio(),
+            name: $territory->getName(),
             owner_nation_id: $ownerOrNull?->getId()
         );
     }
