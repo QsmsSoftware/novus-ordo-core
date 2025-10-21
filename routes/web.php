@@ -74,7 +74,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/nation/territories', [TerritoryController::class, 'allOwnedTerritories']);
 });
 Route::get('/territories', [TerritoryController::class, 'allTerritories'])
-    ->name('ajax.get-all-territory');
+    ->name('ajax.get-all-territories');
 Route::get('/territories/{territoryId}', [TerritoryController::class, 'info'])
     ->whereNumber('territoryId')
     ->name('ajax.get-territory');
