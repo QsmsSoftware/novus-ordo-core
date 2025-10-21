@@ -145,7 +145,7 @@
             <a href="{{@route('dev.generate-js-client-services')}}">Generate Javascript client services code</a>
         </div>
         <div>
-            <h3>Go to test <SPAn></SPAn></h3>
+            <h3>Go to test SPA</h3>
             @foreach ($users as $user)
                 <a href="{{route('dev.spa', ["userId" => $user->getId()])}}">{{$user->getName()}}</a>&nbsp;
             @endforeach
