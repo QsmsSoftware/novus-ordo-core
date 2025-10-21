@@ -142,7 +142,7 @@ class Nation extends Model
 
         NationDetail::create($nation);
 
-        $game->freeTerritoriesInTurn()->take(Game::NumberOfStartingTerritories)->get()->each(fn (Territory $territory) => $territory->getDetail()->assignOwner($nation));
+        $game->freeSuitableTerritoriesInTurn()->take(Game::NumberOfStartingTerritories)->get()->each(fn (Territory $territory) => $territory->getDetail()->assignOwner($nation));
 
         return $nation;
     }

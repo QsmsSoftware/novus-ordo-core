@@ -19,6 +19,7 @@ return new class extends Migration
             $table->integer('y');
             $table->integer('terrain_type');
             $table->decimal('usable_land_ratio', total: 3, places: 2);
+            $table->boolean('has_sea_access');
             $table->string('name');
 
             $table->index(['game_id', 'x', 'y']);

@@ -1545,12 +1545,18 @@ final class GenerationData {
 
         for($x = 0; $x < MapData::WIDTH; $x++) {
             for($y = 0; $y < MapData::HEIGHT; $y++) {
-                $territoriesData[] = [
-                    "x" => $x,
-                    "y" => $y,
-                    "terrain_type" => TerrainType::from($map[$x][$y]),
-                    "usable_land_ratio" => $usable[$x][$y]
-                ];
+                $terrainType = TerrainType::from($map[$x][$y]);
+                $hasSeaAccess = $terrainType == TerrainType::Water
+                    || (  $map[$x - 1][$y - 1] ?? $map[$x][$y - 1] ?? $map[$x + 1][$y - 1]
+                       ?? $map[$x - 1][$y]                         ?? $map[$x + 1][$y]
+                       ?? $map[$x - 1][$y + 1] ?? $map[$x][$y + 1] ?? $map[$x + 1][$y + 1] ?? null) === TerrainType::Water->value;
+                $territoriesData[] = new TerritoryData(
+                    x: $x,
+                    y: $y,
+                    terrainType: $terrainType,
+                    usableLandRatio: $usable[$x][$y],
+                    hasSeaAccess: $hasSeaAccess,
+                );
             }
         }
 

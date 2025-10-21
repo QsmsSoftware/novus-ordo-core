@@ -19,6 +19,8 @@ readonly class TerritoryInfo {
         public float $usable_land_ratio,
         public string $name,
         public ?int $owner_nation_id,
+        public bool $has_sea_access,
+        public array $connected_territories_ids,
     ) {}
 }
 
@@ -32,6 +34,8 @@ readonly class OwnedTerritoryInfo {
         public float $usable_land_ratio,
         public string $name,
         public ?int $owner_nation_id,
+        public bool $has_sea_access,
+        public array $connected_territories_ids,
     ) {}
 }
 
@@ -99,7 +103,9 @@ class TerritoryDetail extends Model
             terrain_type: $territory->getTerrainType()->value,
             usable_land_ratio: $territory->getUsableLandRatio(),
             name: $territory->getName(),
-            owner_nation_id: $ownerOrNull?->getId()
+            owner_nation_id: $ownerOrNull?->getId(),
+            has_sea_access: $territory->hasSeaAccess(),
+            connected_territories_ids: $territory->connectedTerritories()->get()->map(fn (Territory $t) => $t->getId())->all(),
         );
     }
 
@@ -115,7 +121,9 @@ class TerritoryDetail extends Model
             terrain_type: $territory->getTerrainType()->value,
             usable_land_ratio: $territory->getUsableLandRatio(),
             name: $territory->getName(),
-            owner_nation_id: $ownerOrNull?->getId()
+            owner_nation_id: $ownerOrNull?->getId(),
+            has_sea_access: $territory->hasSeaAccess(),
+            connected_territories_ids: $territory->connectedTerritories()->get()->map(fn (Territory $t) => $t->getId())->all(),
         );
     }
 

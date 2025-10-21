@@ -74,9 +74,10 @@ class Game extends Model
         return $this->currentTurn;
     }
 
-    public function freeTerritoriesInTurn(?Turn $turnOrNull = null): HasMany {
+    public function freeSuitableTerritoriesInTurn(?Turn $turnOrNull = null): HasMany {
         $turn = Turn::as($turnOrNull, fn () => Turn::getCurrentForGame($this));
         return $this->territories()
+            ->where(Territory::whereIsSuitedAsHome())
             ->whereHas('details', fn (Builder $query) => $query
                 ->where('turn_id', $turn->getId())
                 ->whereNull(TerritoryDetail::FIELD_OWNER_NATION_ID)
@@ -235,7 +236,7 @@ class Game extends Model
     }
 
     public function hasEnoughTerritoriesForNewNation(): NotEnoughFreeTerritories|EnoughFreeTerritories {
-        $freeTerritories = $this->freeTerritoriesInTurn()->take(Game::NumberOfStartingTerritories)->get();
+        $freeTerritories = $this->freeSuitableTerritoriesInTurn()->take(Game::NumberOfStartingTerritories)->get();
 
         if ($freeTerritories->count() < Game::NumberOfStartingTerritories) {
             return new NotEnoughFreeTerritories(Game::NumberOfStartingTerritories, $freeTerritories->count());
@@ -276,12 +277,7 @@ class Game extends Model
         $mapData = GenerationData::getMapData();
 
         foreach($mapData->territories as $territoryData) {
-            Territory::create($game,
-                x: $territoryData["x"],
-                y: $territoryData["y"],
-                terrainType: $territoryData["terrain_type"],
-                usableLandRatio: $territoryData["usable_land_ratio"],
-            );
+            Territory::create($game, $territoryData);
         }
 
         return $game;

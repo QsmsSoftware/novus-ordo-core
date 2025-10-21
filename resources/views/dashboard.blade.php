@@ -36,6 +36,10 @@
                 SelectTerritory: 3,
             };
 
+            const TerrainType = {
+                Water: 0,
+            };
+
             {!! $js_client_services !!}
             let services = new NovusOrdoServices(@json(url("")), @json(csrf_token()));
 
@@ -454,6 +458,9 @@
                     }
                 });
                 territoriesById.values().forEach(t => {
+                    if (t.terrain_type == TerrainType.Water) {
+                        return;
+                    }
                     let nid = t.owner_nation_id === null ? 0 : t.owner_nation_id;
                     if (territoriesByNationId.has(nid)) {
                         territoriesByNationId.get(nid).push(t);
