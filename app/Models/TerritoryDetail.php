@@ -105,7 +105,7 @@ class TerritoryDetail extends Model
             name: $territory->getName(),
             owner_nation_id: $ownerOrNull?->getId(),
             has_sea_access: $territory->hasSeaAccess(),
-            connected_territories_ids: $territory->connectedTerritories()->get()->map(fn (Territory $t) => $t->getId())->all(),
+            connected_territories_ids: $territory->connectedTerritories()->pluck('id')->all(),
         );
     }
 
@@ -123,7 +123,7 @@ class TerritoryDetail extends Model
             name: $territory->getName(),
             owner_nation_id: $ownerOrNull?->getId(),
             has_sea_access: $territory->hasSeaAccess(),
-            connected_territories_ids: $territory->connectedTerritories()->get()->map(fn (Territory $t) => $t->getId())->all(),
+            connected_territories_ids: $territory->connectedTerritories()->pluck('id')->all(),
         );
     }
 
