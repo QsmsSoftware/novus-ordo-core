@@ -93,7 +93,7 @@ class User extends Authenticatable
     public function exportForOwner(): UserOwnerInfo {
         $gameOrNull = Game::getCurrentOrNull();
         $nationOrNull = is_null($gameOrNull) ? null : Nation::getForUserOrNull($gameOrNull, $this);
-        $setupStatus = is_null($nationOrNull) ? NationSetupStatus::None : $this->getNationSetupStatus($gameOrNull);
+        $setupStatus = is_null($gameOrNull) ? NationSetupStatus::None : $this->getNationSetupStatus($gameOrNull);
 
         return new UserOwnerInfo(
             user_name: $this->getName(),
@@ -101,6 +101,10 @@ class User extends Authenticatable
             nation_id: $nationOrNull?->getId(),
             nation_setup_status: $setupStatus->name,
         );
+    }
+
+    public function hasJoinedGame(Game $game): bool {
+        return $game->isActive(); //Assumes there is only one active game and all users auto join.
     }
 
     public function getNationSetupStatus(Game $game): NationSetupStatus {

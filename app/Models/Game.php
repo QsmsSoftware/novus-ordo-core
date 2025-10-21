@@ -109,6 +109,10 @@ class Game extends Model
         return $this->deployments()->find($deploymentId);
     }
 
+    public function isActive(): bool {
+        return $this->is_active;
+    }
+
     public function exportForTurn(?Turn $turnOrNull = null): GameInfo {
         $turn = $turnOrNull ?? Turn::getCurrentForGame($this);
         return new GameInfo(
