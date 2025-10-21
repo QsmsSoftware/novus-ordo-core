@@ -2,16 +2,23 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
-
 use App\Domain\NationSetupStatus;
 use App\Domain\Password;
 use App\Utils\GuardsForAssertions;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Http\Request;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Auth;
+
+readonly class UserOwnerInfo {
+    public bool $is_logged_in_game;
+    public function __construct(
+        public string $user_name,
+        public ?int $game_id,
+        public ?int $nation_id,
+        public string $nation_setup_status,
+    ) {}
+}
 
 readonly class UserCredentialsRejected {}
 readonly class UserLogedIn {}
@@ -81,6 +88,19 @@ class User extends Authenticatable
 
     public function exportForDevPanel(): array {
         return ["user_id" => $this->getId(), "username" => $this->getName()];
+    }
+
+    public function exportForOwner(): UserOwnerInfo {
+        $gameOrNull = Game::getCurrentOrNull();
+        $nationOrNull = is_null($gameOrNull) ? null : Nation::getForUserOrNull($gameOrNull, $this);
+        $setupStatus = is_null($nationOrNull) ? NationSetupStatus::None : $this->getNationSetupStatus($gameOrNull);
+
+        return new UserOwnerInfo(
+            user_name: $this->getName(),
+            game_id: $gameOrNull?->getId(),
+            nation_id: $nationOrNull?->getId(),
+            nation_setup_status: $setupStatus->name,
+        );
     }
 
     public function getNationSetupStatus(Game $game): NationSetupStatus {

@@ -31,6 +31,7 @@ Route::middleware(['auth', EnsureWhenRunningInDevelopmentOnly::class])->group(fu
     Route::get('/dev-panel/ajax-division', [DevController::class, 'ajaxDivision'])->name('dev.ajax.division');
     Route::get('/dev-panel/ajax-deployment', [DevController::class, 'ajaxDeployment'])->name('dev.ajax.deployment');
     Route::get('/dev-panel/services', [DevController::class, 'generateServices'])->name('dev.generate-js-client-services');
+    Route::get('/dev-panel/spa/{userId}', [DevController::class, 'userSpa'])->name('dev.spa');
 
     //Temporary endpoints:
     // Route::get('/dev/territory-assign/{territoryId}/{nationId}', [DevController::class, 'assignTerritory'])
@@ -49,7 +50,8 @@ Route::middleware('throttle:login')->group(function () {
 });
 Route::middleware('auth')->group(function () {
     Route::get('/logout', [UserController::class, 'logoutCurrentUser'])->name('logout');
-    Route::get('/user', [UserController::class, 'info']);
+    Route::get('/user', [UserController::class, 'info'])
+        ->name('ajax.get-user-info');
 });
 
 //Game routes
@@ -58,20 +60,19 @@ Route::get('/game', [GameController::class, 'info']);
 //Nation routes.
 Route::middleware('auth')->group(function () {
     Route::get('/nation', [NationController::class, 'ownNationInfo'])
-        ->name('ajax.get-own-nation');
-    Route::get('/nation/setup-status', [NationController::class, 'setupStatus'])
-        ->name('ajax.get-own-setup-status');
+        ->name('ajax.get-nation-info');
     Route::get('/nation/budget', [NationController::class, 'budgetInfo'])
-        ->name('ajax.get-own-budget');
+        ->name('ajax.get-nation-budget');
     Route::get('/nation/battle-logs/', [NationController::class, 'lastTurnBattleLogs'])
-        ->name('ajax.get-own-battle-logs');
+        ->name('ajax.get-nation-battle-logs');
 });
 Route::get('/nations/{nationId}', [NationController::class, 'info'])
     ->whereNumber('nationId');
 
 //Territory routes.
 Route::middleware('auth')->group(function () {
-    Route::get('/nation/territories', [TerritoryController::class, 'allOwnedTerritories']);
+    Route::get('/nation/territories', [TerritoryController::class, 'allOwnedTerritories'])
+        ->name('ajax.get-nation-territories');
 });
 Route::get('/territories', [TerritoryController::class, 'allTerritories'])
     ->name('ajax.get-all-territories');
@@ -81,24 +82,27 @@ Route::get('/territories/{territoryId}', [TerritoryController::class, 'info'])
 
 //Division routes.
 Route::middleware('auth')->group(function () {
-    Route::get('/nation/divisions', [DivisionController::class, 'allOwnedDivisions']);
+    Route::get('/nation/divisions', [DivisionController::class, 'allOwnedDivisions'])
+        ->name('ajax.get-nation-divisions');
     Route::post('/nation/divisions:send-move-orders', [DivisionController::class, 'sendMoveOrders'])
-        ->name('division.send-move-orders');
+        ->name('ajax.send-move-orders');
     Route::post('/nation/divisions:cancel-orders', [DivisionController::class, 'cancelOrders'])
-        ->name('ajax.division.cancel-orders');
+        ->name('ajax.cancel-orders');
     Route::get('/nation/divisions/{divisionId}', [DivisionController::class, 'ownedDivision'])
-        ->whereNumber('divisionId');
+        ->whereNumber('divisionId')
+        ->name('ajax.get-nation-division');
 });
 
 // Deployment routes
 Route::middleware('auth')->group(function () {
     Route::post('nation/deployments:cancel', [DeploymentController::class, 'cancelDeployments'])
-        ->name('deployment.cancel');
+        ->name('ajax.cancel-deployments');
     Route::get('nation/territories/{territoryId}/deployments', [DeploymentController::class, 'allDeploymentsInOwnedTerritory'])
-        ->whereNumber('territoryId');
+        ->whereNumber('territoryId')
+        ->name('ajax.get-territory-deployments');
     Route::post('nation/territories/{territoryId}/deployments', [DeploymentController::class, 'deployInOwnedTerritory'])
         ->whereNumber('territoryId')
-        ->name('deployment.store');
+        ->name('ajax.deploy-in-territory');
 });
 
 //UI

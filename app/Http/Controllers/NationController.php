@@ -21,10 +21,6 @@ class NationController extends Controller
         return response()->json($nation->getDetail()->exportForOwner());
     }
 
-    public function setupStatus(LoggedInGameContext $context) :JsonResponse {
-        return response()->json(["nation_setup_status" => $context->getUser()->getNationSetupStatus($context->getGame())->name]);
-    }
-
     public function budgetInfo() :JsonResponse {
         $currentNationOrNull = Nation::getCurrentOrNull();
         if ($currentNationOrNull === null) {

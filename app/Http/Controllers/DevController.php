@@ -222,6 +222,16 @@ class DevController extends Controller
         return redirect()->route('dashboard');
     }
 
+    public function userSpa(JavascriptClientServicesGenerator $generator, int $userId): View {
+        $user = User::asOrNotFound(User::find($userId), "Invalid user ID: $userId");
+
+        Auth::login($user);
+
+        return view('dev.spa', [
+            "js_client_services" => $generator->generateClientService('NovusOrdoServices', 'ajax'),
+        ]);
+    }
+
     public function ajaxSetUserPassword(Request $request): JsonResponse {
         $validator = Validator::make($request->all(),
             [

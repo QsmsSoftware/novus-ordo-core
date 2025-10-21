@@ -3,23 +3,18 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Services\LoggedInUserContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
 
-readonly class UserInfo {
-    public function __construct(
-        public string $user_name,
-    ) {}
-} 
-
 class UserController extends Controller
 {
-    public function info() :JsonResponse {
-        $user = User::getCurrent();
+    public function info(LoggedInUserContext $context) :JsonResponse {
+        $user = $context->getUser();
         
-        return response()->json(new UserInfo($user->getName()));
+        return response()->json($user->exportForOwner());
     }
     
     public function logoutCurrentUser() :Response {

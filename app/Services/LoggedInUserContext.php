@@ -8,14 +8,11 @@ use App\Models\User;
 use App\Utils\HttpStatusCode;
 use Illuminate\Support\Facades\Auth;
 
-class LoggedInGameContext {
-    public function getGame(): Game {
-        return Game::getCurrent();
-    }
+class LoggedInUserContext {
     public function getUser(): User {
         $userOrNull = Auth::user();
         if(is_null($userOrNull)) {
-            abort(HttpStatusCode::Unauthorized, 'Bad context: need an authenticated user that joined a game.');
+            abort(HttpStatusCode::Unauthorized, 'Bad context: need an authenticated user.');
         }
 
         return $userOrNull;

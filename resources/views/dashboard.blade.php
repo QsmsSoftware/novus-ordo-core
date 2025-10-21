@@ -37,7 +37,7 @@
             };
 
             const TerrainType = {
-                Water: 0,
+                Water: "Water",
             };
 
             {!! $js_client_services !!}
@@ -101,7 +101,7 @@
             let maxDeployments = @json($max_remaining_deployments);
             var currentDeployments = 0;
             var selectedDivisionIds = [];
-            let uriTemplatePostDeploy = @json(route('deployment.store', ['territoryId' => '##territoryId##']));
+            let uriTemplatePostDeploy = @json(route('ajax.deploy-in-territory', ['territoryId' => '##territoryId##']));
             let divisionsByTerritoryId = new Map();
             let territoriesByNationId = new Map();
             let idleDivisionsById = new Map();
@@ -178,7 +178,7 @@
                     return;
                 }
                 $.post({
-                    url: @json(route('deployment.cancel')),
+                    url: @json(route('ajax.cancel-deployments')),
                     data: {
                         _token: @json(csrf_token()),
                         deployment_ids: deploymentsById.values().map(d => d.deployment_id).toArray()
@@ -192,7 +192,7 @@
 
             function cancelOrder(divisionId) {
                 $.post({
-                    url: @json(route('ajax.division.cancel-orders')),
+                    url: @json(route('ajax.cancel-orders')),
                     data: {
                         _token: @json(csrf_token()),
                         division_ids: [divisionId]
@@ -222,7 +222,7 @@
 
             function selectTerritory(territoryId) {
                 $.post({
-                    url: @json(route('division.send-move-orders')),
+                    url: @json(route('ajax.send-move-orders')),
                     data: {
                         _token: @json(csrf_token()),
                         orders: selectedDivisionIds.map(did => ({ division_id: did, destination_territory_id: territoryId }))
