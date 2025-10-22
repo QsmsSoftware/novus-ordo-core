@@ -8,6 +8,7 @@ use App\Models\Division;
 use App\Models\Game;
 use App\Models\Nation;
 use App\Models\NationWithSameNameAlreadyExists;
+use App\Models\NewNation;
 use App\Models\NotEnoughFreeTerritories;
 use App\Models\Territory;
 use App\Models\Turn;
@@ -17,6 +18,8 @@ use App\Models\UserCredentialsRejected;
 use App\Models\UserLogedIn;
 use App\Models\VictoryStatus;
 use App\Services\JavascriptClientServicesGenerator;
+use App\Services\LoggedInGameContext;
+use App\Services\LoggedInUserContext;
 use App\Utils\MapsValidatorToInstance;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -56,27 +59,35 @@ readonly class Liability {
 
 class UiController extends Controller
 {
-    public function storeNation(Request $request) : View|RedirectResponse|Response {
+    public function storeNation(Request $request, LoggedInGameContext $context) : View|RedirectResponse|Response {
         $validator = Validator::make($request->all(),
             ['name' => 'required|string|min:2']
         );
         $validator->validate();
         $requestData = NewNationRequest::fromValidator($validator);
 
-        $game = Game::getCurrent();
-        $user = User::getCurrent();
-        $createResult = Nation::create($game, $user, $requestData->name);
+        $game = $context->getGame();
+        $user = $context->getUser();
+
+        $numberOfTerritoriesValidation = $game->hasEnoughTerritoriesForNewNation();
+
+        if ($numberOfTerritoriesValidation instanceof NotEnoughFreeTerritories) {
+            return $this->generateNotEnoughTerritoriesResponse($numberOfTerritoriesValidation);
+        }
+
+        $createResult = NewNation::tryCreate($game, $user, $requestData->name);
         
         if ($createResult instanceof NationWithSameNameAlreadyExists) {
             $validator->errors()->add('name', 'A nation with that name already exists.');
         }
-        else if ($createResult instanceof NotEnoughFreeTerritories) {
-            return $this->generateNotEnoughTerritoriesResponse($createResult);
-        }
-
         if ($validator->errors()->any()) {
             return redirect('create-nation')->withErrors($validator->errors())->withInput();
         }
+        $newNation = NewNation::notNull($createResult);
+
+        $territories = $game->freeSuitableTerritoriesInTurn()->take(Game::NumberOfStartingTerritories)->get();
+
+        $newNation->finishSetup($territories);
 
         return redirect()->route('dashboard');
     }

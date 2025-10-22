@@ -77,7 +77,7 @@ class Game extends Model
     public function freeSuitableTerritoriesInTurn(?Turn $turnOrNull = null): HasMany {
         $turn = Turn::as($turnOrNull, fn () => Turn::getCurrentForGame($this));
         return $this->territories()
-            ->where(Territory::whereIsSuitedAsHome())
+            ->where(Territory::whereIsSuitableAsHome())
             ->whereHas('details', fn (Builder $query) => $query
                 ->where('turn_id', $turn->getId())
                 ->whereNull(TerritoryDetail::FIELD_OWNER_NATION_ID)
@@ -225,10 +225,6 @@ class Game extends Model
             $victoryOrNull instanceof VictoryProgress => Nation::notNull($this->nations()->find($victoryOrNull->nationId)),
             $victoryOrNull === null => null,
         };
-    }
-    
-    public function hasNationWithUsualName(string $usualName): bool {
-        return $this->nations()->whereRaw('LOWER(' . Nation::FIELD_USUAL_NAME . ') = ?', strtolower($usualName))->first() !== null;
     }
 
     public function getNationWithIdOrNull(int $nationId): ?Nation {

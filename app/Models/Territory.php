@@ -11,6 +11,8 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Exists;
 use LogicException;
 
 class Territory extends Model
@@ -19,24 +21,24 @@ class Territory extends Model
 
     public const float MIN_USABLE_LAND_FOR_HOMELAND = 0.05;
 
-    public function game() :BelongsTo {
+    public function game(): BelongsTo {
         return $this->belongsTo(Game::class);
     }
 
-    public function getGame() :Game {
+    public function getGame(): Game {
         return Game::notNull($this->game);
     }
 
-    public function details() :HasMany {
+    public function details(): HasMany {
         return $this->hasMany(TerritoryDetail::class);
     }
 
-    public function getDetail(?Turn $turnOrNull = null) :TerritoryDetail {
+    public function getDetail(?Turn $turnOrNull = null): TerritoryDetail {
         $turn = Turn::as($turnOrNull, fn () => Turn::getCurrentForGame($this->getGame()));
         return $this->details()->where('turn_id', $turn->getId())->first();
     }
 
-    public function connectedTerritories() :Builder {
+    public function connectedTerritories(): Builder {
         return $this->getGame()->territories()
             ->getQuery()
             ->where(function ($query) {
@@ -84,12 +86,12 @@ class Territory extends Model
             });
     }
 
-    public function connectedLands() :Builder {
+    public function connectedLands(): Builder {
         return $this->connectedTerritories()
             ->where(self::whereIsControllable());
     }
 
-    public function getId() :int {
+    public function getId(): int {
         return $this->getKey();
     }
 
@@ -113,11 +115,15 @@ class Territory extends Model
         return $this->has_sea_access;
     }
 
-    public function getName() :string {
+    public function getName(): string {
         return $this->name;
     }
 
-    public function onNextTurn(Turn $currentTurn, Turn $nextTurn) :void {
+    public function isSuitableAsHome(): bool {
+        return $this->terrain_type != TerrainType::Water->value && !$this->getDetail()->isOwnedByNation();
+    }
+
+    public function onNextTurn(Turn $currentTurn, Turn $nextTurn): void {
         $currentDetail = $this->getDetail($currentTurn);
         $newDetail = $currentDetail->replicateForTurn($nextTurn);
         $newDetail->onNextTurn($currentDetail);
@@ -129,7 +135,7 @@ class Territory extends Model
      * Rules:
      *  - Excludes water.
      */
-    public static function whereIsControllable() :Closure {
+    public static function whereIsControllable(): Closure {
         return fn (Builder $builder) => $builder
             ->where('terrain_type', '<>', TerrainType::Water->value);
     }
@@ -141,13 +147,13 @@ class Territory extends Model
      *  - Must be controllable (excludes water).
      *  - Must have at least 5% land available.
      */
-    public static function whereIsSuitedAsHome() :Closure {
+    public static function whereIsSuitableAsHome(): Closure {
         return fn (Builder $builder) => $builder
             ->where(Territory::whereIsControllable())
             ->where('usable_land_ratio', '>=', Territory::MIN_USABLE_LAND_FOR_HOMELAND);
     }
 
-    public static function create(Game $game, TerritoryData $territoryData) :Territory {
+    public static function create(Game $game, TerritoryData $territoryData): Territory {
         
 
         $territory = new Territory();

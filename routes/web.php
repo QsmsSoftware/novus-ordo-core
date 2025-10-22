@@ -61,6 +61,10 @@ Route::get('/game', [GameController::class, 'info']);
 Route::middleware('auth')->group(function () {
     Route::get('/nation', [NationController::class, 'ownNationInfo'])
         ->name('ajax.get-nation-info');
+    Route::post('/nation', [NationController::class, 'createNation'])
+        ->name('ajax.create-nation');
+    Route::post('/nation:select-home-territories', [NationController::class, 'selectHomeTerritories'])
+        ->name('ajax.select-home-territories');
     Route::get('/nation/budget', [NationController::class, 'budgetInfo'])
         ->name('ajax.get-nation-budget');
     Route::get('/nation/battle-logs/', [NationController::class, 'lastTurnBattleLogs'])

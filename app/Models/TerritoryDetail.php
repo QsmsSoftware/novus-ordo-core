@@ -71,6 +71,10 @@ class TerritoryDetail extends Model
         return $this->owner;
     }
 
+    public function isOwnedByNation(): bool {
+        return !is_null($this->owner);
+    }
+
     public function getOwnerDivisions(): Collection {
         $ownerOrNull = $this->getOwnerOrNull();
         if ($ownerOrNull === null) {
