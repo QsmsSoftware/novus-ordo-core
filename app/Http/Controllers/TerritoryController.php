@@ -21,6 +21,13 @@ readonly class TerritoryForTurnParams {
 
 class TerritoryController extends Controller
 {
+    public function allTerritoriesSuitableAsHomeIds() :JsonResponse {
+        $game = Game::getCurrent();
+        $territories = $game->freeSuitableTerritoriesInTurn()->pluck('id')->all();
+
+        return response()->json($territories);
+    }
+
     public function allTerritories() :JsonResponse {
         $game = Game::getCurrent();
         $territories = Territory::exportAll($game, $game->getCurrentTurn());

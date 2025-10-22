@@ -80,6 +80,8 @@ Route::middleware('auth')->group(function () {
 });
 Route::get('/territories', [TerritoryController::class, 'allTerritories'])
     ->name('ajax.get-all-territories');
+Route::get('/territories/suitable-as-home-ids', [TerritoryController::class, 'allTerritoriesSuitableAsHomeIds'])
+    ->name('ajax.get-all-territories-suitable-as-home-ids');
 Route::get('/territories/{territoryId}', [TerritoryController::class, 'info'])
     ->whereNumber('territoryId')
     ->name('ajax.get-territory');
