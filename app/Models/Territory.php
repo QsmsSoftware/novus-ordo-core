@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Exists;
 use LogicException;
@@ -153,9 +154,80 @@ class Territory extends Model
             ->where('usable_land_ratio', '>=', Territory::MIN_USABLE_LAND_FOR_HOMELAND);
     }
 
-    public static function create(Game $game, TerritoryData $territoryData): Territory {
-        
+    public static function exportAll(Game $game, Turn $turn): array {
+        spl_autoload_call(TerritoryDetail::class);
+        $territories = DB::table('territories')
+            ->where('territories.game_id', $game->getCurrentTurn()->getId())
+            ->join('territory_details', 'territories.id', '=', 'territory_details.territory_id')
+            ->where('turn_id', $turn->getId())
+            ->get()->all();
 
+        $territoriesByCoords = [];
+
+        foreach($territories as $territory) {
+            $territoriesByCoords[$territory->x][$territory->y] = $territory;
+        }
+
+        return array_map(fn ($t) => new TerritoryInfo(
+            territory_id: $t->id,
+            turn_number: $turn->getNumber(),
+            x: $t->x,
+            y: $t->y,
+            terrain_type: TerrainType::from($t->terrain_type)->name,
+            usable_land_ratio: $t->usable_land_ratio,
+            name: $t->name,
+            owner_nation_id: $t->owner_nation_id,
+            has_sea_access: $t->has_sea_access,
+            connected_territories_ids: Territory::detectConnectedTerritoriesIds($t, $territoriesByCoords),
+        ), $territories);
+    }
+
+    private static function detectConnectedTerritoriesIds(object $territoryInfo, array $territoriesInfosByCoords): array {
+        $connected = [];
+
+        $x = $territoryInfo->x;
+        $y = $territoryInfo->y;
+
+        if (isset($territoriesInfosByCoords[$x - 1][$y - 1])) {
+            $connected[] = $territoriesInfosByCoords[$x - 1][$y - 1]->id;
+        }
+
+        if (isset($territoriesInfosByCoords[$x][$y - 1])) {
+            $connected[] = $territoriesInfosByCoords[$x][$y - 1]->id;
+        }
+
+        if (isset($territoriesInfosByCoords[$x + 1][$y - 1])) {
+            $connected[] = $territoriesInfosByCoords[$x + 1][$y - 1]->id;
+        }
+
+        //
+
+        if (isset($territoriesInfosByCoords[$x - 1][$y])) {
+            $connected[] = $territoriesInfosByCoords[$x - 1][$y]->id;
+        }
+
+        if (isset($territoriesInfosByCoords[$x + 1][$y])) {
+            $connected[] = $territoriesInfosByCoords[$x + 1][$y]->id;
+        }
+
+        //
+
+        if (isset($territoriesInfosByCoords[$x - 1][$y + 1])) {
+            $connected[] = $territoriesInfosByCoords[$x - 1][$y + 1]->id;
+        }
+
+        if (isset($territoriesInfosByCoords[$x][$y + 1])) {
+            $connected[] = $territoriesInfosByCoords[$x][$y + 1]->id;
+        }
+
+        if (isset($territoriesInfosByCoords[$x + 1][$y + 1])) {
+            $connected[] = $territoriesInfosByCoords[$x + 1][$y + 1]->id;
+        }
+
+        return $connected;
+    }
+
+    public static function create(Game $game, TerritoryData $territoryData): Territory {
         $territory = new Territory();
         $territory->game_id = $game->getId();
         $territory->x = $territoryData->x;

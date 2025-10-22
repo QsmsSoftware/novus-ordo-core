@@ -10,6 +10,7 @@ use App\Utils\HttpStatusCode;
 use App\Utils\MapsArrayToInstance;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 readonly class TerritoryForTurnParams {
     use MapsArrayToInstance;
@@ -22,7 +23,7 @@ class TerritoryController extends Controller
 {
     public function allTerritories() :JsonResponse {
         $game = Game::getCurrent();
-        $territories = $game->territories()->get()->map(fn (Territory $t) => $t->getDetail()->export())->all();
+        $territories = Territory::exportAll($game, $game->getCurrentTurn());
 
         return response()->json($territories);
     }

@@ -11,6 +11,7 @@ use App\Models\NationWithSameNameAlreadyExists;
 use App\Models\NewNation;
 use App\Models\NotEnoughFreeTerritories;
 use App\Models\Territory;
+use App\Models\TerritoryInfo;
 use App\Models\Turn;
 use App\Models\User;
 use App\Models\UserCredentials;
@@ -131,8 +132,8 @@ class UiController extends Controller
                     ->mapWithKeys(fn (Deployment $d) => [$d->getId() => $d->export()]),
                 'victory_progresses' => $game->getVictoryProgression(),
                 'nationsById' => $nationsById,
-                'territoriesById' => $game->territories()->get()
-                    ->mapWithKeys(fn (Territory $t) => [$t->getId() => $t->getDetail()->export()]),
+                'territoriesById' => collect(Territory::exportAll($game, $game->getCurrentTurn()))
+                    ->mapWithKeys(fn (TerritoryInfo $t) => [$t->territory_id => $t]),
                 'battleLogs' => $nation->getDetail()
                     ->getAllBattlesWhereParticipant()
                     ->map(fn (Battle $b) => $b->exportForParticipant()),
