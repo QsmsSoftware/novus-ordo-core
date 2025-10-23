@@ -54,9 +54,8 @@ class Game extends Model
 {
     use GuardsForAssertions;
 
-    const int NumberOfTerritories = 100;
-    const int NumberOfStartingTerritories = 5;
-    const float RequiredOwnershipRatioForVictory = 0.5;
+    const int NUMBER_OF_STARTING_TERRITORIES = 5;
+    const float REQUIRED_OWNERSHIP_RATIO_FOR_VICTORY = 0.5;
 
     public function nations(): HasMany {
         return $this->hasMany(Nation::class);
@@ -206,7 +205,7 @@ class Game extends Model
     }
 
     public function getRequiredTerritoriesForVictory(): int {
-        return floor(Game::RequiredOwnershipRatioForVictory * $this->territories()->count()) + 1;
+        return floor(Game::REQUIRED_OWNERSHIP_RATIO_FOR_VICTORY * $this->territories()->count()) + 1;
     }
 
     public function getVictoryProgression(): Collection {
@@ -236,10 +235,10 @@ class Game extends Model
     }
 
     public function hasEnoughTerritoriesForNewNation(): NotEnoughFreeTerritories|EnoughFreeTerritories {
-        $freeTerritories = $this->freeSuitableTerritoriesInTurn()->take(Game::NumberOfStartingTerritories)->get();
+        $freeTerritories = $this->freeSuitableTerritoriesInTurn()->take(Game::NUMBER_OF_STARTING_TERRITORIES)->get();
 
-        if ($freeTerritories->count() < Game::NumberOfStartingTerritories) {
-            return new NotEnoughFreeTerritories(Game::NumberOfStartingTerritories, $freeTerritories->count());
+        if ($freeTerritories->count() < Game::NUMBER_OF_STARTING_TERRITORIES) {
+            return new NotEnoughFreeTerritories(Game::NUMBER_OF_STARTING_TERRITORIES, $freeTerritories->count());
         }
 
         return new EnoughFreeTerritories();

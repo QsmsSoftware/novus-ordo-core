@@ -28,8 +28,8 @@ class NewNation extends Model
     }
 
     public function finishSetup(Collection $homeTerritories): Nation {
-        if ($homeTerritories->count() != Game::NumberOfStartingTerritories) {
-            throw new LogicException("Parameter homeTerritories: expecting " . Game::NumberOfStartingTerritories . " territories, " . $homeTerritories->count() . " specified");
+        if ($homeTerritories->count() != Game::NUMBER_OF_STARTING_TERRITORIES) {
+            throw new LogicException("Parameter homeTerritories: expecting " . Game::NUMBER_OF_STARTING_TERRITORIES . " territories, " . $homeTerritories->count() . " specified");
         }
 
         $homeTerritories->each(function (Territory $territory) {

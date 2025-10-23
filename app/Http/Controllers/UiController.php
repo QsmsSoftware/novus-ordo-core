@@ -28,12 +28,14 @@ use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\View\View;
+use LogicException;
 
 readonly class NewNationRequest {
     use MapsValidatorToInstance;
 
     public function __construct(
-        public string $name
+        public string $name,
+        public string $territories_ids_json,
     ) {}
 }
 
@@ -62,13 +64,27 @@ class UiController extends Controller
 {
     public function storeNation(Request $request, LoggedInGameContext $context) : View|RedirectResponse|Response {
         $validator = Validator::make($request->all(),
-            ['name' => 'required|string|min:2']
+            [
+                'name' => 'required|string|min:2',
+                'territories_ids_json' => 'required|string',
+            ]
         );
         $validator->validate();
         $requestData = NewNationRequest::fromValidator($validator);
+        $selectedHomeTerritories = json_decode($request->territories_ids_json);
+
+        if (!is_array($selectedHomeTerritories) || sizeof($selectedHomeTerritories) != Game::NUMBER_OF_STARTING_TERRITORIES) {
+            throw new LogicException("territories_ids_json is not an array of the right length");
+        }
 
         $game = $context->getGame();
         $user = $context->getUser();
+
+        $territories = $game->freeSuitableTerritoriesInTurn()->whereIn('id', $selectedHomeTerritories)->get();
+
+        if ($territories->count() != Game::NUMBER_OF_STARTING_TERRITORIES) {
+            throw new LogicException("One or more IDs in territories_ids_json are invalid");
+        }
 
         $numberOfTerritoriesValidation = $game->hasEnoughTerritoriesForNewNation();
 
@@ -86,7 +102,7 @@ class UiController extends Controller
         }
         $newNation = NewNation::notNull($createResult);
 
-        $territories = $game->freeSuitableTerritoriesInTurn()->take(Game::NumberOfStartingTerritories)->get();
+        //$territories = $game->freeSuitableTerritoriesInTurn()->take(Game::NUMBER_OF_STARTING_TERRITORIES)->get();
 
         $newNation->finishSetup($territories);
 
@@ -95,17 +111,27 @@ class UiController extends Controller
     private function generateNotEnoughTerritoriesResponse(NotEnoughFreeTerritories $error) :Response {
         return new Response("Unable to create nation: There are not enough free territories remaining. {$error->required} required, {$error->remaining} remaining.");
     }
-    public function createNation() : View|Response {
+    public function createNation(LoggedInGameContext $context) : View|Response {
         if (Nation::getCurrentOrNull() !== null) {
             return response("User already has a nation (you should not have landed on this page).");
         }
 
-        $enoughTerritoryValidation = Game::getCurrent()->hasEnoughTerritoriesForNewNation();
+        $enoughTerritoryValidation = $context->getGame()->hasEnoughTerritoriesForNewNation();
         if ($enoughTerritoryValidation instanceof NotEnoughFreeTerritories) {
             return $this->generateNotEnoughTerritoriesResponse($enoughTerritoryValidation);
         }
 
-        return view('new_nation');
+        $territories = [];
+
+        $context->getGame()->territories()->get()->each(function (Territory $t) use (&$territories) {
+            $territories[$t->getY()][$t->getX()] = $t;
+        });
+
+        return view('new_nation', [
+            'territories' => $territories,
+            'number_of_home_territories' => Game::NUMBER_OF_STARTING_TERRITORIES,
+            'suitable_as_home_ids' => $context->getGame()->freeSuitableTerritoriesInTurn()->pluck('id'),
+        ]);
     }
 
     public function dashboard(JavascriptClientServicesGenerator $servicesGenerator) : View|RedirectResponse {

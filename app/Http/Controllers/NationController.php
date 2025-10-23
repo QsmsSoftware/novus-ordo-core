@@ -60,8 +60,8 @@ class SelectTerritoriesRequest extends FormRequest {
             'territories_ids' => [
                 'required',
                 'array',
-                'min:' . Game::NumberOfStartingTerritories,
-                'max:' . Game::NumberOfStartingTerritories,
+                'min:' . Game::NUMBER_OF_STARTING_TERRITORIES,
+                'max:' . Game::NUMBER_OF_STARTING_TERRITORIES,
             ],
             'territories_ids.*' => [
                 Rule::exists(Territory::class, 'id')->where('game_id', $this->context->getGame()->getId())
@@ -84,7 +84,7 @@ class NationController extends Controller
         $newNation = $context->getNewNation();
         $territories = $context->getGame()->freeSuitableTerritoriesInTurn()->whereIn('id', $request->territories_ids)->get();
 
-        if ($territories->count() != Game::NumberOfStartingTerritories) {
+        if ($territories->count() != Game::NUMBER_OF_STARTING_TERRITORIES) {
             return response()->json(['errors' => ["One or more territories aren't suitable."]], HttpStatusCode::UnprocessableContent);
         }
 
