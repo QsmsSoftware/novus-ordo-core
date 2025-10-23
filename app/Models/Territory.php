@@ -157,7 +157,7 @@ class Territory extends Model
     public static function exportAll(Game $game, Turn $turn): array {
         spl_autoload_call(TerritoryDetail::class);
         $territories = DB::table('territories')
-            ->where('territories.game_id', $game->getCurrentTurn()->getId())
+            ->where('territories.game_id', $game->getId())
             ->join('territory_details', 'territories.id', '=', 'territory_details.territory_id')
             ->where('turn_id', $turn->getId())
             ->get()->all();
