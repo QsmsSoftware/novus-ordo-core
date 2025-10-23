@@ -169,7 +169,7 @@ class Territory extends Model
         }
 
         return array_map(fn ($t) => new TerritoryInfo(
-            territory_id: $t->id,
+            territory_id: $t->territory_id,
             turn_number: $turn->getNumber(),
             x: $t->x,
             y: $t->y,
@@ -189,39 +189,39 @@ class Territory extends Model
         $y = $territoryInfo->y;
 
         if (isset($territoriesInfosByCoords[$x - 1][$y - 1])) {
-            $connected[] = $territoriesInfosByCoords[$x - 1][$y - 1]->id;
+            $connected[] = $territoriesInfosByCoords[$x - 1][$y - 1]->territory_id;
         }
 
         if (isset($territoriesInfosByCoords[$x][$y - 1])) {
-            $connected[] = $territoriesInfosByCoords[$x][$y - 1]->id;
+            $connected[] = $territoriesInfosByCoords[$x][$y - 1]->territory_id;
         }
 
         if (isset($territoriesInfosByCoords[$x + 1][$y - 1])) {
-            $connected[] = $territoriesInfosByCoords[$x + 1][$y - 1]->id;
+            $connected[] = $territoriesInfosByCoords[$x + 1][$y - 1]->territory_id;
         }
 
         //
 
         if (isset($territoriesInfosByCoords[$x - 1][$y])) {
-            $connected[] = $territoriesInfosByCoords[$x - 1][$y]->id;
+            $connected[] = $territoriesInfosByCoords[$x - 1][$y]->territory_id;
         }
 
         if (isset($territoriesInfosByCoords[$x + 1][$y])) {
-            $connected[] = $territoriesInfosByCoords[$x + 1][$y]->id;
+            $connected[] = $territoriesInfosByCoords[$x + 1][$y]->territory_id;
         }
 
         //
 
         if (isset($territoriesInfosByCoords[$x - 1][$y + 1])) {
-            $connected[] = $territoriesInfosByCoords[$x - 1][$y + 1]->id;
+            $connected[] = $territoriesInfosByCoords[$x - 1][$y + 1]->territory_id;
         }
 
         if (isset($territoriesInfosByCoords[$x][$y + 1])) {
-            $connected[] = $territoriesInfosByCoords[$x][$y + 1]->id;
+            $connected[] = $territoriesInfosByCoords[$x][$y + 1]->territory_id;
         }
 
         if (isset($territoriesInfosByCoords[$x + 1][$y + 1])) {
-            $connected[] = $territoriesInfosByCoords[$x + 1][$y + 1]->id;
+            $connected[] = $territoriesInfosByCoords[$x + 1][$y + 1]->territory_id;
         }
 
         return $connected;
