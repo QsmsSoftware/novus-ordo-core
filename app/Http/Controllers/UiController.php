@@ -21,7 +21,11 @@ use App\Models\VictoryStatus;
 use App\Services\JavascriptClientServicesGenerator;
 use App\Services\LoggedInGameContext;
 use App\Services\LoggedInUserContext;
+use App\Services\NationSetupContext;
+use App\Utils\HttpStatusCode;
+use App\Utils\MapsValidatedDataToFormRequest;
 use App\Utils\MapsValidatorToInstance;
+use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -30,13 +34,44 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\View\View;
 use LogicException;
 
-readonly class NewNationRequest {
-    use MapsValidatorToInstance;
+class CreateNationUiRequest extends FormRequest {
+    use MapsValidatedDataToFormRequest;
+
+    public string $name;
+    public readonly array $territories_ids;
 
     public function __construct(
-        public string $name,
-        public string $territories_ids_json,
-    ) {}
+        private readonly NationSetupContext $context
+    )
+    {
+        
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $this->merge([
+            'territories_ids' => json_decode($this->territories_ids_json),
+        ]);
+    }
+
+    public function rules(): array
+    {
+        return [
+            'name' => [
+                'required',
+                'string',
+                'min:2',
+                NewNation::createRuleNoNationWithSameNameInGame($this->context->getGame())
+            ],
+            'territories_ids' => [
+                'required',
+                'array',
+                'min:' . Game::NUMBER_OF_STARTING_TERRITORIES,
+                'max:' . Game::NUMBER_OF_STARTING_TERRITORIES,
+                Territory::createValidationSuitableHomeTerritory($this->context->getGame())
+            ],
+        ];
+    }
 }
 
 readonly class UserLoginRequest {
@@ -62,47 +97,15 @@ readonly class Liability {
 
 class UiController extends Controller
 {
-    public function storeNation(Request $request, LoggedInGameContext $context) : View|RedirectResponse|Response {
-        $validator = Validator::make($request->all(),
-            [
-                'name' => 'required|string|min:2',
-                'territories_ids_json' => 'required|string',
-            ]
-        );
-        $validator->validate();
-        $requestData = NewNationRequest::fromValidator($validator);
-        $selectedHomeTerritories = json_decode($request->territories_ids_json);
-
-        if (!is_array($selectedHomeTerritories) || sizeof($selectedHomeTerritories) != Game::NUMBER_OF_STARTING_TERRITORIES) {
-            throw new LogicException("territories_ids_json is not an array of the right length");
-        }
-
+    public function storeNation(CreateNationUiRequest $request, LoggedInGameContext $context) : View|RedirectResponse|Response {
         $game = $context->getGame();
         $user = $context->getUser();
 
-        $territories = $game->freeSuitableTerritoriesInTurn()->whereIn('id', $selectedHomeTerritories)->get();
+        $territories = $game->freeSuitableTerritoriesInTurn()->whereIn('id', $request->territories_ids)->get();
 
-        if ($territories->count() != Game::NUMBER_OF_STARTING_TERRITORIES) {
-            throw new LogicException("One or more IDs in territories_ids_json are invalid");
-        }
-
-        $numberOfTerritoriesValidation = $game->hasEnoughTerritoriesForNewNation();
-
-        if ($numberOfTerritoriesValidation instanceof NotEnoughFreeTerritories) {
-            return $this->generateNotEnoughTerritoriesResponse($numberOfTerritoriesValidation);
-        }
-
-        $createResult = NewNation::tryCreate($game, $user, $requestData->name);
+        $createResult = NewNation::tryCreate($game, $user, $request->name);
         
-        if ($createResult instanceof NationWithSameNameAlreadyExists) {
-            $validator->errors()->add('name', 'A nation with that name already exists.');
-        }
-        if ($validator->errors()->any()) {
-            return redirect('create-nation')->withErrors($validator->errors())->withInput();
-        }
         $newNation = NewNation::notNull($createResult);
-
-        //$territories = $game->freeSuitableTerritoriesInTurn()->take(Game::NUMBER_OF_STARTING_TERRITORIES)->get();
 
         $newNation->finishSetup($territories);
 

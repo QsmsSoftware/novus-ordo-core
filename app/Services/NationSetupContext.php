@@ -1,6 +1,7 @@
 <?php
 namespace App\Services;
 
+use App\Domain\NationSetupStatus;
 use App\Models\Game;
 use App\Models\NewNation;
 use App\Models\User;
@@ -8,6 +9,14 @@ use App\Utils\HttpStatusCode;
 use Illuminate\Support\Facades\Auth;
 
 class NationSetupContext {
+    public function getUser(): User {
+        $userOrNull = Auth::user();
+        if(is_null($userOrNull)) {
+            abort(HttpStatusCode::Unauthorized, 'Bad context: need an authenticated user with a nation to set up.');
+        }
+        return $userOrNull;
+    }
+
     public function getGame(): Game {
         $gameOrNull = Game::getCurrentOrNull();
         if(is_null($gameOrNull)) {
@@ -19,12 +28,7 @@ class NationSetupContext {
 
     public function getNewNation(): NewNation {
         $game = $this->getGame();
-
-        $userOrNull = Auth::user();
-        if(is_null($userOrNull)) {
-            abort(HttpStatusCode::Unauthorized, 'Bad context: need an authenticated user with a nation to set up.');
-        }
-        $user = User::notNull($userOrNull);
+        $user = $this->getUser();
 
         $nationOrNull = NewNation::where('user_id', $user->getId())
             ->where('game_id', $game->getId())

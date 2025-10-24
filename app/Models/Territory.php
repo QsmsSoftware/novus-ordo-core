@@ -141,6 +141,18 @@ class Territory extends Model
             ->where('terrain_type', '<>', TerrainType::Water->value);
     }
 
+    public static function createValidationSuitableHomeTerritory(Game $game): Closure {
+        return function (string $attribute, array $value, Closure $fail) use ($game) {
+            $territories = $game->freeSuitableTerritoriesInTurn()->whereIn('id', $value)->get();
+
+            $notFound = collect($value)->reject(fn ($tid) => is_numeric($tid) && $territories->contains(intval($tid)));
+
+            if ($notFound->count() > 0) {
+                $fail("One or more territories aren't suitable home territories: " . $notFound->join(","));
+            }
+        };
+    }
+
     /**
      * Adds a condition to the query to keep only territories that can be selected as a home territory.
      *

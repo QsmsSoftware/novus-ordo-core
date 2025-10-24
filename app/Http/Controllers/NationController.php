@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Domain\NationSetupStatus;
 use App\Models\Battle;
 use App\Models\Game;
 use App\Models\Nation;
@@ -62,10 +63,8 @@ class SelectTerritoriesRequest extends FormRequest {
                 'array',
                 'min:' . Game::NUMBER_OF_STARTING_TERRITORIES,
                 'max:' . Game::NUMBER_OF_STARTING_TERRITORIES,
+                Territory::createValidationSuitableHomeTerritory($this->context->getGame())
             ],
-            'territories_ids.*' => [
-                Rule::exists(Territory::class, 'id')->where('game_id', $this->context->getGame()->getId())
-            ]
         ];
     }
 }
@@ -81,12 +80,11 @@ class NationController extends Controller
     }
 
     public function selectHomeTerritories(SelectTerritoriesRequest $request, NationSetupContext $context): JsonResponse {
+        if ($context->getUser()->getNationSetupStatus($context->getGame()) != NationSetupStatus::HomeTerritoriesSelection) {
+            abort(HttpStatusCode::BadRequest, "User's nation setup status is not " . NationSetupStatus::HomeTerritoriesSelection->name);
+        }
         $newNation = $context->getNewNation();
         $territories = $context->getGame()->freeSuitableTerritoriesInTurn()->whereIn('id', $request->territories_ids)->get();
-
-        if ($territories->count() != Game::NUMBER_OF_STARTING_TERRITORIES) {
-            return response()->json(['errors' => ["One or more territories aren't suitable."]], HttpStatusCode::UnprocessableContent);
-        }
 
         $newNation->finishSetup($territories);
 
