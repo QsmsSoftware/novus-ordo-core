@@ -84,6 +84,16 @@ class Game extends Model
             );
     }
 
+    public function alreadyTakenTerritoriesInTurn(?Turn $turnOrNull = null): HasMany {
+        $turn = Turn::as($turnOrNull, fn () => Turn::getCurrentForGame($this));
+        return $this->territories()
+            ->where(Territory::whereIsSuitableAsHome())
+            ->whereHas('details', fn (Builder $query) => $query
+                ->where('turn_id', $turn->getId())
+                ->whereNotNull(TerritoryDetail::FIELD_OWNER_NATION_ID)
+            );
+    }
+
     public function getTerritoryWithId(int $territoryId): Territory {
         return $this->territories()->find($territoryId);
     }

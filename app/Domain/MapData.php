@@ -40,6 +40,8 @@ readonly class TerritoryData {
 readonly class MapData {
     public const WIDTH = 30;
     public const HEIGHT = 20;
+    public const HEIGHT_PIXELS_PER_TILE = 20;
+    public const WIDTH_PIXELS_PER_TILE = 30;
     
     public function __construct(
         public array $territories,

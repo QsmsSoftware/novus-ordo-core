@@ -12,23 +12,114 @@
 
         let numberOfHomeTerritories = {{$number_of_home_territories}};
         let suitableAsHomeIds = @json($suitable_as_home_ids);
+        let alreadyTakenIds = @json($already_taken_ids);
+        let territoriesById = mapExportedArray(@json($territories), t => t.territory_id);
         var selectedTerritoriesIds = [];
-        
+        var selectableTerritoriesIds = [];
+        function mapExportedArray(exportedArray, keyFactory) {
+            let map = new Map();
+
+            exportedArray.forEach(value => map.set(keyFactory(value), value));
+
+            return map;
+        }
+
         function clearSelection() {
             selectedTerritoriesIds.length = 0;
-            $("#selected-ids").html("");
+            updateSelectableTerritories();
+            updateMap();
+            $("#territory_ids_as_json").val(JSON.stringify([]));
+            $("#pick-message").html(`select your first territory out of ${numberOfHomeTerritories}`);
         }
+
         function selectTerritory(territoryId) {
             if (selectedTerritoriesIds.length >= numberOfHomeTerritories) {
                 return;
             }
-            if (!suitableAsHomeIds.includes(territoryId)) {
+            if (!selectableTerritoriesIds.includes(territoryId)) {
                 return;
             }
             selectedTerritoriesIds.push(territoryId);
             $("#territory_ids_as_json").val(JSON.stringify(selectedTerritoriesIds));
-            $("#selected-ids").html(JSON.stringify(selectedTerritoriesIds));
+            if (selectedTerritoriesIds.length < numberOfHomeTerritories) {
+                $("#pick-message").html(`select your next territory, ${numberOfHomeTerritories - selectedTerritoriesIds.length} picks remaining`);
+            }
+            else {
+                $("#pick-message").html("done!");
+            }
+            updateSelectableTerritories();
+            updateMap();
         }
+
+        function updateSelectableTerritories() {
+            if (selectedTerritoriesIds.length == 0) {
+                selectableTerritoriesIds = suitableAsHomeIds.slice();
+            }
+            else if (selectedTerritoriesIds.length == numberOfHomeTerritories) {
+                selectableTerritoriesIds = [];
+            }
+            else {
+                selectableTerritoriesIds = [];
+                selectedTerritoriesIds.forEach(function(tid) {
+                    let territory = territoriesById.get(tid);
+
+                    territory.connected_territory_ids.forEach(function (connectedId) {
+                        if (!selectedTerritoriesIds.includes(connectedId) && !selectableTerritoriesIds.includes(connectedId) && suitableAsHomeIds.includes(connectedId)) {
+                            selectableTerritoriesIds.push(connectedId);
+                        }
+                    });
+                });
+            }
+        }
+
+        var mapCanvas;
+        var mapCanvasContext;
+
+        function fillTerritory(ctx, territory, fillStyle) {
+            let previousFillStyle = ctx.fillStyle;
+            let previousGlobalAlpha = ctx.globalAlpha;
+            ctx.fillStyle = fillStyle;
+            ctx.globalAlpha = 0.5;
+            mapCanvasContext.fillRect(territory.x * {{ $map_tile_width_px }}, territory.y * {{ $map_tile_height_px }}, {{ $map_tile_width_px }}, {{ $map_tile_height_px }});
+            ctx.fillStyle = previousFillStyle;
+            ctx.globalAlpha = previousGlobalAlpha;
+        }
+
+        function updateMap() {
+            mapCanvasContext.drawImage(document.getElementById("map-layer-0"), 0, 0, mapCanvas.width, mapCanvas.height);
+            selectableTerritoriesIds.forEach(tid => fillTerritory(mapCanvasContext, territoriesById.get(tid), "green"));
+            alreadyTakenIds.forEach(tid => fillTerritory(mapCanvasContext, territoriesById.get(tid), "black"));
+            selectedTerritoriesIds.forEach(tid => fillTerritory(mapCanvasContext, territoriesById.get(tid), "blue"));
+            mapCanvasContext.drawImage(document.getElementById("map-layer-2"), 0, 0, mapCanvas.width, mapCanvas.height);
+        }
+
+        function getTerritoryUnderCursorOrUndefined(cursorX, cursorY) {
+            const x = Math.floor(cursorX / {{ $map_tile_width_px }});
+            const y = Math.floor(cursorY / {{ $map_tile_height_px }});
+            return territoriesById.values().find(t => t.x == x && t.y == y);
+        }
+
+        $(document).ready(function(){
+            mapCanvas = $("#map-canvas")[0];
+            mapCanvasContext = mapCanvas.getContext("2d");
+            mapCanvas.addEventListener('click', (event) => {
+                const rect = mapCanvas.getBoundingClientRect();
+                const x = event.clientX - rect.left;
+                const y = event.clientY - rect.top;
+                
+                selectTerritory(getTerritoryUnderCursorOrUndefined(x, y).territory_id);
+            });
+            mapCanvas.addEventListener('mousemove', (event) => {
+                const rect = mapCanvas.getBoundingClientRect();
+                const x = event.clientX - rect.left;
+                const y = event.clientY - rect.top;
+                let territoryOrUndefined = getTerritoryUnderCursorOrUndefined(x, y);
+
+                mapCanvas.title = territoryOrUndefined === undefined ? "" : territoryOrUndefined.name;
+            });
+            clearSelection();
+            updateMap();
+        });
     </script>
     <body>
         <div>
@@ -46,25 +137,11 @@
                 <button class="btn btn-primary" type="submit">Create nation</button>
             </form>
         </div>
-        <p>Select your home territory (pick {{$number_of_home_territories}} connected territories) <a href="javascript:void(0)" onclick="clearSelection()">clear selection</a></p>
-        <span id="selected-ids"></span>
-        <?php
-            use App\Domain\TerrainType;
-            $territoryColorByTerrainTypes = [
-                TerrainType::Water->value => '#154360',
-                TerrainType::Plain->value => 'DarkKhaki',
-                TerrainType::River->value => 'DarkKhaki',
-                TerrainType::Desert->value => 'BurlyWood',
-                TerrainType::Tundra->value => 'Beige',
-                TerrainType::Mountain->value => 'DarkGrey',
-                TerrainType::Forest->value => '#145A32',
-            ]
-        ?>
-        <div style="line-height:0;">
-            @foreach($territories_by_row_column as $row)
-                    @foreach($row as $territory)<div title=@json($territory->getName()) onclick="selectTerritory({{$territory->getId()}})" style="cursor: pointer; margin:0; padding:0;display:inline-block; height:20px; width:30px; background-color: {{$territoryColorByTerrainTypes[$territory->getTerrainType()->value]}}"></div>@endforeach
-                    <br>
-            @endforeach	
+        <p>Select your home territory (<span id="pick-message"></span>) <a href="javascript:void(0)" onclick="clearSelection()">clear selection</a></p>
+        <canvas id="map-canvas" width="{{ $map_width_px }}" height="{{ $map_height_px }}"></canvas>
+        <div hidden>
+            <img id="map-layer-0" src="res/map/map_layer_0.png" />
+            <img id="map-layer-2" src="res/map/map_layer_2.png" />
         </div>
     </body>
 </html>
