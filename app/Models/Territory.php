@@ -42,52 +42,8 @@ class Territory extends Model
     }
 
     public function connectedTerritories(): BelongsToMany {
-        return $this->belongsToMany(Territory::class, 'territory_connections', 'territory_id', 'connected_territory_id');
-        // return $this->getGame()->territories()
-        //     ->getQuery()
-        //     ->where(function ($query) {
-        //         $query
-        //             ->orWhere(function ($query) {
-        //                 $query
-        //                     ->where('x', $this->x - 1)
-        //                     ->where('y', $this->y - 1);
-        //             })
-        //             ->orWhere(function ($query) {
-        //                 $query
-        //                     ->where('x', $this->x - 1)
-        //                     ->where('y', $this->y);
-        //             })
-        //             ->orWhere(function ($query) {
-        //                 $query
-        //                     ->where('x', $this->x - 1)
-        //                     ->where('y', $this->y + 1);
-        //             })
-        //             ->orWhere(function ($query) {
-        //                 $query
-        //                     ->where('x', $this->x)
-        //                     ->where('y', $this->y - 1);
-        //             })
-        //             ->orWhere(function ($query) {
-        //                 $query
-        //                     ->where('x', $this->x)
-        //                     ->where('y', $this->y + 1);
-        //             })
-        //             ->orWhere(function ($query) {
-        //                 $query
-        //                     ->where('x', $this->x + 1)
-        //                     ->where('y', $this->y - 1);
-        //             })
-        //             ->orWhere(function ($query) {
-        //                 $query
-        //                     ->where('x', $this->x + 1)
-        //                     ->where('y', $this->y);
-        //             })
-        //             ->orWhere(function ($query) {
-        //                 $query
-        //                     ->where('x', $this->x + 1)
-        //                     ->where('y', $this->y + 1);
-        //             });
-        //     });
+        return $this->belongsToMany(Territory::class, 'territory_connections', 'territory_id', 'connected_territory_id')
+            ->withTimestamps();
     }
 
     public function connectedLands(): BelongsToMany {
