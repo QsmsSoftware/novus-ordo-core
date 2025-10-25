@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Domain\GenerationData;
 use App\Domain\TerrainType;
+use App\Domain\TerritoryConnectionData;
 use App\Utils\GuardsForAssertions;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -275,8 +276,16 @@ class Game extends Model
 
         $mapData = GenerationData::getMapData();
 
+        $territoriesByCoords = [];
+
         foreach($mapData->territories as $territoryData) {
-            Territory::create($game, $territoryData);
+            $territory = Territory::create($game, $territoryData);
+            $territoriesByCoords[$territory->getX()][$territory->getY()] = $territory;
+        }
+
+        foreach($mapData->territories as $territoryData) {
+            $territory = Territory::notNull($territoriesByCoords[$territoryData->x][$territoryData->y]);
+            collect($territoryData->connections)->map(fn (TerritoryConnectionData $c) => $territory->connectedTerritories()->attach($territoriesByCoords[$c->x][$c->y], ['game_id' => $game->getId(), 'is_connected_by_land' => $c->isConnectedByLand]));
         }
 
         return $game;

@@ -38,7 +38,7 @@ class CreateNationUiRequest extends FormRequest {
     use MapsValidatedDataToFormRequest;
 
     public string $name;
-    public readonly array $territories_ids;
+    public readonly array $territory_ids;
 
     public function __construct(
         private readonly NationSetupContext $context
@@ -50,7 +50,7 @@ class CreateNationUiRequest extends FormRequest {
     protected function prepareForValidation(): void
     {
         $this->merge([
-            'territories_ids' => json_decode($this->territories_ids_json),
+            'territory_ids' => json_decode($this->territory_ids_as_json),
         ]);
     }
 
@@ -63,7 +63,7 @@ class CreateNationUiRequest extends FormRequest {
                 'min:2',
                 NewNation::createRuleNoNationWithSameNameInGame($this->context->getGame())
             ],
-            'territories_ids' => [
+            'territory_ids' => [
                 'required',
                 'array',
                 'min:' . Game::NUMBER_OF_STARTING_TERRITORIES,
@@ -101,7 +101,7 @@ class UiController extends Controller
         $game = $context->getGame();
         $user = $context->getUser();
 
-        $territories = $game->freeSuitableTerritoriesInTurn()->whereIn('id', $request->territories_ids)->get();
+        $territories = $game->freeSuitableTerritoriesInTurn()->whereIn('id', $request->territory_ids)->get();
 
         $createResult = NewNation::tryCreate($game, $user, $request->name);
         
@@ -114,7 +114,7 @@ class UiController extends Controller
     private function generateNotEnoughTerritoriesResponse(NotEnoughFreeTerritories $error) :Response {
         return new Response("Unable to create nation: There are not enough free territories remaining. {$error->required} required, {$error->remaining} remaining.");
     }
-    public function createNation(LoggedInGameContext $context) : View|Response {
+    public function createNation(LoggedInGameContext $context, JavascriptClientServicesGenerator $servicesGenerator) : View|Response {
         if (Nation::getCurrentOrNull() !== null) {
             return response("User already has a nation (you should not have landed on this page).");
         }
@@ -124,16 +124,17 @@ class UiController extends Controller
             return $this->generateNotEnoughTerritoriesResponse($enoughTerritoryValidation);
         }
 
-        $territories = [];
+        $territoriesByRowThenColumn = [];
 
-        $context->getGame()->territories()->get()->each(function (Territory $t) use (&$territories) {
-            $territories[$t->getY()][$t->getX()] = $t;
+        $context->getGame()->territories()->get()->each(function (Territory $t) use (&$territoriesByRowThenColumn) {
+            $territoriesByRowThenColumn[$t->getY()][$t->getX()] = $t;
         });
 
         return view('new_nation', [
-            'territories' => $territories,
+            'territories_by_row_column' => $territoriesByRowThenColumn,
             'number_of_home_territories' => Game::NUMBER_OF_STARTING_TERRITORIES,
             'suitable_as_home_ids' => $context->getGame()->freeSuitableTerritoriesInTurn()->pluck('id'),
+            'js_client_services' => $servicesGenerator->generateClientService("NovusOrdoServices", "ajax"),
         ]);
     }
 

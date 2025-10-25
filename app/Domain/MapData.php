@@ -4,6 +4,17 @@ namespace App\Domain;
 
 use LogicException;
 
+readonly class TerritoryConnectionData {
+    public function __construct(
+        public int $x,
+        public int $y,
+        public bool $isConnectedByLand,
+    )
+    {
+        
+    }
+}
+
 readonly class TerritoryData {
     public function __construct(
         public int $x,
@@ -11,6 +22,7 @@ readonly class TerritoryData {
         public TerrainType $terrainType,
         public float $usableLandRatio,
         public bool $hasSeaAccess,
+        public array $connections,
     )
     {
         if ($x < 0 || $x > MapData::WIDTH) {

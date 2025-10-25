@@ -10,7 +10,9 @@ use Closure;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Exists;
@@ -39,57 +41,58 @@ class Territory extends Model
         return $this->details()->where('turn_id', $turn->getId())->first();
     }
 
-    public function connectedTerritories(): Builder {
-        return $this->getGame()->territories()
-            ->getQuery()
-            ->where(function ($query) {
-                $query
-                    ->orWhere(function ($query) {
-                        $query
-                            ->where('x', $this->x - 1)
-                            ->where('y', $this->y - 1);
-                    })
-                    ->orWhere(function ($query) {
-                        $query
-                            ->where('x', $this->x - 1)
-                            ->where('y', $this->y);
-                    })
-                    ->orWhere(function ($query) {
-                        $query
-                            ->where('x', $this->x - 1)
-                            ->where('y', $this->y + 1);
-                    })
-                    ->orWhere(function ($query) {
-                        $query
-                            ->where('x', $this->x)
-                            ->where('y', $this->y - 1);
-                    })
-                    ->orWhere(function ($query) {
-                        $query
-                            ->where('x', $this->x)
-                            ->where('y', $this->y + 1);
-                    })
-                    ->orWhere(function ($query) {
-                        $query
-                            ->where('x', $this->x + 1)
-                            ->where('y', $this->y - 1);
-                    })
-                    ->orWhere(function ($query) {
-                        $query
-                            ->where('x', $this->x + 1)
-                            ->where('y', $this->y);
-                    })
-                    ->orWhere(function ($query) {
-                        $query
-                            ->where('x', $this->x + 1)
-                            ->where('y', $this->y + 1);
-                    });
-            });
+    public function connectedTerritories(): BelongsToMany {
+        return $this->belongsToMany(Territory::class, 'territory_connections', 'territory_id', 'connected_territory_id');
+        // return $this->getGame()->territories()
+        //     ->getQuery()
+        //     ->where(function ($query) {
+        //         $query
+        //             ->orWhere(function ($query) {
+        //                 $query
+        //                     ->where('x', $this->x - 1)
+        //                     ->where('y', $this->y - 1);
+        //             })
+        //             ->orWhere(function ($query) {
+        //                 $query
+        //                     ->where('x', $this->x - 1)
+        //                     ->where('y', $this->y);
+        //             })
+        //             ->orWhere(function ($query) {
+        //                 $query
+        //                     ->where('x', $this->x - 1)
+        //                     ->where('y', $this->y + 1);
+        //             })
+        //             ->orWhere(function ($query) {
+        //                 $query
+        //                     ->where('x', $this->x)
+        //                     ->where('y', $this->y - 1);
+        //             })
+        //             ->orWhere(function ($query) {
+        //                 $query
+        //                     ->where('x', $this->x)
+        //                     ->where('y', $this->y + 1);
+        //             })
+        //             ->orWhere(function ($query) {
+        //                 $query
+        //                     ->where('x', $this->x + 1)
+        //                     ->where('y', $this->y - 1);
+        //             })
+        //             ->orWhere(function ($query) {
+        //                 $query
+        //                     ->where('x', $this->x + 1)
+        //                     ->where('y', $this->y);
+        //             })
+        //             ->orWhere(function ($query) {
+        //                 $query
+        //                     ->where('x', $this->x + 1)
+        //                     ->where('y', $this->y + 1);
+        //             });
+        //     });
     }
 
-    public function connectedLands(): Builder {
+    public function connectedLands(): BelongsToMany {
         return $this->connectedTerritories()
-            ->where(self::whereIsControllable());
+            ->where('is_connected_by_land', true);
     }
 
     public function getId(): int {
@@ -130,6 +133,52 @@ class Territory extends Model
         $newDetail->onNextTurn($currentDetail);
     }
 
+    public static function createValidationSuitableHomeTerritory(Game $game): Closure {
+        return function (string $attribute, array $value, Closure $fail) use ($game) {
+            $territoryIds = array_unique($value);
+
+            if (sizeof($territoryIds) != Game::NUMBER_OF_STARTING_TERRITORIES) {
+                $fail("Wrong number of unique starting territories IDs, got " . sizeof($territoryIds) . ", was expecting " . Game::NUMBER_OF_STARTING_TERRITORIES);
+                return;
+            }
+
+            $territories = $game->freeSuitableTerritoriesInTurn()->whereIn('id', $territoryIds)->get();
+            assert($territories instanceof Collection);
+
+            $notFound = collect($territoryIds)->reject(fn ($tid) => is_numeric($tid) && $territories->contains('id', intval($tid)));
+
+            if ($notFound->count() > 0) {
+                $fail("One or more territories aren't suitable home territories: " . $notFound->join(", "));
+                return;
+            }
+
+            $first = $territories->shift();
+            $vettedTerritories = collect([$first]);
+            $territoriesToExplore = collect([$first]);
+
+            while (!$territoriesToExplore->isEmpty()) {
+                $testedTerritory = $territoriesToExplore->shift();
+                assert($testedTerritory instanceof Territory);
+                $connectedIds = $testedTerritory->connectedLands()->pluck('connected_territory_id')->all();
+
+                $pContainsConnectedTerritory = fn (Territory $territory) => in_array($territory->getKey(), $connectedIds);
+
+                $connectedToTested = $territories->filter($pContainsConnectedTerritory);
+
+                $territoriesToExplore = $territoriesToExplore->concat($connectedToTested);
+
+                $territories = $territories->reject($pContainsConnectedTerritory);
+
+                $vettedTerritories = $vettedTerritories->concat($connectedToTested);
+            }
+
+            if ($territories->count() > 0) {
+                $fail("One or more selected home territories aren't connected with initial territory: " . $territories->map(fn (Territory $t) => $t->getId())->join(", "));
+                return;
+            }
+        };
+    }
+
     /**
      * Adds a condition to the query to keep only territories that can be controlled/conquered.
      *
@@ -139,18 +188,6 @@ class Territory extends Model
     public static function whereIsControllable(): Closure {
         return fn (Builder $builder) => $builder
             ->where('terrain_type', '<>', TerrainType::Water->value);
-    }
-
-    public static function createValidationSuitableHomeTerritory(Game $game): Closure {
-        return function (string $attribute, array $value, Closure $fail) use ($game) {
-            $territories = $game->freeSuitableTerritoriesInTurn()->whereIn('id', $value)->get();
-
-            $notFound = collect($value)->reject(fn ($tid) => is_numeric($tid) && $territories->contains(intval($tid)));
-
-            if ($notFound->count() > 0) {
-                $fail("One or more territories aren't suitable home territories: " . $notFound->join(","));
-            }
-        };
     }
 
     /**
@@ -174,6 +211,11 @@ class Territory extends Model
             ->where('turn_id', $turn->getId())
             ->get()->all();
 
+        $connections = DB::table('territory_connections')
+            ->where('game_id', $game->getId())
+            ->get()
+            ->groupBy('territory_id');
+
         $territoriesByCoords = [];
 
         foreach($territories as $territory) {
@@ -190,54 +232,58 @@ class Territory extends Model
             name: $t->name,
             owner_nation_id: $t->owner_nation_id,
             has_sea_access: $t->has_sea_access,
-            connected_territories_ids: Territory::detectConnectedTerritoriesIds($t, $territoriesByCoords),
+            connected_territory_ids: collect($connections[$t->territory_id])
+                ->filter(fn ($c) => $c->is_connected_by_land)
+                ->map(fn ($c) => $c->connected_territory_id)
+                ->values()
+                ->all(),//Territory::detectConnectedTerritoriesIds($t, $territoriesByCoords),
         ), $territories);
     }
 
-    private static function detectConnectedTerritoriesIds(object $territoryInfo, array $territoriesInfosByCoords): array {
-        $connected = [];
+    // private static function detectConnectedTerritoriesIds(object $territoryInfo, array $territoriesInfosByCoords): array {
+    //     $connected = [];
 
-        $x = $territoryInfo->x;
-        $y = $territoryInfo->y;
+    //     $x = $territoryInfo->x;
+    //     $y = $territoryInfo->y;
 
-        if (isset($territoriesInfosByCoords[$x - 1][$y - 1])) {
-            $connected[] = $territoriesInfosByCoords[$x - 1][$y - 1]->territory_id;
-        }
+    //     if (isset($territoriesInfosByCoords[$x - 1][$y - 1])) {
+    //         $connected[] = $territoriesInfosByCoords[$x - 1][$y - 1]->territory_id;
+    //     }
 
-        if (isset($territoriesInfosByCoords[$x][$y - 1])) {
-            $connected[] = $territoriesInfosByCoords[$x][$y - 1]->territory_id;
-        }
+    //     if (isset($territoriesInfosByCoords[$x][$y - 1])) {
+    //         $connected[] = $territoriesInfosByCoords[$x][$y - 1]->territory_id;
+    //     }
 
-        if (isset($territoriesInfosByCoords[$x + 1][$y - 1])) {
-            $connected[] = $territoriesInfosByCoords[$x + 1][$y - 1]->territory_id;
-        }
+    //     if (isset($territoriesInfosByCoords[$x + 1][$y - 1])) {
+    //         $connected[] = $territoriesInfosByCoords[$x + 1][$y - 1]->territory_id;
+    //     }
 
-        //
+    //     //
 
-        if (isset($territoriesInfosByCoords[$x - 1][$y])) {
-            $connected[] = $territoriesInfosByCoords[$x - 1][$y]->territory_id;
-        }
+    //     if (isset($territoriesInfosByCoords[$x - 1][$y])) {
+    //         $connected[] = $territoriesInfosByCoords[$x - 1][$y]->territory_id;
+    //     }
 
-        if (isset($territoriesInfosByCoords[$x + 1][$y])) {
-            $connected[] = $territoriesInfosByCoords[$x + 1][$y]->territory_id;
-        }
+    //     if (isset($territoriesInfosByCoords[$x + 1][$y])) {
+    //         $connected[] = $territoriesInfosByCoords[$x + 1][$y]->territory_id;
+    //     }
 
-        //
+    //     //
 
-        if (isset($territoriesInfosByCoords[$x - 1][$y + 1])) {
-            $connected[] = $territoriesInfosByCoords[$x - 1][$y + 1]->territory_id;
-        }
+    //     if (isset($territoriesInfosByCoords[$x - 1][$y + 1])) {
+    //         $connected[] = $territoriesInfosByCoords[$x - 1][$y + 1]->territory_id;
+    //     }
 
-        if (isset($territoriesInfosByCoords[$x][$y + 1])) {
-            $connected[] = $territoriesInfosByCoords[$x][$y + 1]->territory_id;
-        }
+    //     if (isset($territoriesInfosByCoords[$x][$y + 1])) {
+    //         $connected[] = $territoriesInfosByCoords[$x][$y + 1]->territory_id;
+    //     }
 
-        if (isset($territoriesInfosByCoords[$x + 1][$y + 1])) {
-            $connected[] = $territoriesInfosByCoords[$x + 1][$y + 1]->territory_id;
-        }
+    //     if (isset($territoriesInfosByCoords[$x + 1][$y + 1])) {
+    //         $connected[] = $territoriesInfosByCoords[$x + 1][$y + 1]->territory_id;
+    //     }
 
-        return $connected;
-    }
+    //     return $connected;
+    // }
 
     public static function create(Game $game, TerritoryData $territoryData): Territory {
         $territory = new Territory();
@@ -248,8 +294,8 @@ class Territory extends Model
         $territory->usable_land_ratio = $territoryData->usableLandRatio;
         $territory->has_sea_access = $territoryData->hasSeaAccess;
         $territory->name = TerrainType::getDescription($territoryData->terrainType);
-        $territory->save();
-        $territory->name = "{$territory->name} #{$territory->id}";
+        $territory->save(); // Generates ID
+        $territory->name = $territory->name . " #{$territory->id}";
         $territory->save();
 
         TerritoryDetail::create($territory);

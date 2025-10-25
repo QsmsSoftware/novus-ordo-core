@@ -20,7 +20,7 @@ readonly class TerritoryInfo {
         public string $name,
         public ?int $owner_nation_id,
         public bool $has_sea_access,
-        public array $connected_territories_ids,
+        public array $connected_territory_ids,
     ) {}
 }
 
@@ -35,7 +35,7 @@ readonly class OwnedTerritoryInfo {
         public string $name,
         public ?int $owner_nation_id,
         public bool $has_sea_access,
-        public array $connected_territories_ids,
+        public array $connected_territory_ids,
     ) {}
 }
 
@@ -109,7 +109,7 @@ class TerritoryDetail extends Model
             name: $territory->getName(),
             owner_nation_id: $ownerOrNull?->getId(),
             has_sea_access: $territory->hasSeaAccess(),
-            connected_territories_ids: $territory->connectedTerritories()->pluck('id')->all(),
+            connected_territory_ids: $territory->connectedTerritories()->pluck('id')->all(),
         );
     }
 
@@ -127,7 +127,7 @@ class TerritoryDetail extends Model
             name: $territory->getName(),
             owner_nation_id: $ownerOrNull?->getId(),
             has_sea_access: $territory->hasSeaAccess(),
-            connected_territories_ids: $territory->connectedTerritories()->pluck('id')->all(),
+            connected_territory_ids: $territory->connectedTerritories()->pluck('connected_territory_id')->all(),
         );
     }
 

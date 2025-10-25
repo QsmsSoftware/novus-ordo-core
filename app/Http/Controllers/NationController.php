@@ -46,7 +46,7 @@ class NewNationRequest extends FormRequest {
 class SelectTerritoriesRequest extends FormRequest {
     use MapsValidatedDataToFormRequest;
 
-    public readonly array $territories_ids;
+    public readonly array $territory_ids;
 
     public function __construct(
         private readonly NationSetupContext $context
@@ -58,7 +58,7 @@ class SelectTerritoriesRequest extends FormRequest {
     public function rules(): array
     {
         return [
-            'territories_ids' => [
+            'territory_ids' => [
                 'required',
                 'array',
                 'min:' . Game::NUMBER_OF_STARTING_TERRITORIES,
@@ -84,7 +84,7 @@ class NationController extends Controller
             abort(HttpStatusCode::BadRequest, "User's nation setup status is not " . NationSetupStatus::HomeTerritoriesSelection->name);
         }
         $newNation = $context->getNewNation();
-        $territories = $context->getGame()->freeSuitableTerritoriesInTurn()->whereIn('id', $request->territories_ids)->get();
+        $territories = $context->getGame()->freeSuitableTerritoriesInTurn()->whereIn('id', $request->territory_ids)->get();
 
         $newNation->finishSetup($territories);
 

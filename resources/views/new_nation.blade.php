@@ -7,6 +7,9 @@
         <script src="{{ asset('js/jquery-3.7.1.min.js') }}"></script>
     </head>
     <script>
+        {!! $js_client_services !!}
+        let services = new NovusOrdoServices(@json(url("")), @json(csrf_token()));
+
         let numberOfHomeTerritories = {{$number_of_home_territories}};
         let suitableAsHomeIds = @json($suitable_as_home_ids);
         var selectedTerritoriesIds = [];
@@ -23,7 +26,7 @@
                 return;
             }
             selectedTerritoriesIds.push(territoryId);
-            $("#territories_ids_json").val(JSON.stringify(selectedTerritoriesIds));
+            $("#territory_ids_as_json").val(JSON.stringify(selectedTerritoriesIds));
             $("#selected-ids").html(JSON.stringify(selectedTerritoriesIds));
         }
     </script>
@@ -38,7 +41,7 @@
                 @csrf
                 Nation's name:
                 <input type="text" name="name" class="form-control">
-                <input type="hidden" name="territories_ids_json" id="territories_ids_json">
+                <input type="hidden" name="territory_ids_as_json" id="territory_ids_as_json">
                 <br>
                 <button class="btn btn-primary" type="submit">Create nation</button>
             </form>
@@ -58,8 +61,8 @@
             ]
         ?>
         <div style="line-height:0;">
-            @foreach($territories as $row)
-                    @foreach($row as $territory)<div title={{$territory->getName()}} onclick="selectTerritory({{$territory->getId()}})" style="cursor: pointer; margin:0; padding:0;display:inline-block; height:20px; width:30px; background-color: {{$territoryColorByTerrainTypes[$territory->getTerrainType()->value]}}"></div>@endforeach
+            @foreach($territories_by_row_column as $row)
+                    @foreach($row as $territory)<div title=@json($territory->getName()) onclick="selectTerritory({{$territory->getId()}})" style="cursor: pointer; margin:0; padding:0;display:inline-block; height:20px; width:30px; background-color: {{$territoryColorByTerrainTypes[$territory->getTerrainType()->value]}}"></div>@endforeach
                     <br>
             @endforeach	
         </div>
