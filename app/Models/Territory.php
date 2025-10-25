@@ -2,9 +2,9 @@
 
 namespace App\Models;
 
-use App\Domain\MapData;
 use App\Domain\TerrainType;
 use App\Domain\TerritoryData;
+use App\ReadModels\TerritoryInfo;
 use App\Utils\GuardsForAssertions;
 use Closure;
 use Illuminate\Database\Eloquent\Builder;
@@ -14,9 +14,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\Rule;
-use Illuminate\Validation\Rules\Exists;
-use LogicException;
 
 class Territory extends Model
 {
@@ -178,68 +175,33 @@ class Territory extends Model
             $territoriesByCoords[$territory->x][$territory->y] = $territory;
         }
 
-        return array_map(fn ($t) => new TerritoryInfo(
-            territory_id: $t->territory_id,
-            turn_number: $turn->getNumber(),
-            x: $t->x,
-            y: $t->y,
-            terrain_type: TerrainType::from($t->terrain_type)->name,
-            usable_land_ratio: $t->usable_land_ratio,
-            name: $t->name,
-            owner_nation_id: $t->owner_nation_id,
-            has_sea_access: $t->has_sea_access,
-            connected_territory_ids: collect($connections[$t->territory_id])
+        return array_map(fn ($t) => TerritoryInfo::fromObject($t, [
+            'turn_number' => $turn->getNumber(),
+            'terrain_type' => TerrainType::from($t->terrain_type)->name,
+            'connected_territory_ids' => collect($connections[$t->territory_id])
                 ->filter(fn ($c) => $c->is_connected_by_land)
                 ->map(fn ($c) => $c->connected_territory_id)
                 ->values()
-                ->all(),//Territory::detectConnectedTerritoriesIds($t, $territoriesByCoords),
-        ), $territories);
+                ->all(),
+        ]), $territories);
+
+        // return array_map(fn ($t) => new TerritoryInfo (
+        //     territory_id: $t->territory_id,
+        //     turn_number: $turn->getNumber(),
+        //     x: $t->x,
+        //     y: $t->y,
+        //     terrain_type: TerrainType::from($t->terrain_type)->name,
+        //     usable_land_ratio: $t->usable_land_ratio,
+        //     name: $t->name,
+        //     owner_nation_id: $t->owner_nation_id,
+        //     has_sea_access: $t->has_sea_access,
+        //     connected_territory_ids: collect($connections[$t->territory_id])
+        //         ->filter(fn ($c) => $c->is_connected_by_land)
+        //         ->map(fn ($c) => $c->connected_territory_id)
+        //         ->values()
+        //         ->all(),
+        // ), $territories);
     }
-
-    // private static function detectConnectedTerritoriesIds(object $territoryInfo, array $territoriesInfosByCoords): array {
-    //     $connected = [];
-
-    //     $x = $territoryInfo->x;
-    //     $y = $territoryInfo->y;
-
-    //     if (isset($territoriesInfosByCoords[$x - 1][$y - 1])) {
-    //         $connected[] = $territoriesInfosByCoords[$x - 1][$y - 1]->territory_id;
-    //     }
-
-    //     if (isset($territoriesInfosByCoords[$x][$y - 1])) {
-    //         $connected[] = $territoriesInfosByCoords[$x][$y - 1]->territory_id;
-    //     }
-
-    //     if (isset($territoriesInfosByCoords[$x + 1][$y - 1])) {
-    //         $connected[] = $territoriesInfosByCoords[$x + 1][$y - 1]->territory_id;
-    //     }
-
-    //     //
-
-    //     if (isset($territoriesInfosByCoords[$x - 1][$y])) {
-    //         $connected[] = $territoriesInfosByCoords[$x - 1][$y]->territory_id;
-    //     }
-
-    //     if (isset($territoriesInfosByCoords[$x + 1][$y])) {
-    //         $connected[] = $territoriesInfosByCoords[$x + 1][$y]->territory_id;
-    //     }
-
-    //     //
-
-    //     if (isset($territoriesInfosByCoords[$x - 1][$y + 1])) {
-    //         $connected[] = $territoriesInfosByCoords[$x - 1][$y + 1]->territory_id;
-    //     }
-
-    //     if (isset($territoriesInfosByCoords[$x][$y + 1])) {
-    //         $connected[] = $territoriesInfosByCoords[$x][$y + 1]->territory_id;
-    //     }
-
-    //     if (isset($territoriesInfosByCoords[$x + 1][$y + 1])) {
-    //         $connected[] = $territoriesInfosByCoords[$x + 1][$y + 1]->territory_id;
-    //     }
-
-    //     return $connected;
-    // }
 
     public static function create(Game $game, TerritoryData $territoryData): Territory {
         $territory = new Territory();

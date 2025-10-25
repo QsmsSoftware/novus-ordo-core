@@ -16,7 +16,7 @@ trait MapsArrayToInstance {
         foreach (Reflection::getConstructorParameters(static::class) as $cParm) {
             $pName = $cParm->getName();
 
-            if ($cParm->allowsNull()) {
+            if (!isset($data[$pName]) && $cParm->allowsNull()) {
                 $constParms[$pName] = null;
                 continue;
             }
