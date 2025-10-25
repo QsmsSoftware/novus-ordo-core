@@ -118,7 +118,9 @@
                 mapCanvas.title = territoryOrUndefined === undefined ? "" : territoryOrUndefined.name;
             });
             clearSelection();
-            updateMap();
+            $(window).on('load', function() {
+                updateMap();
+            });
         });
     </script>
     <body>
