@@ -41,9 +41,10 @@ class NewNation extends Model
 
         DB::transaction(function () use ($homeTerritoryIds, $nation) {
             $nation->lockForUpdate();
-            $homeTerritories = $nation->getGame()->freeSuitableTerritoriesInTurn()->lockForUpdate()->whereIn('id', $homeTerritoryIds)->get();
+            $homeTerritories = $nation->getGame()->freeSuitableTerritoriesInTurn()->whereIn('id', $homeTerritoryIds)->get();
 
             $homeTerritories->each(function (Territory $territory) {
+                $territory->getDetail()->lockForUpdate();
                 if (!$territory->isSuitableAsHome()) {
                     throw new LogicException("Territory ID {$territory->getId()} is not suitable as home territory");
                 }
