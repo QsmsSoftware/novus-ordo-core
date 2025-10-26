@@ -30,9 +30,7 @@ class NationSetupContext {
         $game = $this->getGame();
         $user = $this->getUser();
 
-        $nationOrNull = NewNation::where('user_id', $user->getId())
-            ->where('game_id', $game->getId())
-            ->first();
+        $nationOrNull = NewNation::getForUserOrNull($game, $user);
         if (is_null($nationOrNull)) {
             abort(HttpStatusCode::BadRequest, 'Bad context: this user has not created their nation yet or has finished setting their nation up.');
         }

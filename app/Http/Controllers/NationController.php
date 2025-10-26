@@ -84,9 +84,8 @@ class NationController extends Controller
             abort(HttpStatusCode::BadRequest, "User's nation setup status is not " . NationSetupStatus::HomeTerritoriesSelection->name);
         }
         $newNation = $context->getNewNation();
-        $territories = $context->getGame()->freeSuitableTerritoriesInTurn()->whereIn('id', $request->territory_ids)->get();
 
-        $newNation->finishSetup($territories);
+        $newNation->finishSetup(...$request->territory_ids);
 
         return response()->json();
     }

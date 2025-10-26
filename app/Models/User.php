@@ -109,8 +109,12 @@ class User extends Authenticatable
 
     public function getNationSetupStatus(Game $game): NationSetupStatus {
         $nationOrNull = Nation::getForUserOrNull($game, $this);
+        if (!is_null($nationOrNull)) {
+            return NationSetupStatus::FinishedSetup;
+        }
+        $newNationOrNull = NewNation::getForUserOrNull($game, $this);
 
-        return is_null($nationOrNull) ? NationSetupStatus::NotCreated : NationSetupStatus::FinishedSetup;
+        return is_null($newNationOrNull) ? NationSetupStatus::NotCreated : $newNationOrNull->getSetupStatus();
     }
 
     /**

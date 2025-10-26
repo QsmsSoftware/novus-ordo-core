@@ -7,6 +7,7 @@ use App\Utils\GuardsForAssertions;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Unique;
 use LogicException;
@@ -27,24 +28,33 @@ class NewNation extends Model
         return $this->id;
     }
 
-    public function finishSetup(Collection $homeTerritories): Nation {
-        if ($homeTerritories->count() != Game::NUMBER_OF_STARTING_TERRITORIES) {
-            throw new LogicException("Parameter homeTerritories: expecting " . Game::NUMBER_OF_STARTING_TERRITORIES . " territories, " . $homeTerritories->count() . " specified");
-        }
+    public function getSetupStatus(): NationSetupStatus {
+        return NationSetupStatus::from($this->nation_setup_status);
+    }
 
-        $homeTerritories->each(function (Territory $territory) {
-            if (!$territory->isSuitableAsHome()) {
-                throw new LogicException("Territory ID {$territory->getId()} is not suitable as home territory");
-            }
-        });
+    public function finishSetup(int ...$homeTerritoryIds): Nation {
+        if (count($homeTerritoryIds) != Game::NUMBER_OF_STARTING_TERRITORIES) {
+            throw new LogicException("Parameter homeTerritoryIds: expecting " . Game::NUMBER_OF_STARTING_TERRITORIES . " IDs, " . count($homeTerritoryIds) . " specified");
+        }
 
         $nation = Nation::notNull(Nation::withoutGlobalScopes()->find($this->getId()));
 
-        $homeTerritories->each(fn (Territory $territory) => $territory->getDetail()->assignOwner($nation));
+        DB::transaction(function () use ($homeTerritoryIds, $nation) {
+            $nation->lockForUpdate();
+            $homeTerritories = $nation->getGame()->freeSuitableTerritoriesInTurn()->lockForUpdate()->whereIn('id', $homeTerritoryIds)->get();
 
-        $nation->nation_setup_status = NationSetupStatus::FinishedSetup;
-        NationDetail::create($nation);
-        $nation->save();
+            $homeTerritories->each(function (Territory $territory) {
+                if (!$territory->isSuitableAsHome()) {
+                    throw new LogicException("Territory ID {$territory->getId()} is not suitable as home territory");
+                }
+            });
+
+            $homeTerritories->each(fn (Territory $territory) => $territory->getDetail()->assignOwner($nation));
+
+            $nation->nation_setup_status = NationSetupStatus::FinishedSetup;
+            NationDetail::create($nation);
+            $nation->save();
+        });
 
         return $nation;
     }
@@ -57,6 +67,12 @@ class NewNation extends Model
         static::addGlobalScope('ancient', function (Builder $builder) {
             $builder->whereNot('nation_setup_status', NationSetupStatus::FinishedSetup->value);
         });
+    }
+
+    public static function getForUserOrNull(Game $game, User $user): NewNation {
+        return NewNation::where('user_id', $user->getId())
+            ->where('game_id', $game->getId())
+            ->first();
     }
 
     public static function createRuleNoNationWithSameNameInGame(Game $game): Unique {

@@ -11,7 +11,7 @@ class MapDisplay {
     #containerId;
     #territoriesById;
     #canvas;
-    #onUpdate = [];
+    #layerRenderers = [];
     #onClick;
     #metadataByTerritoryId;
     #territoryLabeler;
@@ -63,8 +63,8 @@ class MapDisplay {
         this.#territoryLabeler = labeler;
     }
 
-    addLayer(onUpdateCallback) {
-        this.#onUpdate.push(onUpdateCallback);
+    addLayer(renderer) {
+        this.#layerRenderers.push(renderer);
     }
 
     setAllClickable(clickable) {
@@ -95,7 +95,7 @@ class MapDisplay {
     update() {
         let ctx = this.#canvas.getContext("2d");
         ctx.drawImage(document.getElementById(this.#containerId +  "-map-layer-0"), 0, 0, this.#canvas.width, this.#canvas.height);
-        this.#onUpdate.forEach(onUpdate => onUpdate(ctx, this));
+        this.#layerRenderers.forEach(renderer => renderer(ctx, this));
         ctx.drawImage(document.getElementById(this.#containerId +  "-map-layer-2"), 0, 0, this.#canvas.width, this.#canvas.height);
     }
 }
