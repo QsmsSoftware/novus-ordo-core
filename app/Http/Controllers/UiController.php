@@ -62,7 +62,7 @@ class CreateNationUiRequest extends FormRequest {
                 'required',
                 'string',
                 'min:2',
-                NewNation::createRuleNoNationWithSameNameInGame($this->context->getGame())
+                NewNation::createRuleNoNationWithSameNameInGameUnlessItsOwner($this->context->getGame(), $this->context->getUser())
             ],
             'territory_ids' => [
                 'required',
@@ -102,9 +102,14 @@ class UiController extends Controller
         $game = $context->getGame();
         $user = $context->getUser();
 
-        $createResult = NewNation::tryCreate($game, $user, $request->name);
-        
-        $newNation = NewNation::notNull($createResult);
+        $newNationOrNull = NewNation::getForUserOrNull($game, $user);
+        if (is_null($newNationOrNull)) {
+            $newNation = NewNation::notNull(NewNation::tryCreate($game, $user, $request->name));
+        }
+        else {
+            $newNation = $newNationOrNull;
+            $newNation->rename($request->name);
+        }
 
         $newNation->finishSetup(...$request->territory_ids);
 

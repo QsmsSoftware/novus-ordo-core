@@ -6,8 +6,9 @@ use App\Domain\NationSetupStatus;
 use App\Utils\GuardsForAssertions;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Unique;
 use LogicException;
@@ -21,8 +22,17 @@ readonly class NationWithSameNameAlreadyExists {
 class NewNation extends Model
 {
     use GuardsForAssertions;
+    private const CRITICAL_SECTION_HOME_TERRITORIES_SELECT_CACHE_NAME = 'critical_section:home_territories_select';
 
     protected $table = 'nations';
+
+    public function game(): BelongsTo {
+        return $this->BelongsTo(Game::class);
+    }
+
+    public function getGame(): Game {
+        return $this->game;
+    }
 
     public function getId(): int {
         return $this->id;
@@ -32,19 +42,33 @@ class NewNation extends Model
         return NationSetupStatus::from($this->nation_setup_status);
     }
 
+    public function rename(string $usualName) {
+        if ($this->anotherNationHasTheSameName($usualName)) {
+            throw new LogicException("Another nation is named '$usualName'");
+        }
+        $this->usual_name = $usualName;
+        $this->save();
+    }
+
+    private function anotherNationHasTheSameName(string $usualName): bool {
+        return NewNation::withoutGlobalScopes()
+            ->where('game_id', $this->getGame()->getId())
+            ->whereRaw('LOWER(' . Nation::FIELD_USUAL_NAME . ') = ?', strtolower($usualName))
+            ->whereNot('id', $this->getId())
+            ->exists();
+    }
+
     public function finishSetup(int ...$homeTerritoryIds): Nation {
         if (count($homeTerritoryIds) != Game::NUMBER_OF_STARTING_TERRITORIES) {
             throw new LogicException("Parameter homeTerritoryIds: expecting " . Game::NUMBER_OF_STARTING_TERRITORIES . " IDs, " . count($homeTerritoryIds) . " specified");
         }
 
-        $nation = Nation::notNull(Nation::withoutGlobalScopes()->find($this->getId()));
-
-        DB::transaction(function () use ($homeTerritoryIds, $nation) {
-            $nation->lockForUpdate();
+        $nation = Cache::lock(NewNation::CRITICAL_SECTION_HOME_TERRITORIES_SELECT_CACHE_NAME, 10)->block(2, function () use ($homeTerritoryIds) {
+            $nation = Nation::notNull(Nation::withoutGlobalScopes()->find($this->getId()));
+            
             $homeTerritories = $nation->getGame()->freeSuitableTerritoriesInTurn()->whereIn('id', $homeTerritoryIds)->get();
-
+            
             $homeTerritories->each(function (Territory $territory) {
-                $territory->getDetail()->lockForUpdate();
                 if (!$territory->isSuitableAsHome()) {
                     throw new LogicException("Territory ID {$territory->getId()} is not suitable as home territory");
                 }
@@ -55,7 +79,11 @@ class NewNation extends Model
             $nation->nation_setup_status = NationSetupStatus::FinishedSetup;
             NationDetail::create($nation);
             $nation->save();
+
+            return $nation;
         });
+
+        assert($nation instanceof Nation);
 
         return $nation;
     }
@@ -70,7 +98,7 @@ class NewNation extends Model
         });
     }
 
-    public static function getForUserOrNull(Game $game, User $user): NewNation {
+    public static function getForUserOrNull(Game $game, User $user): ?NewNation {
         return NewNation::where('user_id', $user->getId())
             ->where('game_id', $game->getId())
             ->first();
@@ -79,6 +107,12 @@ class NewNation extends Model
     public static function createRuleNoNationWithSameNameInGame(Game $game): Unique {
         return Rule::unique(NewNation::class, 'usual_name')
             ->where('game_id', $game->getId());
+    }
+
+    public static function createRuleNoNationWithSameNameInGameUnlessItsOwner(Game $game, User $user): Unique {
+        return Rule::unique(NewNation::class, 'usual_name')
+            ->where('game_id', $game->getId())
+            ->whereNot('user_id', $user->getId());
     }
 
     private static function nationWithSameNameAlreadyExistsInGame(Game $game, string $usualName): bool {
@@ -100,12 +134,12 @@ class NewNation extends Model
     }
 
     public static function tryCreate(Game $game, User $user, string $usualName): NewNation|NationWithSameNameAlreadyExists {
-        if (NewNation::nationWithSameNameAlreadyExistsInGame($game, $usualName)) {
-            return new NationWithSameNameAlreadyExists($usualName);
-        }
-
         if (NewNation::userAlreadyHasANationInGame($game, $user)) {
             throw new LogicException("User ID '{$user->getId()}' already has a nation in game ID '{$game->getId()}'");
+        }
+
+        if (NewNation::nationWithSameNameAlreadyExistsInGame($game, $usualName)) {
+            return new NationWithSameNameAlreadyExists($usualName);
         }
 
         $nation = new NewNation();
