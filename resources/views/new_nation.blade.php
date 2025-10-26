@@ -16,6 +16,7 @@
         let territoriesById = mapExportedArray(@json($territories), t => t.territory_id);
         var selectedTerritoriesIds = [];
         var selectableTerritoriesIds = [];
+        var mapDisplay;
         function mapExportedArray(exportedArray, keyFactory) {
             let map = new Map();
 
@@ -27,7 +28,8 @@
         function clearSelection() {
             selectedTerritoriesIds.length = 0;
             updateSelectableTerritories();
-            updateMap();
+            validate();
+            mapDisplay.update();
             $("#territory_ids_as_json").val(JSON.stringify([]));
             $("#pick-message").html(`select your first territory out of ${numberOfHomeTerritories}`);
         }
@@ -48,14 +50,24 @@
                 $("#pick-message").html("done!");
             }
             updateSelectableTerritories();
-            updateMap();
+            validate();
+            mapDisplay.update();
+        }
+
+        function validate() {
+            let selectionCompleted = selectedTerritoriesIds.length == numberOfHomeTerritories;
+            let valid = selectionCompleted && document.getElementById("name").value.length >= 2
+
+            document.getElementById("submit").disabled = !valid;
         }
 
         function updateSelectableTerritories() {
+            let selectionCompleted = selectedTerritoriesIds.length == numberOfHomeTerritories;
+            
             if (selectedTerritoriesIds.length == 0) {
                 selectableTerritoriesIds = suitableAsHomeIds.slice();
             }
-            else if (selectedTerritoriesIds.length == numberOfHomeTerritories) {
+            else if (selectionCompleted) {
                 selectableTerritoriesIds = [];
             }
             else {
@@ -70,57 +82,34 @@
                     });
                 });
             }
-        }
 
-        var mapCanvas;
-        var mapCanvasContext;
-
-        function fillTerritory(ctx, territory, fillStyle) {
-            let previousFillStyle = ctx.fillStyle;
-            let previousGlobalAlpha = ctx.globalAlpha;
-            ctx.fillStyle = fillStyle;
-            ctx.globalAlpha = 0.5;
-            mapCanvasContext.fillRect(territory.x * {{ $map_tile_width_px }}, territory.y * {{ $map_tile_height_px }}, {{ $map_tile_width_px }}, {{ $map_tile_height_px }});
-            ctx.fillStyle = previousFillStyle;
-            ctx.globalAlpha = previousGlobalAlpha;
-        }
-
-        function updateMap() {
-            mapCanvasContext.drawImage(document.getElementById("map-layer-0"), 0, 0, mapCanvas.width, mapCanvas.height);
-            selectableTerritoriesIds.forEach(tid => fillTerritory(mapCanvasContext, territoriesById.get(tid), "green"));
-            alreadyTakenIds.forEach(tid => fillTerritory(mapCanvasContext, territoriesById.get(tid), "black"));
-            selectedTerritoriesIds.forEach(tid => fillTerritory(mapCanvasContext, territoriesById.get(tid), "blue"));
-            mapCanvasContext.drawImage(document.getElementById("map-layer-2"), 0, 0, mapCanvas.width, mapCanvas.height);
-        }
-
-        function getTerritoryUnderCursorOrUndefined(cursorX, cursorY) {
-            const x = Math.floor(cursorX / {{ $map_tile_width_px }});
-            const y = Math.floor(cursorY / {{ $map_tile_height_px }});
-            return territoriesById.values().find(t => t.x == x && t.y == y);
+            mapDisplay.setAllClickable(false);
+            selectableTerritoriesIds.forEach(tid => mapDisplay.setClickable(tid, true));
         }
 
         $(document).ready(function(){
-            mapCanvas = $("#map-canvas")[0];
-            mapCanvasContext = mapCanvas.getContext("2d");
-            mapCanvas.addEventListener('click', (event) => {
-                const rect = mapCanvas.getBoundingClientRect();
-                const x = event.clientX - rect.left;
-                const y = event.clientY - rect.top;
-                
-                selectTerritory(getTerritoryUnderCursorOrUndefined(x, y).territory_id);
-            });
-            mapCanvas.addEventListener('mousemove', (event) => {
-                const rect = mapCanvas.getBoundingClientRect();
-                const x = event.clientX - rect.left;
-                const y = event.clientY - rect.top;
-                let territoryOrUndefined = getTerritoryUnderCursorOrUndefined(x, y);
+            document.getElementById("submit").disabled = true;
+            document.getElementById("name").addEventListener('input', validate);
+        });
 
-                mapCanvas.title = territoryOrUndefined === undefined ? "" : territoryOrUndefined.name;
+        window.addEventListener("load", function() {
+            mapDisplay = new MapDisplay("map-display", territoriesById, config => {
+                config.onClick = selectTerritory;
+                config.territoryLabeler = t => t.name + (alreadyTakenIds.includes(t.territory_id) ? " (already taken)" : "");
+                
+                config.addLayer((ctx, md) => {
+                    selectableTerritoriesIds.forEach(tid => md.fillTerritory(territoriesById.get(tid), "green"));
+                    alreadyTakenIds.forEach(tid => md.fillTerritory(territoriesById.get(tid), "black"));
+                    selectedTerritoriesIds.forEach(tid => md.fillTerritory(territoriesById.get(tid), "blue"));
+                });
             });
+
             clearSelection();
-            $(window).on('load', function() {
-                updateMap();
-            });
+
+            let previousSelectionOrEmpty = @json(old('territory_ids_as_json', ''));
+            if (previousSelectionOrEmpty != '') {
+                JSON.parse(previousSelectionOrEmpty).forEach(tid => selectTerritory(tid));
+            }
         });
     </script>
     <body>
@@ -133,17 +122,13 @@
             <form method="post" enctype="multipart/form-data" action="{{route('nation.store')}}">
                 @csrf
                 Nation's name:
-                <input type="text" name="name" class="form-control">
+                <input type="text" id="name" name="name" class="form-control" value="{{ old('name') }}">
                 <input type="hidden" name="territory_ids_as_json" id="territory_ids_as_json">
                 <br>
-                <button class="btn btn-primary" type="submit">Create nation</button>
+                <button id="submit" class="btn btn-primary" type="submit">Create nation</button>
             </form>
         </div>
         <p>Select your home territory (<span id="pick-message"></span>) <a href="javascript:void(0)" onclick="clearSelection()">clear selection</a></p>
-        <canvas id="map-canvas" width="{{ $map_width_px }}" height="{{ $map_height_px }}"></canvas>
-        <div hidden>
-            <img id="map-layer-0" src="res/map/map_layer_0.png" />
-            <img id="map-layer-2" src="res/map/map_layer_2.png" />
-        </div>
+        <x-map-display id="map-display" />
     </body>
 </html>

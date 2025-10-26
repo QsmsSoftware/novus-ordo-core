@@ -138,10 +138,10 @@ class UiController extends Controller
             'suitable_as_home_ids' => $context->getGame()->freeSuitableTerritoriesInTurn()->pluck('id'),
             'already_taken_ids' => $context->getGame()->alreadyTakenTerritoriesInTurn()->pluck('id'),
             'js_client_services' => $servicesGenerator->generateClientService("NovusOrdoServices", "ajax"),
-            'map_tile_height_px' => MapData::HEIGHT_PIXELS_PER_TILE,
-            'map_tile_width_px' => MapData::WIDTH_PIXELS_PER_TILE,
-            'map_height_px' => MapData::HEIGHT * MapData::HEIGHT_PIXELS_PER_TILE,
-            'map_width_px' => MapData::WIDTH * MapData::WIDTH_PIXELS_PER_TILE,
+            // 'map_tile_height_px' => MapData::HEIGHT_PIXELS_PER_TILE,
+            // 'map_tile_width_px' => MapData::WIDTH_PIXELS_PER_TILE,
+            // 'map_height_px' => MapData::HEIGHT * MapData::HEIGHT_PIXELS_PER_TILE,
+            // 'map_width_px' => MapData::WIDTH * MapData::WIDTH_PIXELS_PER_TILE,
         ]);
     }
 
