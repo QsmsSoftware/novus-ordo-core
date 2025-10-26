@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use LogicException;
 use PhpOption\Option;
 
@@ -152,38 +153,40 @@ class Game extends Model
     }
 
     public function nextTurn(): void {
-        $currentTurn = Turn::getCurrentForGame($this);
-        $nextTurn = $currentTurn->createNext();
+        Cache::lock("critical_section:next_turn_game_{$this->getId()}", ini_get('max_execution_time') * 0.8)->block(1, function () {
+            $currentTurn = Turn::getCurrentForGame($this);
+            $nextTurn = $currentTurn->createNext();
 
-        // Upkeep.
-        $this->nations()->get()->each(fn (Nation $n) => $n->onNextTurn($currentTurn, $nextTurn));
-        $this->territories()->get()->each(fn (Territory $t) => $t->onNextTurn($currentTurn, $nextTurn));
-        $this->activeDivisionsInTurn($currentTurn)->get()->each(fn (Division $d) => $d->onNextTurn($currentTurn, $nextTurn));
+            // Upkeep.
+            $this->nations()->get()->each(fn (Nation $n) => $n->onNextTurn($currentTurn, $nextTurn));
+            $this->territories()->get()->each(fn (Territory $t) => $t->onNextTurn($currentTurn, $nextTurn));
+            $this->activeDivisionsInTurn($currentTurn)->get()->each(fn (Division $d) => $d->onNextTurn($currentTurn, $nextTurn));
 
-        // Move divisions.
-        $this->activeDivisionsInTurn($currentTurn)->get()->each(fn (Division $d) => $d->onMovePhase($currentTurn, $nextTurn));
+            // Move divisions.
+            $this->activeDivisionsInTurn($currentTurn)->get()->each(fn (Division $d) => $d->onMovePhase($currentTurn, $nextTurn));
 
-        // Attacks.
-        $divisionsByOwnerAndDestinationTerritory = $this->activeDivisionsInTurn($currentTurn)->get()
-            ->filter(fn (Division $d) => $d->getDetail($currentTurn)->isAttacking())
-            ->groupBy([
-                fn (Division $d) => $d->getNation()->getId() . '-' . $d->getDetail($currentTurn)->getOrder()->getDestinationTerritory()->getId()
-            ])
-            ->shuffle();
-        foreach ($divisionsByOwnerAndDestinationTerritory as $attackingDivisions) {
-            $destinationTerritoryId = Division::notNull($attackingDivisions->first())
-                ->getDetail($currentTurn)
-                ->getOrder()
-                ->getDestinationTerritory()
-                ->getId();
-            $destinationTerritory = $this->getTerritoryWithId($destinationTerritoryId);
-            Battle::resolveBattle($destinationTerritory, $attackingDivisions);
-            $attackingDivisions->each(fn (Division $d) => $d->getDetail($currentTurn)->getOrder()->onExecution());
-        }
+            // Attacks.
+            $divisionsByOwnerAndDestinationTerritory = $this->activeDivisionsInTurn($currentTurn)->get()
+                ->filter(fn (Division $d) => $d->getDetail($currentTurn)->isAttacking())
+                ->groupBy([
+                    fn (Division $d) => $d->getNation()->getId() . '-' . $d->getDetail($currentTurn)->getOrder()->getDestinationTerritory()->getId()
+                ])
+                ->shuffle();
+            foreach ($divisionsByOwnerAndDestinationTerritory as $attackingDivisions) {
+                $destinationTerritoryId = Division::notNull($attackingDivisions->first())
+                    ->getDetail($currentTurn)
+                    ->getOrder()
+                    ->getDestinationTerritory()
+                    ->getId();
+                $destinationTerritory = $this->getTerritoryWithId($destinationTerritoryId);
+                Battle::resolveBattle($destinationTerritory, $attackingDivisions);
+                $attackingDivisions->each(fn (Division $d) => $d->getDetail($currentTurn)->getOrder()->onExecution());
+            }
 
-        $this->updateVictoryStatus();
+            $this->updateVictoryStatus();
 
-        $this->save();
+            $this->save();
+        });
     }
 
     public function rollbackLastTurn(): void {
@@ -265,15 +268,17 @@ class Game extends Model
             ->first();
     }
 
-    public static function createNew() {
-        $currentGameOrNull = Game::getCurrentOrNull();
+    public static function createNew(): Game {
+        return Cache::lock("critical_section:create_game", ini_get('max_execution_time') * 0.8)->block(1, function () {
+            $currentGameOrNull = Game::getCurrentOrNull();
 
-        Option::fromValue($currentGameOrNull)->forAll(function (Game $currentGame) {
-            $currentGame->disable();
-            $currentGame->save();
+            Option::fromValue($currentGameOrNull)->forAll(function (Game $currentGame) {
+                $currentGame->disable();
+                $currentGame->save();
+            });
+
+            return Game::create();
         });
-
-        return Game::create();
     }
 
     private static function create() {
