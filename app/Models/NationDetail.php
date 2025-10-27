@@ -36,6 +36,7 @@ readonly class BudgetInfo
         public int $upkeep,
         public int $expenses,
         public int $available_production,
+        public int $max_remaining_deployments,
     ) {}
 }
 
@@ -106,7 +107,11 @@ class NationDetail extends Model
     }
 
     public function exportForOwner() :OwnedNationInfo {
-        return new OwnedNationInfo($this->getNation()->getId(), $this->getTurn()->getNumber(), $this->getNation()->getUsualName());
+        return new OwnedNationInfo(
+            nation_id: $this->getNation()->getId(),
+            turn_number: $this->getTurn()->getNumber(),
+            usual_name: $this->getNation()->getUsualName(),
+        );
     }
 
     public function deployments() :HasMany {
@@ -165,7 +170,8 @@ class NationDetail extends Model
             reserves: $this->getReserves(),
             upkeep: $this->getUpkeep(),
             expenses: $this->getExpenses(),
-            available_production: $this->getAvailableProduction()
+            available_production: $this->getAvailableProduction(),
+            max_remaining_deployments: $this->getMaxRemainingDeployments(),
         );
     }
 

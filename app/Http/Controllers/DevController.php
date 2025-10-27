@@ -174,7 +174,7 @@ class DevController extends Controller
     public function nextTurn(): RedirectResponse {
         Game::getCurrent()->nextTurn();
 
-        return redirect()->route('dev.panel');
+        return redirect()->back();
     }
 
     public function rollbackTurn(): RedirectResponse {

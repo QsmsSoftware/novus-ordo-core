@@ -2,7 +2,6 @@
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
     <head>
         <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>{{ config('app.name', 'Laravel') }}</title>
         <script src="{{ asset('js/jquery-3.7.1.min.js') }}"></script>
     </head>
@@ -29,7 +28,7 @@
             selectedTerritoriesIds.length = 0;
             updateSelectableTerritories();
             validate();
-            mapDisplay.update();
+            mapDisplay.refresh();
             $("#territory_ids_as_json").val(JSON.stringify([]));
             $("#pick-message").html(`select your first territory out of ${numberOfHomeTerritories}`);
         }
@@ -51,7 +50,7 @@
             }
             updateSelectableTerritories();
             validate();
-            mapDisplay.update();
+            mapDisplay.refresh();
         }
 
         function validate() {

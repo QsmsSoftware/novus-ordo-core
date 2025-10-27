@@ -13,8 +13,10 @@ class MapDisplay {
     #canvas;
     #layerRenderers = [];
     #onClick;
+    #onContextMenu;
     #metadataByTerritoryId;
     #territoryLabeler;
+    #addInternationalBorders = false;
 
     constructor(containerId, territoriesById, config) {
         this.#containerId = containerId;
@@ -27,7 +29,17 @@ class MapDisplay {
             let territoryId = this.#getTerritoryUnderCursorOrUndefined(x, y).territory_id;
             
             if (this.#onClick && this.#metadataByTerritoryId.get(territoryId).clickable) {
-                this.#onClick(territoryId);
+                this.#onClick(territoryId, event);
+            }
+        });
+        this.#canvas.addEventListener('contextmenu', (event) => {
+            const rect = this.#canvas.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+            let territoryId = this.#getTerritoryUnderCursorOrUndefined(x, y).territory_id;
+            
+            if (this.#onContextMenu && this.#metadataByTerritoryId.get(territoryId).clickable) {
+                this.#onContextMenu(territoryId, event);
             }
         });
         this.#canvas.addEventListener('mousemove', (event) => {
@@ -52,19 +64,31 @@ class MapDisplay {
         if (config) {
             config(this);
         }
-        this.update();
+        this.refresh();
     }
 
     set onClick(onClickCallback) {
         this.#onClick = onClickCallback;
     }
 
+    set onContextMenu(onContextMenuCallback) {
+        this.#onContextMenu = onContextMenuCallback;
+    }
+
     set territoryLabeler(labeler) {
         this.#territoryLabeler = labeler;
     }
 
+    set addInternationalBorders(b) {
+        this.#addInternationalBorders = b;
+    }
+
     addLayer(renderer) {
         this.#layerRenderers.push(renderer);
+    }
+
+    setLayers(renderers) {
+        this.#layerRenderers = renderers;
     }
 
     setAllClickable(clickable) {
@@ -86,16 +110,71 @@ class MapDisplay {
         ctx.globalAlpha = previousGlobalAlpha;
     }
 
-    #getTerritoryUnderCursorOrUndefined(cursorX, cursorY) {
-        const x = Math.floor(cursorX / {{ $map_tile_width_px }});
-        const y = Math.floor(cursorY / {{ $map_tile_height_px }});
+    #getTerritoryByCoordinates(x, y) {
         return this.#territoriesById.values().find(t => t.x == x && t.y == y);
     }
 
-    update() {
+    #getTerritoryUnderCursorOrUndefined(cursorX, cursorY) {
+        const x = Math.floor(cursorX / {{ $map_tile_width_px }});
+        const y = Math.floor(cursorY / {{ $map_tile_height_px }});
+        return this.#getTerritoryByCoordinates(x, y);
+    }
+
+    #drawInternationalBorders(ctx) {
+        let previousGlobalAlpha = ctx.globalAlpha;
+        ctx.globalAlpha = 0.33;
+        this.#territoriesById.values().forEach(t => {
+            if (!t.owner_nation_id) {
+                return;
+            }
+            var connectedTerritory;
+            if (connectedTerritory = this.#getTerritoryByCoordinates(t.x, t.y - 1)) {
+                // Top
+                if (connectedTerritory.owner_nation_id && t.owner_nation_id != connectedTerritory.owner_nation_id) {
+                    ctx.beginPath();
+                    ctx.moveTo(t.x * {{ $map_tile_width_px }}, t.y * {{ $map_tile_height_px }});
+                    ctx.lineTo((t.x + 1) * {{ $map_tile_width_px }}, t.y * {{ $map_tile_height_px }});
+                    ctx.stroke();
+                }
+            }
+            if (connectedTerritory = this.#getTerritoryByCoordinates(t.x + 1, t.y)) {
+                // Right
+                if (connectedTerritory.owner_nation_id && t.owner_nation_id != connectedTerritory.owner_nation_id) {
+                    ctx.beginPath();
+                    ctx.moveTo((t.x + 1) * {{ $map_tile_width_px }}, t.y * {{ $map_tile_height_px }});
+                    ctx.lineTo((t.x + 1) * {{ $map_tile_width_px }}, (t.y + 1) * {{ $map_tile_height_px }});
+                    ctx.stroke();
+                }
+            }
+            if (connectedTerritory = this.#getTerritoryByCoordinates(t.x, t.y + 1)) {
+                // Bottom
+                if (connectedTerritory.owner_nation_id && t.owner_nation_id != connectedTerritory.owner_nation_id) {
+                    ctx.beginPath();
+                    ctx.moveTo(t.x * {{ $map_tile_width_px }}, (t.y + 1) * {{ $map_tile_height_px }});
+                    ctx.lineTo((t.x + 1) * {{ $map_tile_width_px }}, (t.y + 1) * {{ $map_tile_height_px }});
+                    ctx.stroke();
+                }
+            }
+            if (connectedTerritory = this.#getTerritoryByCoordinates(t.x - 1, t.y)) {
+                // Left
+                if (connectedTerritory.owner_nation_id && t.owner_nation_id != connectedTerritory.owner_nation_id) {
+                    ctx.beginPath();
+                    ctx.moveTo(t.x * {{ $map_tile_width_px }}, t.y * {{ $map_tile_height_px }});
+                    ctx.lineTo(t.x * {{ $map_tile_width_px }}, (t.y + 1) * {{ $map_tile_height_px }});
+                    ctx.stroke();
+                }
+            }
+        });
+        ctx.globalAlpha = previousGlobalAlpha;
+    }
+
+    refresh() {
         let ctx = this.#canvas.getContext("2d");
         ctx.drawImage(document.getElementById(this.#containerId +  "-map-layer-0"), 0, 0, this.#canvas.width, this.#canvas.height);
         this.#layerRenderers.forEach(renderer => renderer(ctx, this));
+        if (this.#addInternationalBorders) {
+            this.#drawInternationalBorders(ctx);
+        }
         ctx.drawImage(document.getElementById(this.#containerId +  "-map-layer-2"), 0, 0, this.#canvas.width, this.#canvas.height);
     }
 }

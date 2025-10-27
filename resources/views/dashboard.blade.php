@@ -1,526 +1,503 @@
+@php
+    use App\Http\Middleware\EnsureWhenRunningInDevelopmentOnly;
+@endphp
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
     <head>
         <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>{{ config('app.name', 'Laravel') }}</title>
         <script src="{{ asset('js/jquery-3.7.1.min.js') }}"></script>
-        <style type="text/css">
-            /* AI generated. */
-            .grid-container {
-                display: grid; /* Enables CSS Grid layout */
-                grid-template-columns: 1fr 1fr; /* Creates two equal-width columns */
-                gap: 20px; /* Adds space between columns */
-            }
-
-            .column {
-                padding: 15px;
-                background-color: #f0f0f0;
-                border: 1px solid #ccc;
-            }
-
-            /* Optional: Make columns stack on smaller screens */
-            @media (max-width: 768px) {
-                .grid-container {
-                    grid-template-columns: 1fr; /* Changes to a single column layout */
-                }
-            }
-        </style>
     </head>
-    <body>
-        <script>
-            const TerritoryDisplayMode = {
-                Normal: 0,
-                DeployDivisions: 1,
-                SelectDivisions: 2,
-                SelectTerritory: 3,
-            };
+    <script>
+        {!! $js_client_services !!}
+        let services = new NovusOrdoServices(@json(url("")), @json(csrf_token()));
 
-            const TerrainType = {
-                Water: "Water",
-            };
+        const MapMode = {
+            Default: 0,
+            QueryTerritory: 0,
+            DeployDivisions: 1,
+            SelectDestinationTerritory: 2,
+        };
+        var currentMapMode;
 
-            {!! $js_client_services !!}
-            let services = new NovusOrdoServices(@json(url("")), @json(csrf_token()));
+        const TerrainType = {
+            Water: "Water",
+        };
 
-            class PendingDeploymentRequest {
-                #_territoryId;
+        const OrderType = {
+            Move: "Move",
+        }
 
-                get territoryId() {
-                    return this.#_territoryId;
-                }
+        let victoryRanking = @json($victory_ranking);
+        let budgetItems = mapExportedObject(@json($budget_items));
+        let territoriesById = mapExportedArray(@json($territories), t => t.territory_id);
+        let nationsById = mapExportedArray(@json($nations), n => n.nation_id);
+        let allBattleLogs = @json($battle_logs);
+        var deploymentsById = mapExportedArray(@json($deployments), d => d.deployment_id);
+        var divisionsById = mapExportedArray(@json($divisions), d => d.division_id);
+        var budget = @json($budget);
 
-                #_numberToDeploy = 0;
+        let ownNation = @json($own_nation);
+        var mapDisplay;
+        var userSelectedPane = null;
+        var selectedTerritory = null;
+        
+        var pendingDeployments = [];
 
-                get numberToDeploy() {
-                    return this.#_numberToDeploy;
-                }
+        function defaultMapLayer(ctx, md) {
+            territoriesById.values().filter(t => t.owner_nation_id != null && t.owner_nation_id != ownNation.nation_id).forEach(t => md.fillTerritory(t, "red"));
+            territoriesById.values().filter(t => t.owner_nation_id == ownNation.nation_id).forEach(t => md.fillTerritory(t, "blue"));
+        }
 
-                constructor(territoryId) {
-                    this.#_territoryId = territoryId;
-                }
+        function mapExportedArray(exportedArray, keyFactory) {
+            let map = new Map();
 
-                increment() {
-                    this.#_numberToDeploy++;
-                }
+            exportedArray.forEach(value => map.set(keyFactory(value), value));
+
+            return map;
+        }
+        
+        function mapExportedObject(exportedObject, keyFactory) {
+            let map = new Map();
+
+            Object.entries(exportedObject).forEach(([key, value]) => {
+                map.set(key, value);
+            });
+
+            return map;
+        }
+
+        function queryTerritory(tid) {
+            let territory = territoriesById.get(tid);
+            selectedTerritory = territory;
+            updateNationPane(nationsById.get(territory.owner_nation_id));
+            updateTerritoryPane();
+            updateDivisionsPane();
+            if (!['nation', 'territory', 'deployments', 'divisions'].includes(userSelectedPane)) {
+                selectDetailsPane('territory', true);
             }
+            enablePanes(['nation', 'territory', 'battle-logs', 'budget', 'deployments', 'divisions', 'victory']);
+        }
 
-            class TerritoryDivisionsSelection {
-                #_territoryId;
+        function updateTerritoryPane() {
+            $("#territory-details").html(
+                `<p><b>${selectedTerritory.name}</b><br>`
+                + (selectedTerritory.terrain_type == TerrainType.Water
+                    ? "Sea"
+                    : (selectedTerritory.has_sea_access ? "Coastal" : "No sea access")
+                )
+                + (selectedTerritory.connected_territory_ids.length > 0 ? '. Land access to ' + selectedTerritory.connected_territory_ids.map(ctid => territoriesById.get(ctid)).map(t => renderActionLink(t.name, `queryTerritory(${t.territory_id})`)).join(', ') : '')
+                + '</p>'
+                + (selectedTerritory.owner_nation_id != null ? `<p>Owned by ${nationsById.get(selectedTerritory.owner_nation_id).usual_name}</p>` : '')
+            );
+        }
 
-                get territoryId() {
-                    return this.#_territoryId;
-                }
-
-                #_numberSelected = 0;
-
-                get numberSelected() {
-                    return this.#_numberSelected;
-                }
-
-                constructor(territoryId) {
-                    this.#_territoryId = territoryId;
-                }
-
-                increment() {
-                    this.#_numberSelected++;
-                }
+        function updateNationPane(nation) {
+            if (nation !== undefined) {
+                $("#nation-details").html(`<p><b>${nation.usual_name}</b></p>`);
             }
-
-            var currentTerritoryDisplayMode = TerritoryDisplayMode.Normal;
-            let ownNation = @json($ownNation);
-            let ownTerritoriesById = exportedToMapWithNumericKeys(@json($ownTerritoriesById));
-            let ownDivisionsById = exportedToMapWithNumericKeys(@json($ownDivisionsById));
-            let deploymentsById = exportedToMapWithNumericKeys(@json($deploymentsById));
-            let nationsById = exportedToMapWithNumericKeys(@json($nationsById));
-            let territoriesById = exportedToMapWithNumericKeys(@json($territoriesById));
-            let battleLogs = @json($battleLogs);
-            let deploymentsByTerritoryId = new Map();
-            let pendingDeploymentsByTerritoryId = new Map();
-            let selectedDivisionsByTerritoryId = new Map();
-            let maxDeployments = @json($max_remaining_deployments);
-            var currentDeployments = 0;
-            var selectedDivisionIds = [];
-            let uriTemplatePostDeploy = @json(route('ajax.deploy-in-territory', ['territoryId' => '##territoryId##']));
-            let divisionsByTerritoryId = new Map();
-            let territoriesByNationId = new Map();
-            let idleDivisionsById = new Map();
-            
-            function exportedToMapWithNumericKeys(exportedObject) {
-                let map = new Map();
-
-                Object.entries(exportedObject).forEach(([key, value]) => {
-                    map.set(parseInt(key), value);
-                })
-
-                return map;
+            else {
+                $("#nation-details").html("<p><b>Neutral territory</b></p>");
             }
+        }
 
-            function selectDivisionFromTerritory(territoryId) {
-                if (selectedDivisionsByTerritoryId.has(territoryId)) {
-                    request = selectedDivisionsByTerritoryId.get(territoryId);
-                }
-                else {
-                    request = new TerritoryDivisionsSelection(territoryId);
-                    selectedDivisionsByTerritoryId.set(territoryId, request)
-                }
+        function updateBudgetPane() {
+            $('#budget-details').html(
+                '<table>'
+                + budgetItems.keys().toArray().map(key => {
+                    let item = budgetItems.get(key);
+                    return item.type == "Asset"
+                        ? `<tr><td>${item.description}</td><td><i>${budget[key]}</i></td></tr>`
+                        : `<tr><td>${item.description}</td><td><i style="color: crimson">${budget[key]}</i></td></tr>`;
+                }).join("")
+                + '</table>'
+            );
+        }
 
-                request.increment();
-                renderOwnTerritories();
+        function updateVictoryPane() {
+            $('#victory-details').html(
+                '<table>'
+                + victoryRanking.map((rankInfo, i) => `<tr><td>${i + 1}</td><td>${nationsById.get(rankInfo.nationId).usual_name}</td><td>${(rankInfo.progress * 100).toFixed(2)}% (owns ${rankInfo.numberOfTerritories} of ${rankInfo.numberOfTerritoriesRequired} required territories)</td></tr>`).join("")
+                + '</table>'
+            );
+        }
+
+        function updateBattleLogsPane(battleLogs) {
+            if (battleLogs.length == 0) {
+                $('#battle-logs-details').html("<p>We didn't participate in any battle this turn.</p>");
             }
-
-            function addDeployment(territoryId) {
-                if (pendingDeploymentsByTerritoryId.has(territoryId)) {
-                    request = pendingDeploymentsByTerritoryId.get(territoryId);
-                }
-                else {
-                    request = new PendingDeploymentRequest(territoryId);
-                    pendingDeploymentsByTerritoryId.set(territoryId, request)
-                }
-
-                request.increment();
-                currentDeployments++;
-                renderOwnTerritories();
-            }
-
-            function cancelPendingDeployments() {
-                pendingDeploymentsByTerritoryId.clear();
-                currentDeployments = 0;
-                renderOwnTerritories();
-            }
-            
-            function deployPending() {
-                let callChain = Promise.resolve();
-
-                pendingDeploymentsByTerritoryId.forEach(request => {
-                    callChain = callChain
-                        .then(() => {
-                            return $.post({
-                                    url: uriTemplatePostDeploy.replace('##territoryId##', request.territoryId),
-                                    data: {
-                                        _token: @json(csrf_token()),
-                                        number_of_divisions: request.numberToDeploy
-                                    }
-                                })
-                        })
-                        
-                });
-
-                callChain
-                    .then(() => window.location.reload())
-                    .catch(error => {
-                        $("#error_messages").html(`<li style="color: crimson">${JSON.stringify(error.responseJSON)}}</li>`);
-                    });
-            }
-
-            function cancelAllDeployment() {
-                if (deploymentsById.size < 1) {
-                    return;
-                }
-                $.post({
-                    url: @json(route('ajax.cancel-deployments')),
-                    data: {
-                        _token: @json(csrf_token()),
-                        deployment_ids: deploymentsById.values().map(d => d.deployment_id).toArray()
-                    }
-                })
-                .then(() => window.location.reload())
-                .catch(error => {
-                    $("#error_messages").html(`<li style="color: crimson">${JSON.stringify(error.responseJSON)}}</li>`);
-                });
-            }
-
-            function cancelOrder(divisionId) {
-                $.post({
-                    url: @json(route('ajax.cancel-orders')),
-                    data: {
-                        _token: @json(csrf_token()),
-                        division_ids: [divisionId]
-                    }
-                })
-                .then(() => window.location.reload())
-                .catch(error => {
-                    $("#error_messages").html(`<li style="color: crimson">${JSON.stringify(error.responseJSON)}}</li>`);
-                });
-            }
-
-            function cancelMovingDivisions() {
-                selectedDivisionsByTerritoryId.clear();
-                selectedDivisionIds = [];
-                switchTerritoryDisplayTo(TerritoryDisplayMode.Normal);
-            }
-
-            function selectTargetTerritoryForSelectedDivisions() {
-                selectedDivisionIds = [];
-                selectedDivisionsByTerritoryId.forEach(selection => {
-                    let divs = divisionsByTerritoryId.get(selection.territoryId).slice(0, selection.numberSelected);
-                    selectedDivisionIds.push(...divs.map(d => d.division_id));
-                });
-
-                switchTerritoryDisplayTo(TerritoryDisplayMode.SelectTerritory);
-            }
-
-            function selectTerritory(territoryId) {
-                $.post({
-                    url: @json(route('ajax.send-move-orders')),
-                    data: {
-                        _token: @json(csrf_token()),
-                        orders: selectedDivisionIds.map(did => ({ division_id: did, destination_territory_id: territoryId }))
-                    }
-                })
-                .then(() => window.location.reload())
-                .catch(error => {
-                    $("#error_messages").html(`<li style="color: crimson">${JSON.stringify(error.responseJSON)}}</li>`);
-                });
-            }
-
-            function switchTerritoryDisplayTo(displayMode) {
-                if (!Object.values(TerritoryDisplayMode).includes(displayMode)) {
-                    alert(`Invalid display mode: ${displayMode}`);
-                    return;
-                }
-
-                currentTerritoryDisplayMode = displayMode;
-                renderOwnTerritories();
-                renderActiveDivisions();
-                renderOtherTerritories();
-                renderBattleLogs();
-            }
-
-            function formatTerritoryName(territory) {
-                return `${territory.name} (ID ${territory.territory_id})`;
-            }
-
-            function renderOwnTerritories() {
-                let remainingDeployments = maxDeployments - currentDeployments;
-                var html = `Owned territories (${ownTerritoriesById.size}):`;
-                html += '<div>';
-                html += `You're deploying ${deploymentsById.size} divisions this turn (<a href="javascript:void(0)" onclick="cancelAllDeployment()">cancel</a>).`
-                html += ` You can still <a href="javascript:void(0)" onclick="switchTerritoryDisplayTo(TerritoryDisplayMode.DeployDivisions)">deploy</a> ${remainingDeployments} more divisions.`;
-                html += ` You can <a href="javascript:void(0)" onclick="switchTerritoryDisplayTo(TerritoryDisplayMode.SelectDivisions)">move or attack</a> with ${idleDivisionsById.size} divisions.`;
-                if (currentTerritoryDisplayMode == TerritoryDisplayMode.DeployDivisions) {
-                    html += '<div>';
-                    html += `<a href="javascript:void(0)" onclick="switchTerritoryDisplayTo(TerritoryDisplayMode.Normal)">Stop</a> deploying divisions.`;
-                    html += '</div>';
-                }
-                if (currentTerritoryDisplayMode == TerritoryDisplayMode.SelectDivisions) {
-                    html += '<div>';
-                    html += `<a href="javascript:void(0)" onclick="cancelMovingDivisions()">Cancel</a> moving divisions.`;
-                    html += '</div>';
-                }
-                html += '</div>';
-                html += '<ul>';
-                ownTerritoriesById.forEach(t => {
-                    let tid = t.territory_id;
-                    html += '<li>'
-                    if (currentTerritoryDisplayMode == TerritoryDisplayMode.SelectTerritory) {
-                        html += `<a href="javascript:void(0)" onclick="selectTerritory(${tid})">${formatTerritoryName(t)}</a>`;
-                    }
-                    else {
-                        html += formatTerritoryName(t);
-                    }
-                    if (divisionsByTerritoryId.has(tid)) {
-                        let numberOfDivisions = divisionsByTerritoryId.get(tid).length;
-                        let numberOfIdleDivisions = divisionsByTerritoryId.get(tid).filter(d => d.order === null).length;
-                        let textNumberOfDivisions = `${numberOfDivisions} divisions, ${numberOfIdleDivisions} idle`;
-                        if (currentTerritoryDisplayMode == TerritoryDisplayMode.SelectDivisions) {
-                            let currentlySelected = selectedDivisionsByTerritoryId.has(tid) ? selectedDivisionsByTerritoryId.get(tid).numberSelected : 0;
-
-                            if (currentlySelected > 0 && currentlySelected < numberOfIdleDivisions) {
-                                html += ` ( <a href="javascript:void(0)" onclick="selectDivisionFromTerritory(${tid})">selected ${currentlySelected}</a> of ${numberOfIdleDivisions} total )`;
-                            }
-                            else if (currentlySelected > 0) {
-                                html += ` ( selected ${currentlySelected} of ${numberOfIdleDivisions} total )`;
-                            }
-                            else if (numberOfIdleDivisions > 0) {
-                                html += ` ( <a href="javascript:void(0)" onclick="selectDivisionFromTerritory(${tid})">${textNumberOfDivisions}</a> )`;
+            else {
+                $('#battle-logs-details').html(
+                    battleLogs.map(battleLog => {
+                        let destinationTerritory = territoriesById.get(battleLog.territory_id);
+                        var summary;
+                        if (ownNation.nation_id == battleLog.attacker_nation_id) {
+                            if (ownNation.nation_id == battleLog.winner_nation_id) {
+                                summary = `<span style="color: green">We conquered ${destinationTerritory.name}!</span>`;
                             }
                             else {
-                                html += ` ( ${textNumberOfDivisions} )`;
+                                summary = `<span style="color: red">The attack on ${destinationTerritory.name} was repelled!</span>`;
                             }
                         }
                         else {
-                            html += ` ( ${textNumberOfDivisions} )`;
+                            if (ownNation.nation_id == battleLog.winner_nation_id) {
+                                summary = `<span style="color: orange">We repelled an attack from ${nationsById.get(battleLog.attacker_nation_id).usual_name} on ${destinationTerritory.name}!</span>`;
+                            }
+                            else {
+                                summary = `<span style="color: red">We were defeated on ${destinationTerritory.name} and ${nationsById.get(battleLog.attacker_nation_id).usual_name} annexed the territory!</span>`;
+                            }
                         }
-                    }
-                    if (deploymentsByTerritoryId.has(tid) > 0) {
-                        html += ` [deploying ${deploymentsByTerritoryId.get(tid).length} next turn]`;
-                    }
-                    if (currentTerritoryDisplayMode == TerritoryDisplayMode.DeployDivisions) {
-                        var deployText;
-                        if (pendingDeploymentsByTerritoryId.has(tid)) {
-                            deployText = `deploying ${pendingDeploymentsByTerritoryId.get(tid).numberToDeploy} extra`;
-                        }
-                        else if (currentDeployments < maxDeployments) {
-                            deployText = 'deploy';
-                        }
-                        else {
-                            deployText = '';
-                        }
-                        if (currentDeployments < maxDeployments) {
-                            html += ` <a href="javascript:void(0)" onclick="addDeployment(${tid})">${deployText}</a>`;
-                        }
-                        else {
-                            html += ` ${deployText}`;
-                        }
-                    }
-                    html += '</li>';
-                });
-                html += '</ul>';
-                if (currentDeployments > 0) {
-                    html += '<div>';
-                    if (currentTerritoryDisplayMode == TerritoryDisplayMode.DeployDivisions) {
-                        html += `With pending: <a href="javascript:void(0)" onclick="deployPending()">deploy ${currentDeployments} divisions</a>, `;
-                    }
-                    html += `<a href="javascript:void(0)" onclick="cancelPendingDeployments()">cancel pending deployments</a>`;
-                    html += '</div>';
-                }
-                if (currentTerritoryDisplayMode == TerritoryDisplayMode.SelectDivisions && selectedDivisionsByTerritoryId.size > 0) {
-                    html += '<div>';
-                    html += `<a href="javascript:void(0)" onclick="selectTargetTerritoryForSelectedDivisions()">Select target territory for selected divisions</a>`;
-                    html += '</div>';
-                }
-                if (selectedDivisionIds.length > 0) {
-                    html += '<div>';
-                    html += `Selected divisions: ${selectedDivisionIds.join(", ")}`;
-                    html += '</div>';
-                }
 
-                $("#own_territories").html(html);
+                        return `<p><b>${summary}</b></p>`
+                            + `<pre>${battleLog.text}</pre>`;
+                    }).join("")
+                );
+            }
+        }
+
+        function updateDeploymentsPane() {
+            var html = "";
+            let remainingDeployments = budget.max_remaining_deployments - pendingDeployments.length;
+            if (currentMapMode == MapMode.DeployDivisions) {
+                html += `<p>You can still deploy</a> ${remainingDeployments} divisions this turn. <a href="javascript:void(0)" onclick="stopDeploying()">stop deploying</a></p>`;
+            }
+            else {
+                html += `<p>You can still <a href="javascript:void(0)" onclick="startDeploying()">deploy</a> ${remainingDeployments} divisions this turn.</p>`;
             }
 
-            function renderActiveDivisions() {
-                let numberOfActiveDivisions = ownDivisionsById.size - idleDivisionsById.size;
-                var htmlRef = { html: '' };
-                htmlRef.html += `<div>Active divisions (${numberOfActiveDivisions} of ${ownDivisionsById.size} total):</div>`;
-                if (numberOfActiveDivisions > 0) {
-                    htmlRef.html += '<ul>';
-                    ownDivisionsById.forEach(d => {
-                        if (d.order === null) {
-                            return;
-                        }
-                        htmlRef.html += '<li>';
-                        htmlRef.html += `#${d.division_id}`;
-                        if (d.order.order_type == 'Move') {
-                            let isMoving = ownTerritoriesById.has(d.order.destination_territory_id);
-
-                            htmlRef.html += isMoving ? ' is moving to ' : ' is attacking ';
-                            htmlRef.html += formatTerritoryName(territoriesById.get(d.order.destination_territory_id))
-                            htmlRef.html += ` <a href="javascript:void(0)" onclick="cancelOrder(${d.division_id})">cancel</a>`;
-                        }
-                        else {
-                            htmlRef.html += 'is following UNKNOWN ORDER';
-                        }
-                        htmlRef.html += '</li>';
-                            
-                    });
-                    htmlRef.html += '</ul>';
-                }
-
-                $("#active_divisions").html(htmlRef.html);
+            if (pendingDeployments.length > 0) {
+                html += '<p>Pending deployments (<a href="javascript:void(0)" onclick="confirmAllPendingDeployment()">confirm all</a> or <a href="javascript:void(0)" onclick="cancelAllPendingDeployment()">cancel all</a>): '
+                    + '<p>'
+                    + `<ul>${pendingDeployments.map(tid => `<li><a href="javascript:void(0)" onclick="queryTerritory(${tid})">${territoriesById.get(tid).name}</a> - <a href="javascript:void(0)" onclick="removeDeployment(${tid})">cancel</a></li>`).join("")}</ul>`
+                    + '</p>';
             }
 
-            function renderOtherTerritories() {
-                var htmlRef = { html: "" };
-                territoriesByNationId.forEach((nationTerritories, nid) => {
-                    if (nid === ownNation.nation_id) {
-                        return;
-                    }
-                    let nationName = nid === 0 ? "Neutrals" : nationsById.get(nid).usual_name;
-                    htmlRef.html += `<div><b>${nationName} (${nationTerritories.length})</b><br>`;
-                    
-                    if (currentTerritoryDisplayMode == TerritoryDisplayMode.SelectTerritory) {
-                        htmlRef.html += nationTerritories.map(t => `<a href="javascript:void(0)" onclick="selectTerritory(${t.territory_id})">${formatTerritoryName(t)}</a>`).join(", ");
-                    }
-                    else {
-                        htmlRef.html += nationTerritories.map(t => formatTerritoryName(t)).join(", ");
-                    }
-                });
-
-                $("#other_territories").html(htmlRef.html);
+            if (deploymentsById.size > 0) {
+                html += '<p>Will be deployed next turn:</p>'
+                    + '<p>'
+                    + `<ul>${deploymentsById.values().map(d => `<li><a href="javascript:void(0)" onclick="queryTerritory(${d.territory_id})">${territoriesById.get(d.territory_id).name}</a> - <a href="javascript:void(0)" onclick="cancelDeployment(${d.deployment_id})">cancel</a></li>`).toArray().join("")}</ul>`
+                    + '</p>';
+            }
+            else {
+                html += "<p>No confirmed deployments for now.</p>"
             }
 
-            function renderBattleLogs() {
-                var htmlRef = { html: '' };
+            $('#deployments-details').html(html);
+        }
 
-                if (battleLogs.length == 0) {
-                    htmlRef.html = "We didn't participate in any battle this turn.";
-                }
+        function updateDivisionsPane() {
+            var html = "";
 
-                battleLogs.forEach(b => {
-                    let destinationTerritory = territoriesById.get(b.territory_id);
-                    var summary;
-                    if (ownNation.nation_id == b.attacker_nation_id) {
-                        if (ownNation.nation_id == b.winner_nation_id) {
-                            summary = `<span style="color: green">We conquered ${formatTerritoryName(destinationTerritory)}!</span>`;
-                        }
-                        else {
-                            summary = `<span style="color: red">The attack on ${formatTerritoryName(destinationTerritory)} was repelled!</span>`;
-                        }
-                    }
-                    else {
-                        if (ownNation.nation_id == b.winner_nation_id) {
-                            summary = `<span style="color: orange">We repelled an attack from ${nationsById.get(b.attacker_nation_id).usual_name} on ${formatTerritoryName(destinationTerritory)}!</span>`;
-                        }
-                        else {
-                            summary = `<span style="color: red">We were defeated on ${formatTerritoryName(destinationTerritory)} and ${nationsById.get(b.attacker_nation_id).usual_name} annexed the territory!</span>`;
-                        }
-                    }
-                    htmlRef.html += '<div>';
-                    htmlRef.html += `<b>${summary}</b>`;
-                    htmlRef.html += '<pre>';
-                    htmlRef.html += b.text;
-                    htmlRef.html += '</pre>';
-                    htmlRef.html += '</div>';
-                });
-                
-                $("#battle_logs").html(htmlRef.html);
+            divisionsInTerritory = divisionsById.values().filter(d => d.territory_id == selectedTerritory.territory_id).toArray();
+            
+            if (divisionsInTerritory.length < 1) {
+                html += "<p>There is no divisions in this territory.</p>";
+            }
+            else {
+                html += `<p>Divisions in territory<span id="select-divisions-links"></span>:</p>`;
+                html += `<span id="send-order-link">&nbsp;</span>`
+                html += '<div id="territory-division-list"><ul>'
+                    + divisionsInTerritory.map(d => `<li><input type="checkbox" onchange="onDivisionSelectionChange()" value=${d.division_id}>Division #${d.division_id}`
+                    + (d.order ? ` <i> ${describeOrder(d.order)}</i>` : "")
+                    + ` ${d.order ? `<a href="javascript:void(0)" onclick="cancelOrder(${d.division_id})">cancel order</a></li>`: ""}`).join("")
+                    + '</ul></div>';
+            }
+            
+            $("#divisions-details").html(html);
+            onDivisionSelectionChange();
+        }
+
+        function onDivisionSelectionChange() {
+            let numberOfSelectedDivisions = getAllSelectedDivisionsInTerritory().length;
+            if (numberOfSelectedDivisions > 0) {
+                $("#send-order-link").html(currentMapMode == MapMode.SelectDestinationTerritory
+                    ? `Select the destination territory to move to attack with the ${numberOfSelectedDivisions} selected divisions or <a href="javascript:void(0)" onclick="cancelSelectDestinationForDivisions()">cancel</a>`
+                    : `<a href="javascript:void(0)" onclick="selectDestinationForDivisions()">Move / attack with ${numberOfSelectedDivisions} selected divisions</a>`
+                );
+            }
+            else {
+                $("#send-order-link").html("&nbsp;");
             }
 
-            $(document).ready(function(){
-                ownDivisionsById.forEach(d => {
-                    if (divisionsByTerritoryId.has(d.territory_id)) {
-                        divisionsByTerritoryId.get(d.territory_id).push(d);
-                    }
-                    else {
-                        divisionsByTerritoryId.set(d.territory_id, [d]);
-                    }
-                    if (d.order === null) {
-                        idleDivisionsById.set(d.division_id, d);
-                    }
+            if (currentMapMode == MapMode.SelectDestinationTerritory) {
+                $("#select-divisions-links").html("");
+            }
+            else {
+                $("#select-divisions-links").html(` (<a href="javascript:void(0)" onclick="selectAllDivisionsInTerritory(true)">select</a> / <a href="javascript:void(0)" onclick="selectAllDivisionsInTerritory(false)">deselect</a> all)`);
+            }
+        }
+
+        function describeOrder(order) {
+            if (order.order_type != OrderType.Move) {
+                return "#UNKNOWN ORDER#"
+            }
+
+            let destination = territoriesById.get(order.destination_territory_id);
+            let destinationLink = renderActionLink(`${destination.name} (${destination.owner_nation_id ? nationsById.get(destination.owner_nation_id).usual_name : "neutral"})`, `queryTerritory(${destination.territory_id})`);
+
+            if (destination.owner_nation_id == ownNation.nation_id) {
+                return `moving to ${destinationLink}`;
+            }
+            else {
+                return `attacking ${destinationLink}`;
+            }
+        }
+
+        function selectDestinationForDivisions() {
+            [...document.getElementById('territory-division-list').getElementsByTagName("input")].forEach(cb => cb.disabled = true);
+            setMapMode(MapMode.SelectDestinationTerritory);
+            onDivisionSelectionChange();
+        }
+
+        function cancelSelectDestinationForDivisions() {
+            setMapMode(MapMode.Default);
+            [...document.getElementById('territory-division-list').getElementsByTagName("input")].forEach(cb => cb.disabled = false);
+            onDivisionSelectionChange();
+        }
+
+        function sendMoveOrderToSelectedDivisions(tid) {
+            setMapMode(MapMode.Default);
+            let selectedDivisions = getAllSelectedDivisionsInTerritory();
+            services.sendMoveOrders({orders: selectedDivisions.map(d => ({ division_id: d.division_id, destination_territory_id: tid }))})
+                .then(refreshDivisions)
+                .catch(error => {
+                    $("#error_messages").html(`<li style="color: crimson">${JSON.stringify(error.responseJSON)}}</li>`);
                 });
-                deploymentsById.values().forEach(d => {
-                    if (deploymentsByTerritoryId.has(d.territory_id)) {
-                        deploymentsByTerritoryId.get(d.territory_id).push(d);
-                    }
-                    else {
-                        deploymentsByTerritoryId.set(d.territory_id, [d]);
-                    }
+        }
+
+        function cancelOrder(did) {
+            if (currentMapMode == MapMode.SelectDestinationTerritory) {
+                return;
+            }
+            services.cancelOrders({
+                division_ids: [did]
+            })
+                .then(refreshDivisions)
+                .catch(error => {
+                    $("#error_messages").html(`<li style="color: crimson">${JSON.stringify(error.responseJSON)}}</li>`);
                 });
-                territoriesById.values().forEach(t => {
-                    if (t.terrain_type == TerrainType.Water) {
-                        return;
-                    }
-                    let nid = t.owner_nation_id === null ? 0 : t.owner_nation_id;
-                    if (territoriesByNationId.has(nid)) {
-                        territoriesByNationId.get(nid).push(t);
-                    }
-                    else {
-                        territoriesByNationId.set(nid, [t]);
-                    }
-                });
-                renderOwnTerritories();
-                renderActiveDivisions();
-                renderOtherTerritories();
-                renderBattleLogs();
+        }
+
+        function getAllSelectedDivisionsInTerritory() {
+            let thereAreDivisionsInTerritory = document.getElementById('territory-division-list');
+            if (!thereAreDivisionsInTerritory) {
+                return [];
+            }
+            return [...document.getElementById('territory-division-list').getElementsByTagName("input")]
+                .filter(cb => cb.checked)
+                .map(cb => divisionsById.get(parseInt(cb.value)));
+        }
+
+        function selectAllDivisionsInTerritory(checked) {
+            [...document.getElementById('territory-division-list').getElementsByTagName("input")].forEach(cb => cb.checked = checked);
+            onDivisionSelectionChange();
+        }
+
+        function selectDetailsPane(pane, userAction = false) {
+            let detailsPanes = $("#details > div");
+            detailsPanes.hide();
+            $(`#${pane}-details`).show();
+            userSelectedPane = userAction ? pane : null;
+            if (['divisions'].includes(pane)) {
+                $("#territory-details").show();
+            }
+        }
+
+        function enablePanes(panes) {
+            $("#details-tabs").html(panes.map(pane => renderActionLink(pane, `selectDetailsPane('${pane}', true)`)).join(" "));
+        }
+
+        function renderActionLink(title, onclick) {
+            return `<a href="javascript:void(0)" onclick="${onclick}">${title}</a>`;
+        }
+
+        function stopDeploying() {
+            setMapMode(MapMode.Default);
+            updateDeploymentsPane();
+        }
+
+        function startDeploying() {
+            setMapMode(MapMode.DeployDivisions);
+            updateDeploymentsPane();
+        }
+
+        function addDeployment(tid) {
+            if (pendingDeployments.length >= budget.max_remaining_deployments) {
+                return;
+            }
+
+            pendingDeployments.push(tid);
+            updateDeploymentsPane();
+        }
+
+        function removeDeployment(tid) {
+            if (pendingDeployments.length < 1) {
+                return;
+            }
+
+            const index = pendingDeployments.indexOf(tid);
+            if (index !== -1) {
+                pendingDeployments.splice(index, 1); // Removes 1 element starting from the found index
+            }
+            updateDeploymentsPane();
+        }
+
+        function confirmAllPendingDeployment() {
+            setMapMode(MapMode.Default);
+            $("#deployments-detail").html("<p>Waiting for the server to respond...</p>");
+            let pendingDeploymentsByTerritoryId = Map.groupBy(pendingDeployments, tid => tid);
+            pendingDeployments.length = 0;
+            
+            let callChain = Promise.resolve();
+
+            pendingDeploymentsByTerritoryId.forEach((group, tid) => {
+                callChain = callChain
+                    .then(() => {
+                        return services.deployInTerritory(tid, { number_of_divisions: group.length });
+                    })
             });
-        </script>
+
+            callChain
+                .then(refreshDeployments)
+                .catch(error => {
+                    $("#error_messages").html(`<li style="color: crimson">${JSON.stringify(error.responseJSON)}}</li>`);
+                });
+        }
+
+        function cancelDeployment(deploymentId) {
+            setMapMode(MapMode.Default);
+            services.cancelDeployments({deployment_ids: [deploymentId]})
+                .then(refreshDeployments)
+                .catch(error => {
+                    $("#error_messages").html(`<li style="color: crimson">${JSON.stringify(error.responseJSON)}}</li>`);
+                });
+        }
+
+        function refreshDeployments() {
+            return services.getAllDeployments()
+                .then((data) => {
+                    deploymentsById = mapExportedArray(data, d => d.deployment_id);
+                })
+                .then(refreshBudget);
+        }
+
+        function refreshBudget() {
+            return services.getNationBudget()
+                .then((data) => {
+                    budget = data;
+                })
+                .then(() => {
+                    updateDeploymentsPane();
+                    updateBudgetPane();
+                });
+        }
+
+        function refreshDivisions() {
+            return services.getNationDivisions()
+                .then((data) => {
+                    divisionsById = mapExportedArray(data, d => d.division_id);
+                })
+                .then(() => {
+                    updateDivisionsPane();
+                });
+        }
+
+        function cancelAllPendingDeployment() {
+            pendingDeployments.length = 0;
+            updateDeploymentsPane();
+        }
+        
+        function setMapMode(mode) {
+            currentMapMode = mode;
+            switch(mode) {
+                case MapMode.QueryTerritory:
+                    mapDisplay.setAllClickable(true);
+                    mapDisplay.onClick = queryTerritory;
+                    mapDisplay.onContextMenu = undefined;
+                    mapDisplay.setLayers([defaultMapLayer]);
+                    break;
+                case MapMode.DeployDivisions:
+                    territoriesById.values().forEach(t => mapDisplay.setClickable(t.territory_id, t.owner_nation_id == ownNation.nation_id));
+                    mapDisplay.onClick = tid => addDeployment(tid);
+                    mapDisplay.onContextMenu = (tid, event) => {
+                        event.preventDefault();
+                        removeDeployment(tid);
+                    }
+                    mapDisplay.setLayers([defaultMapLayer]);
+                    break;
+                case MapMode.SelectDestinationTerritory:
+                    let origin = selectedTerritory;
+                    let legalDestinations = territoriesById.values()
+                        .filter(t => t.terrain_type != TerrainType.Water && t.territory_id != origin.territory_id)
+                        .filter(t =>
+                            t.connected_territory_ids.includes(origin.territory_id)
+                            || t.has_sea_access && origin.has_sea_access
+                        ).toArray();
+                    territoriesById.values().forEach(t => mapDisplay.setClickable(t.territory_id, legalDestinations.some(dest => dest.territory_id == t.territory_id)));
+                    mapDisplay.onClick = tid => sendMoveOrderToSelectedDivisions(tid);
+                    mapDisplay.onContextMenu = undefined;
+                    mapDisplay.setLayers([defaultMapLayer, (ctx, md) => {
+                        legalDestinations
+                            .forEach(t => t.owner_nation_id == ownNation.nation_id ? md.fillTerritory(t, "blue") : md.fillTerritory(t, "red"));
+                    }]);
+                    break;
+                default:
+                    throw new Error("Unreacheable.");
+            }
+            mapDisplay.refresh();
+        }
+
+        window.addEventListener("load", function() {
+            mapDisplay = new MapDisplay("map-display", territoriesById, md => {
+                md.territoryLabeler = t => `${t.name} (${nationsById.has(t.owner_nation_id) ? nationsById.get(t.owner_nation_id).usual_name : "neutral"})`;
+                md.addInternationalBorders = true;
+                md.addLayer(defaultMapLayer);
+            });
+            setMapMode(MapMode.Default);
+            updateNationPane(ownNation);
+            updateVictoryPane();
+            updateBudgetPane();
+            updateBattleLogsPane(allBattleLogs);
+            updateDeploymentsPane();
+            enablePanes(['nation', 'battle-logs', 'budget', 'deployments', 'victory']);
+            selectDetailsPane('nation');
+        });
+    </script>
+    <body>
         <div>
-            <b>{{$ownNation->usual_name}}, turn #{{$game->turn_number}}</b>
+        <b>{{ $context->getNation()->getUsualName() }}</b>, turn #{{ $context->getCurrentTurn()->getNumber() }}
             <a href="{{route('logout')}}">logout</a>
+            @if(EnsureWhenRunningInDevelopmentOnly::isRunningInDevelopmentEnvironment())
+                <form method="post" enctype="multipart/form-data" action="{{route('dev.next-turn')}}">
+                    @csrf
+                    <button class="btn btn-primary" type="submit">Next turn</button>
+                </form>
+            @endif
             <x-dev-mode />
         </div>
-        <x-error />
-        <div class="grid-container">
-            <div class="column">
-                <div id='own_territories'>
-                </div>
-                <div id='active_divisions'>
-                </div>
-                <br>
-                <div>
-                    <table>
-                        @foreach ($budget_items as $field => $b)
-                            @if(is_a($b, 'App\Http\Controllers\Asset'))
-                                <tr><td>{{$b->description}}</td><td><i>{{$budget->$field}}</i></td></tr>
-                            @else
-                                <tr><td>{{$b->description}}</td><td><i style="color: crimson">{{$budget->$field}}</i></td></tr>
-                            @endif
-                        @endforeach
-                    </table>
-                </div>
-                <br>
-                <div>
-                    Victory progression:
-                    <table>
-                        @php($i = 1)
-                        @foreach ($victory_progresses as $p)
-                            <tr><td>{{$i}}.</td><td>{{$nationsById[$p->nationId]->usual_name}}</td><td><i>{{sprintf("%.2f%%", $p->progress * 100)}} (owns {{$p->numberOfTerritories}} of {{$p->numberOfTerritoriesRequired}} required territories)</i></td></tr>
-                            @php($i++)
-                        @endforeach
-                    </table>
-                </div>
+        <x-map-display id="map-display" />
+        <div id="details">
+            <span id="details-tabs"></span>
+            <div id="nation-details">
+                nation
             </div>
-            <div class="column">
-                <div id="other_territories">
-                </div>
+            <div id="territory-details">
+                territory
             </div>
-        </div>
-        <div class="column">
-            <div>
-                <p><b>Battle logs</b></p>
+            <div id="budget-details">
+                budget
             </div>
-            <div id="battle_logs">
+            <div id="victory-details">
+                victory
+            </div>
+            <div id="battle-logs-details">
+                battle logs
+            </div>
+            <div id="deployments-details">
+                deployments
+            </div>
+            <div id="divisions-details">
+                divisions
             </div>
         </div>
     </body>

@@ -22,6 +22,7 @@ use App\ReadModels\TerritoryInfo;
 use App\Services\JavascriptClientServicesGenerator;
 use App\Services\LoggedInGameContext;
 use App\Services\LoggedInUserContext;
+use App\Services\NationContext;
 use App\Services\NationSetupContext;
 use App\Utils\HttpStatusCode;
 use App\Utils\MapsValidatedDataToFormRequest;
@@ -85,15 +86,21 @@ readonly class UserLoginRequest {
 }
 
 readonly class Asset {
+    public string $type;
     public function __construct(
         public string $description,
-    ) {}
+    ) {
+        $this->type = "Asset";
+    }
 }
 
 readonly class Liability {
+    public string $type;
     public function __construct(
         public string $description,
-    ) {}
+    ) {
+        $this->type = "Liability";
+    }
 }
 
 class UiController extends Controller
@@ -155,25 +162,23 @@ class UiController extends Controller
 
         return match ($game->getVictoryStatus()) {
             VictoryStatus::HasNotBeenWon => view('dashboard', [
-                'game' => $game->exportForTurn(),
-                'ownNation' => $nation->getDetail()->exportForOwner(),
-                'max_remaining_deployments' => $nation->getDetail()->getMaxRemainingDeployments(),
-                'budget' => $nation->getDetail()->exportBudget(),
-                'budget_items' => ['production' => new Asset('Production'), 'reserves' => new Asset('Reserves'), 'upkeep' => new Liability('Upkeep'), 'expenses' => new Asset('Expenses'), 'available_production' => new Asset('Available Production')],
-                'ownTerritoriesById' => $nation->getDetail()->territories()->get()
-                    ->mapWithKeys(fn (Territory $t) => [$t->getId() => $t->getDetail()->exportForOwner()]),
-                'ownDivisionsById' => $nation->getDetail()->activeDivisions()->get()
-                    ->mapWithKeys(fn (Division $d) => [$d->getId() => $d->getDetail()->exportForOwner()]),
-                'deploymentsById' => $nation->activeDeployments()->get()
-                    ->mapWithKeys(fn (Deployment $d) => [$d->getId() => $d->export()]),
-                'victory_progresses' => $game->getVictoryProgression(),
-                'nationsById' => $nationsById,
-                'territoriesById' => collect(Territory::exportAll($game, $game->getCurrentTurn()))
-                    ->mapWithKeys(fn (TerritoryInfo $t) => [$t->territory_id => $t]),
-                'battleLogs' => $nation->getDetail()
-                    ->getAllBattlesWhereParticipant()
-                    ->map(fn (Battle $b) => $b->exportForParticipant()),
+                'context' => new NationContext,
+                'own_nation' => $nation->getDetail()->exportForOwner(),
+                'nations' => $nationsById->values(),
+                'territories' => Territory::exportAll($game, $game->getCurrentTurn()),
+                'deployments' => $nation->activeDeployments()->get()
+                    ->map(fn (Deployment $d) => $d->export())
+                    ->values(),
+                'divisions' => $nation->getDetail()->activeDivisions()->get()
+                    ->map(fn (Division $d) => $d->getDetail()->exportForOwner())
+                    ->values(),
                 'js_client_services' => $servicesGenerator->generateClientService("NovusOrdoServices", "ajax"),
+                'victory_ranking' => $game->getVictoryProgression()->values(),
+                'budget' => $nation->getDetail()->exportBudget(),
+                'budget_items' => ['production' => new Asset('Production'), 'reserves' => new Asset('Reserves'), 'upkeep' => new Liability('Upkeep'), 'expenses' => new Liability('Expenses'), 'available_production' => new Asset('Available Production')],
+                'battle_logs' => $nation->getDetail()
+                     ->getAllBattlesWhereParticipant()
+                     ->map(fn (Battle $b) => $b->exportForParticipant()),
             ]),
             VictoryStatus::HasBeenWon => view('gameover', [
                 'winner' => Nation::notNull($game->getWinnerOrNull())->getUsualName(),

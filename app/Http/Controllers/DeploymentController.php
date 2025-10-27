@@ -58,6 +58,11 @@ class DeploymentController extends Controller
         
         return response()->json();
     }
+    
+    public function allDeployments(NationContext $context) :JsonResponse {
+        return response()->json($context->getNation()->getDetail()->deployments()->get()->map(fn (Deployment $d) => $d->export()));
+    }
+
     public function allDeploymentsInOwnedTerritory(NationContext $context, int $territoryId): JsonResponse {
         $nation = $context->getNation();
         $territory = Territory::asOrNotFound($nation->getDetail()->territories()->find($territoryId), "Current nation doesn't own territory: $territoryId");
