@@ -6,6 +6,7 @@ use App\Http\Requests\SendMoveOrdersRequest;
 use App\Models\Division;
 use App\Models\DivisionDetail;
 use App\Models\Nation;
+use App\Models\Order;
 use App\Models\Territory;
 use App\Models\TerritoryDetail;
 use App\Services\NationContext;
@@ -15,6 +16,7 @@ use Illuminate\Database\Query\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\MessageBag;
 use Illuminate\Validation\Rule;
 
 readonly class MoveOrAttackSentOrder {
@@ -59,22 +61,47 @@ class DivisionController extends Controller
             'orders.*.destination_territory_id' => [
                 'required',
                 'integer',
-                Rule::exists(Territory::class, 'id'),
+                Territory::createRuleExistsInGame($nation->getGame()),
             ],
         ]);
 
         $orderRequest = SendOrdersRequest::fromArray($validated);
 
-        $sentOrderIds = [];
+        $validatedOrders = [];
 
-        foreach($orderRequest->orders as $moveOrderData) {
-            $moveOrder = MoveOrAttackSentOrder::fromArray($moveOrderData);
+        $errors = new MessageBag();
+
+        for($i = 0; $i < count($orderRequest->orders); $i++) {
+            $moveOrder = MoveOrAttackSentOrder::fromArray($orderRequest->orders[$i]);
+
             $division = $nation->getDetail()->getActiveDivisionWithId($moveOrder->division_id);
-            $destination = $nation->getGame()->getTerritoryWithId($moveOrder->destination_territory_id);
-            $sentOrderIds[] = $division->sendMoveOrder($destination)->getId();
+            if ($division->getDetail()->accessibleTerritories()->pluck('id')->contains($moveOrder->destination_territory_id)) {
+                $validatedOrders[] = $moveOrder;
+            }
+            else {
+                $errors->add("orders.$i.destination_territory_id", "Division ID {$division->getId()} can't reach Territory ID {$moveOrder->destination_territory_id}.");
+            }
+        }
+
+        if ($errors->any()) {
+            return response()->json(
+                [
+                    'message' => 'Validation failed',
+                    'errors' => $errors
+                ],
+                HttpStatusCode::UnprocessableContent
+            );
+        }
+
+        $sentOrders = [];
+
+        foreach($validatedOrders as $validatedOrder) {
+            $division = $nation->getDetail()->getActiveDivisionWithId($validatedOrder->division_id);
+            $destination = $nation->getGame()->getTerritoryWithId($validatedOrder->destination_territory_id);
+            $sentOrders[] = $division->sendMoveOrder($destination);
         };
         
-        return response()->json($sentOrderIds);
+        return response()->json(array_map(fn (Order $o) => $o->exportForOwner(), $sentOrders), HttpStatusCode::Created);
     }
 
     public function cancelOrders(Request $request, NationContext $context): JsonResponse {

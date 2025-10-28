@@ -94,7 +94,7 @@ class TerritoryDetail extends Model
             name: $territory->getName(),
             owner_nation_id: $ownerOrNull?->getId(),
             has_sea_access: $territory->hasSeaAccess(),
-            connected_territory_ids: $territory->connectedTerritories()->pluck('id')->all(),
+            connected_territory_ids: $territory->connectedTerritories()->pluck('connected_territory_id')->all(),
         );
     }
 

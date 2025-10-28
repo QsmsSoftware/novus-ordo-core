@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Validation\Rules\Exists;
 use LogicException;
 
 class Division extends Model
@@ -61,6 +62,10 @@ class Division extends Model
 
         if ($previousOrderOrNull !== null) {
             $previousOrderOrNull->delete();
+        }
+        
+        if (!$this->getDetail()->accessibleTerritories()->pluck('id')->contains($destination->getId())) {
+            throw new LogicException("Division ID {$this->getId()} can't reach territory with ID {$destination->getId()}");
         }
 
         return Order::createMoveOrder($this, $destination);

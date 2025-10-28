@@ -14,6 +14,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Exists;
 
 class Territory extends Model
 {
@@ -86,6 +88,11 @@ class Territory extends Model
         $newDetail->onNextTurn($currentDetail);
     }
 
+    public static function createRuleExistsInGame(Game $game):Exists {
+        return Rule::exists(Territory::class, 'id')
+            ->where('game_id', $game->getId());
+    }
+
     public static function createValidationSuitableHomeTerritory(Game $game): Closure {
         return function (string $attribute, array $value, Closure $fail) use ($game) {
             $territoryIds = array_unique($value);
@@ -154,6 +161,11 @@ class Territory extends Model
         return fn (Builder $builder) => $builder
             ->where(Territory::whereIsControllable())
             ->where('usable_land_ratio', '>=', Territory::MIN_USABLE_LAND_FOR_HOMELAND);
+    }
+
+    public static function whereHasSeaAccess(): Closure {
+        return fn (Builder $builder) => $builder
+            ->where('has_sea_access', true);
     }
 
     public static function exportAll(Game $game, Turn $turn): array {

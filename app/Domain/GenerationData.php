@@ -6384,7 +6384,7 @@ final class GenerationData {
                     $connections[] = new TerritoryConnectionData($x - 1, $y, $terrainType != TerrainType::Water && $coasts[$x][$y][GenerationData::Left] != 1);
                 }
                 if (isset($map[$x - 1][$y - 1])) {
-                    $connections[] = new TerritoryConnectionData($x - 1, $y, $terrainType != TerrainType::Water && $coasts[$x][$y][GenerationData::TopLeft] != 1);
+                    $connections[] = new TerritoryConnectionData($x - 1, $y - 1, $terrainType != TerrainType::Water && $coasts[$x][$y][GenerationData::TopLeft] != 1);
                 }
 
                 // $hasSeaAccess = $terrainType == TerrainType::Water

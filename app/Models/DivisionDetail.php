@@ -5,8 +5,10 @@ namespace App\Models;
 use App\Domain\OrderType;
 use App\ModelTraits\ReplicatesForTurns;
 use Closure;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Exists;
 
@@ -28,6 +30,14 @@ class DivisionDetail extends Model
     public const string FIELD_IS_ACTIVE = "is_active";
 
     use ReplicatesForTurns;
+
+    public function game(): BelongsTo {
+        return $this->belongsTo(Game::class);
+    }
+
+    public function getGame(): Game {
+        return $this->game;
+    }
 
     public function division(): BelongsTo {
         return $this->belongsTo(Division::class);
@@ -51,6 +61,21 @@ class DivisionDetail extends Model
 
     public function getTerritory(): Territory {
         return $this->territory;
+    }
+
+    public function accessibleTerritories(): HasMany {
+        $territory = $this->getTerritory();
+        $accessibleTerritoryIds = $territory->connectedLands()->pluck('connected_territory_id');
+        if ($territory->hasSeaAccess()) {
+            $accessibleTerritoryIds = $accessibleTerritoryIds->concat($this->getGame()->territories()
+                ->where(Territory::whereIsControllable())
+                ->where(Territory::whereHasSeaAccess())
+                ->whereNot('id', $territory->getId())
+                ->pluck('id')
+            );
+        }
+
+        return $this->getGame()->territories()->whereIn('id', $accessibleTerritoryIds);
     }
 
     public function getOrderOrNull(): ?Order {

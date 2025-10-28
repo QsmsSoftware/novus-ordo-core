@@ -99,7 +99,7 @@ class NationDetail extends Model
     }
 
     public function getAllBattlesWhereParticipant() :Collection {
-        return $this->battlesWhereAttacker()->get()->merge($this->battlesWhereDefender()->get());
+        return $this->battlesWhereAttacker()->get()->concat($this->battlesWhereDefender()->get());
     }
 
     public function export() :NationInfo {

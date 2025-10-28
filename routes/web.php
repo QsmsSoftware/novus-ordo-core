@@ -90,7 +90,7 @@ Route::get('/territories/{territoryId}', [TerritoryController::class, 'info'])
 Route::middleware('auth')->group(function () {
     Route::get('/nation/divisions', [DivisionController::class, 'allOwnedDivisions'])
         ->name('ajax.get-nation-divisions');
-    Route::post('/nation/divisions:send-move-orders', [DivisionController::class, 'sendMoveOrders'])
+    Route::post('/nation/divisions/orders', [DivisionController::class, 'sendMoveOrders'])
         ->name('ajax.send-move-orders');
     Route::post('/nation/divisions:cancel-orders', [DivisionController::class, 'cancelOrders'])
         ->name('ajax.cancel-orders');
