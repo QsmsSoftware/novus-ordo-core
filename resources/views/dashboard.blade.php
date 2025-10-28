@@ -77,6 +77,7 @@
                 selectDetailsPane('territory', true);
             }
             enablePanes(['nation', 'territory', 'battle-logs', 'budget', 'deployments', 'divisions', 'victory']);
+            mapDisplay.selectedTerritory = territory;
         }
 
         function updateTerritoryPane() {

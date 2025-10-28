@@ -17,6 +17,7 @@ class MapDisplay {
     #metadataByTerritoryId;
     #territoryLabeler;
     #addInternationalBorders = false;
+    #selectedTerritory = null;
 
     constructor(containerId, territoriesById, config) {
         this.#containerId = containerId;
@@ -67,6 +68,26 @@ class MapDisplay {
         this.refresh();
     }
 
+    get mapWidthPixels() {
+        return {{ $map_width_px }};
+    }
+
+    get mapHeightPixels() {
+        return {{ $map_height_px }};
+    }
+
+    get tileWidthPixels() {
+        return {{ $map_tile_width_px }};
+    }
+
+    get tileHeightPixels() {
+        return {{ $map_tile_height_px }};
+    }
+
+    get canvas() {
+        return this.#canvas;
+    }
+
     set onClick(onClickCallback) {
         this.#onClick = onClickCallback;
     }
@@ -81,6 +102,13 @@ class MapDisplay {
 
     set addInternationalBorders(b) {
         this.#addInternationalBorders = b;
+    }
+
+    set selectedTerritory(territory) {
+        if (this.#selectedTerritory != territory) {
+            this.#selectedTerritory = territory;
+            this.refresh();
+        }
     }
 
     addLayer(renderer) {
@@ -99,13 +127,19 @@ class MapDisplay {
         this.#metadataByTerritoryId.get(territoryId).clickable = clickable;
     }
 
-    fillTerritory(territory, fillStyle) {
+    fillTerritory(territory, fillStyle, text) {
         let ctx = this.#canvas.getContext("2d");
         let previousFillStyle = ctx.fillStyle;
         let previousGlobalAlpha = ctx.globalAlpha;
         ctx.fillStyle = fillStyle;
         ctx.globalAlpha = 0.5;
         ctx.fillRect(territory.x * {{ $map_tile_width_px }}, territory.y * {{ $map_tile_height_px }}, {{ $map_tile_width_px }}, {{ $map_tile_height_px }});
+        if (text) {
+            ctx.fillStyle = "white";
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, (territory.x + 0.5) * {{ $map_tile_width_px }}, (territory.y + 0.5) * {{ $map_tile_height_px }});
+        }
         ctx.fillStyle = previousFillStyle;
         ctx.globalAlpha = previousGlobalAlpha;
     }
@@ -176,6 +210,9 @@ class MapDisplay {
             this.#drawInternationalBorders(ctx);
         }
         ctx.drawImage(document.getElementById(this.#containerId +  "-map-layer-2"), 0, 0, this.#canvas.width, this.#canvas.height);
+        if (this.#selectedTerritory) {
+            this.fillTerritory(this.#selectedTerritory, "black", "?");
+        }
     }
 }
 </script>
