@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Domain\DeploymentCommand;
+use App\Domain\DivisionType;
 use App\Domain\NationSetupStatus;
 use App\Utils\GuardsForAssertions;
 use Illuminate\Database\Eloquent\Builder;
@@ -68,7 +70,7 @@ class Nation extends Model
         return $this->usual_name;
     }
 
-    public function deploy(Territory $territory, int $numberOfDivisions): array {
+    public function deploy(Territory $territory, DivisionType $type, int $numberOfDivisions): array {
         if ($numberOfDivisions <= 0) {
             throw new LogicException("Parameter numberOfDivisions must be at least 1");
         }
@@ -80,7 +82,7 @@ class Nation extends Model
         $deployments = [];
 
         for ($i = 0; $i < $numberOfDivisions; $i++) {
-            $deployments[] = Deployment::Create($this, $territory);
+            $deployments[] = Deployment::Create($this, $type, $territory);
         }
 
         return $deployments;

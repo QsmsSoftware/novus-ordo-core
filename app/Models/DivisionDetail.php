@@ -17,6 +17,7 @@ readonly class OwnedDivisionInfo {
         public int $division_id,
         public int $nation_id,
         public int $territory_id,
+        public string $division_type,
         public ?MoveOrAttackOrderInfo $order,
     )
     {
@@ -137,6 +138,7 @@ class DivisionDetail extends Model
             division_id: $division->getId(),
             nation_id: $this->getNation()->getId(),
             territory_id: $this->getTerritory()->getId(),
+            division_type: $division->getDivisionType()->name,
             order: $this->getOrderOrNull()?->exportForOwner(),
         );
     }

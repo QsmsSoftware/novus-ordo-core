@@ -16,6 +16,7 @@ return new class extends Migration
             $table->timestamps();
             $table->foreignId('game_id')->constrained('games')->onDelete('cascade');
             $table->foreignId('nation_id')->constrained('nations')->onDelete('cascade');
+            $table->integer('division_type');
         });
     }
 

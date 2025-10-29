@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Domain\DivisionType;
 use App\Utils\GuardsForAssertions;
 use Closure;
 use Illuminate\Database\Eloquent\Builder;
@@ -83,6 +84,10 @@ class Division extends Model
         return $this->id;
     }
 
+    public function getDivisionType(): DivisionType {
+        return DivisionType::from($this->division_type);
+    }
+
     public function onNextTurn(Turn $currentTurn, Turn $nextTurn): void {
         $currentDetail = $this->getDetail($currentTurn);
         $newDetail = $currentDetail->replicateForTurn($nextTurn);
@@ -100,6 +105,7 @@ class Division extends Model
         $division = new Division();
         $division->game_id = $deployment->getGame()->getId();
         $division->nation_id = $deployment->getNation()->getId();
+        $division->division_type = $deployment->getDivisionType();
         $division->save();
 
         DivisionDetail::create($division, $deployment->getTerritory());

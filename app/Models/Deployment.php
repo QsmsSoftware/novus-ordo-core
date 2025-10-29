@@ -2,7 +2,10 @@
 
 namespace App\Models;
 
+use App\Domain\DivisionType;
+use App\Domain\OrderType;
 use App\Utils\GuardsForAssertions;
+use Closure;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -62,9 +65,22 @@ class Deployment extends Model
         return $this->id;
     }
 
+    public function getDivisionType(): DivisionType {
+        return DivisionType::from($this->division_type);
+    }
+
     public function hasBeenDeployed() :int {
         return $this->has_been_deployed;
     }
+
+    // public static function createValidationValidTerritoryForDeployment(Nation $nation): Closure {
+    //     return function (string $attribute, int $value, Closure $fail) use ($nation) {
+    //         $territoryOrNull = $nation->getDetail()->territories()->find($value);
+    //         if (is_null($territoryOrNull)) {
+    //             $fail("Nation ID {$nation->getId()} doesn't own Territory ID $value");
+    //         }
+    //     };
+    // }
 
     public static function createRuleValidDeployment(Nation $nation): Exists {
         return Rule::exists(Deployment::class, 'id')
@@ -107,12 +123,13 @@ class Deployment extends Model
         ];
     }
 
-    public static function Create(Nation $nation, Territory $territory) :Deployment {
+    public static function Create(Nation $nation, DivisionType $type, Territory $territory) :Deployment {
         $deployment = new Deployment();
         $deployment->game_id = $nation->getGame()->getId();
         $deployment->nation_id = $nation->getId();
         $deployment->territory_id = $territory->getId();
         $deployment->turn_id = Turn::getCurrentForGame($nation->getGame())->getId();
+        $deployment->division_type = $type;
         $deployment->has_been_deployed = false;
         $deployment->save();
 

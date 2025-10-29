@@ -103,6 +103,8 @@ Route::middleware('auth')->group(function () {
 Route::middleware('auth')->group(function () {
     Route::get('nation/deployments', [DeploymentController::class, 'allDeployments'])
         ->name('ajax.get-all-deployments');
+    // Route::post('nation/deployments', [DeploymentController::class, 'deployDivisions'])
+    //     ->name('ajax.deployDivisions');
     Route::post('nation/deployments:cancel', [DeploymentController::class, 'cancelDeployments'])
         ->name('ajax.cancel-deployments');
     Route::get('nation/territories/{territoryId}/deployments', [DeploymentController::class, 'allDeploymentsInOwnedTerritory'])

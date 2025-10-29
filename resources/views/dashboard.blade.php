@@ -28,6 +28,10 @@
             Move: "Move",
         }
 
+        const DivisionType = {
+            Infantry: "Infantry",
+        }
+
         let victoryRanking = @json($victory_ranking);
         let budgetItems = mapExportedObject(@json($budget_items));
         let territoriesById = mapExportedArray(@json($territories), t => t.territory_id);
@@ -198,7 +202,7 @@
                 html += `<p>Divisions in territory<span id="select-divisions-links"></span>:</p>`;
                 html += `<span id="send-order-link">&nbsp;</span>`
                 html += '<div id="territory-division-list"><ul>'
-                    + divisionsInTerritory.map(d => `<li><input type="checkbox" onchange="onDivisionSelectionChange()" value=${d.division_id}>Division #${d.division_id}`
+                    + divisionsInTerritory.map(d => `<li><input type="checkbox" onchange="onDivisionSelectionChange()" value=${d.division_id}>${d.division_type} division #${d.division_id}`
                     + (d.order ? ` <i> ${describeOrder(d.order)}</i>` : "")
                     + ` ${d.order ? `<a href="javascript:void(0)" onclick="cancelOrder(${d.division_id})">cancel order</a></li>`: ""}`).join("")
                     + '</ul></div>';
@@ -260,7 +264,7 @@
             setMapMode(MapMode.Default);
             let selectedDivisions = getAllSelectedDivisionsInTerritory();
             services.sendMoveOrders({orders: selectedDivisions.map(d => ({ division_id: d.division_id, destination_territory_id: tid }))})
-                .then(refreshDivisions)
+                .then(data => patchOrders(data))
                 .catch(error => {
                     $("#error_messages").html(`<li style="color: crimson">${JSON.stringify(error.responseJSON)}}</li>`);
                 });
@@ -273,10 +277,13 @@
             services.cancelOrders({
                 division_ids: [did]
             })
-                .then(refreshDivisions)
-                .catch(error => {
-                    $("#error_messages").html(`<li style="color: crimson">${JSON.stringify(error.responseJSON)}}</li>`);
-                });
+            .then(() => {
+                divisionsById.get(did).order = null;
+                updateDivisionsPane();
+            })
+            .catch(error => {
+                $("#error_messages").html(`<li style="color: crimson">${JSON.stringify(error.responseJSON)}}</li>`);
+            });
         }
 
         function getAllSelectedDivisionsInTerritory() {
@@ -354,12 +361,13 @@
             pendingDeploymentsByTerritoryId.forEach((group, tid) => {
                 callChain = callChain
                     .then(() => {
-                        return services.deployInTerritory(tid, { number_of_divisions: group.length });
+                        return services.deployInTerritory(tid, { division_type: DivisionType.Infantry, number_of_divisions: group.length });
                     })
             });
 
             callChain
-                .then(refreshDeployments)
+                .then(deployments => deployments.forEach(d => deploymentsById.set(d.deployment_id, d)))
+                .then(refreshBudget)
                 .catch(error => {
                     $("#error_messages").html(`<li style="color: crimson">${JSON.stringify(error.responseJSON)}}</li>`);
                 });
@@ -368,20 +376,12 @@
         function cancelDeployment(deploymentId) {
             setMapMode(MapMode.Default);
             services.cancelDeployments({deployment_ids: [deploymentId]})
-                .then(refreshDeployments)
+                .then(() => deploymentsById.delete(deploymentId))
+                .then(refreshBudget)
                 .catch(error => {
                     $("#error_messages").html(`<li style="color: crimson">${JSON.stringify(error.responseJSON)}}</li>`);
                 });
         }
-
-        function refreshDeployments() {
-            return services.getAllDeployments()
-                .then((data) => {
-                    deploymentsById = mapExportedArray(data, d => d.deployment_id);
-                })
-                .then(refreshBudget);
-        }
-
         function refreshBudget() {
             return services.getNationBudget()
                 .then((data) => {
@@ -393,14 +393,9 @@
                 });
         }
 
-        function refreshDivisions() {
-            return services.getNationDivisions()
-                .then((data) => {
-                    divisionsById = mapExportedArray(data, d => d.division_id);
-                })
-                .then(() => {
-                    updateDivisionsPane();
-                });
+        function patchOrders(newOrders) {
+            newOrders.forEach(order => divisionsById.get(order.division_id).order = order);
+            updateDivisionsPane();
         }
 
         function cancelAllPendingDeployment() {

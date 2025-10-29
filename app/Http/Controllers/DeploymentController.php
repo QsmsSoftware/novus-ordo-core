@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Domain\DeploymentCommand;
+use App\Domain\DivisionType;
 use App\Models\Deployment;
 use App\Models\Territory;
 use App\Services\NationContext;
@@ -10,17 +12,79 @@ use App\Utils\MapsArrayToInstance;
 use App\Utils\MapsValidatedDataToFormRequest;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 
-readonly class DeployInTerritoryRequest {
-    use MapsArrayToInstance;
+// readonly class DeployInTerritoryRequest {
+//     use MapsArrayToInstance;
+//     public function __construct(
+//         public int $number_of_divisions
+//     )
+//     {
+        
+//     }
+// }
+
+class DeployInTerritoryRequest extends FormRequest {
+    use MapsValidatedDataToFormRequest;
+
+    public readonly string $division_type;
+    public readonly int $number_of_divisions;
+
     public function __construct(
-        public int $number_of_divisions
+        private readonly NationContext $context
     )
     {
         
     }
+
+    public function rules(): array
+    {
+        return [
+            'division_type' => [
+                'required',
+                'string',
+                DivisionType::createValidation()
+            ],
+            'number_of_divisions' => 'required|int|min:1',
+        ];
+    }
 }
+
+// class DeployDivisionsRequest extends FormRequest {
+
+//     public readonly array $deployments;
+
+//     public function authorize(): bool
+//     {
+//         return true;
+//     }
+
+//     public function __construct(
+//         private readonly NationContext $context
+//     )
+//     {
+        
+//     }
+
+//     public function passedValidation(): void {
+//         $data = $this->validated();
+
+//         $this->deployments = array_map(fn ($d) => new DeploymentCommand($d["territory_id"], $d["division_type"]), $data["deployments"]);
+//     }
+
+//     public function rules(): array
+//     {
+//         return [
+//             'deployments.*.territory_id' => 'required|int|min:1',
+//             'deployments.*.order_type' => 'required|string|min:1',
+//             'deployments' => [
+//                 'required',
+//                 'array',
+//                 'min:1',
+//                 Deployment::createValidationDeloymentData($this->context->getNation()),
+//             ]
+//         ];
+//     }
+// }
 
 class CancelDeploymentsRequest extends FormRequest {
     use MapsValidatedDataToFormRequest;
@@ -70,15 +134,11 @@ class DeploymentController extends Controller
         return response()->json($nation->getDetail()->deploymentsInTerritory($territory)->get()->map(fn (Deployment $d) => $d->export()));
     }
 
-    public function deployInOwnedTerritory(Request $request, NationContext $context, int $territoryId): JsonResponse {
-        $validated = $request->validate([
-            'number_of_divisions' => 'required|int|min:1',
-        ]);
-        $request = DeployInTerritoryRequest::fromArray($validated);
+    public function deployInOwnedTerritory(DeployInTerritoryRequest $request, NationContext $context, int $territoryId): JsonResponse {
         $nation = $context->getNation();
         $territory = Territory::asOrNotFound($nation->getDetail()->territories()->find($territoryId), "Current nation doesn't own territory: $territoryId");
         
-        $deployments = array_map(fn (Deployment $d) => $d->export(), $nation->deploy($territory, $request->number_of_divisions));
+        $deployments = array_map(fn (Deployment $d) => $d->export(), $nation->deploy($territory, DivisionType::fromName($request->division_type), $request->number_of_divisions));
         return response()->json($deployments, HttpStatusCode::Created);
     }
 }

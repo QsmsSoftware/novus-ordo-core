@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 readonly class MoveOrAttackOrderInfo {
     public function __construct(
+        public int $division_id,
         public string $order_type,
         public int $destination_territory_id,
     )
@@ -49,6 +50,7 @@ class Order extends Model
     public function exportForOwner(): MoveOrAttackOrderInfo {
         return match($this->getType()) {
             OrderType::Move => new MoveOrAttackOrderInfo(
+                    $this->division_id,
                     order_type: OrderType::Move->name,
                     destination_territory_id: $this->getDestinationTerritory()->getId(),
                 )
