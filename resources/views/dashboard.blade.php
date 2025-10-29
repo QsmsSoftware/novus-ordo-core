@@ -8,6 +8,11 @@
         <title>{{ config('app.name', 'Laravel') }}</title>
         <script src="{{ asset('js/jquery-3.7.1.min.js') }}"></script>
     </head>
+    <style>
+        .selected-action-link {
+            font-weight: bold;
+        }
+    </style>
     <script>
         {!! $js_client_services !!}
         let services = new NovusOrdoServices(@json(url("")), @json(csrf_token()));
@@ -45,6 +50,12 @@
         var mapDisplay;
         var userSelectedPane = null;
         var selectedTerritory = null;
+        const mainTabs = {
+            'nation': 'Nation',
+            'battle-logs': 'Battle logs',
+            'deploy-new-divisions': 'Deploy new divisions',
+        }
+        var selectedMainTab = null;
         
         var pendingDeployments = [];
 
@@ -84,6 +95,15 @@
             mapDisplay.selectedTerritory = territory;
         }
 
+        function selectMainTab(tab) {
+            selectedMainTab = selectedMainTab == tab ? null : tab;
+            updateMainTabs();
+        }
+
+        function updateMainTabs() {
+            $("#main-tabs").html(['Nation', 'Battle logs', 'Deploy new divisions'].map(tab => renderActionLink(tab, `selectMainTab('${tab}')`, tab == selectedMainTab)).join(" "));
+        }
+
         function updateTerritoryPane() {
             $("#territory-details").html(
                 `<p><b>${selectedTerritory.name}</b><br>`
@@ -97,12 +117,12 @@
             );
         }
 
-        function updateNationPane(nation) {
+        function updateNationPane(nation, component) {
             if (nation !== undefined) {
-                $("#nation-details").html(`<p><b>${nation.usual_name}</b></p>`);
+                component.html(`<p><b>${nation.usual_name}</b></p>`);
             }
             else {
-                $("#nation-details").html("<p><b>Neutral territory</b></p>");
+                component.html("<p><b>Neutral territory</b></p>");
             }
         }
 
@@ -127,12 +147,12 @@
             );
         }
 
-        function updateBattleLogsPane(battleLogs) {
+        function updateBattleLogsPane(battleLogs, component) {
             if (battleLogs.length == 0) {
-                $('#battle-logs-details').html("<p>We didn't participate in any battle this turn.</p>");
+                component.html("<p>We didn't participate in any battle this turn.</p>");
             }
             else {
-                $('#battle-logs-details').html(
+                component.html(
                     battleLogs.map(battleLog => {
                         let destinationTerritory = territoriesById.get(battleLog.territory_id);
                         var summary;
@@ -315,8 +335,8 @@
             $("#details-tabs").html(panes.map(pane => renderActionLink(pane, `selectDetailsPane('${pane}', true)`)).join(" "));
         }
 
-        function renderActionLink(title, onclick) {
-            return `<a href="javascript:void(0)" onclick="${onclick}">${title}</a>`;
+        function renderActionLink(title, onclick, selected = false) {
+            return `<a class="${selected ? "selected-action-link" : "action-link"}" href="javascript:void(0)" onclick="${onclick}">${title}</a>`;
         }
 
         function stopDeploying() {
@@ -450,10 +470,11 @@
                 md.addLayer(defaultMapLayer);
             });
             setMapMode(MapMode.Default);
-            updateNationPane(ownNation);
+            updateMainTabs();
+            updateNationPane(ownNation, $('#nation-display'));
             updateVictoryPane();
             updateBudgetPane();
-            updateBattleLogsPane(allBattleLogs);
+            updateBattleLogsPane(allBattleLogs, $('#battle-logs-display'));
             updateDeploymentsPane();
             enablePanes(['nation', 'battle-logs', 'budget', 'deployments', 'victory']);
             selectDetailsPane('nation');
@@ -471,7 +492,13 @@
             @endif
             <x-dev-mode />
         </div>
+        <div id="main-tabs">
+        </div>
         <x-map-display id="map-display" />
+        <div id="nation-display">
+        </div>
+        <div id="battle-logs-display">
+        </div>
         <div id="details">
             <span id="details-tabs"></span>
             <div id="nation-details">

@@ -64,6 +64,7 @@ class CancelDeploymentsRequest extends FormRequest {
 
 class DeploymentController extends Controller
 {
+    // Maybe change for a standard RFC 6902 PATCH delete operation? https://datatracker.ietf.org/doc/html/rfc6902#section-4.2
     public function cancelDeployments(CancelDeploymentsRequest $cancelRequest, NationContext $context): JsonResponse {
         $nation = $context->getNation();
 
