@@ -361,12 +361,12 @@
             pendingDeploymentsByTerritoryId.forEach((group, tid) => {
                 callChain = callChain
                     .then(() => {
-                        return services.deployInTerritory(tid, { division_type: DivisionType.Infantry, number_of_divisions: group.length });
+                        return services.deployInTerritory(tid, { division_type: DivisionType.Infantry, number_of_divisions: group.length })
+                            .then(deployments => deployments.forEach(d => deploymentsById.set(d.deployment_id, d)));
                     })
             });
 
             callChain
-                .then(deployments => deployments.forEach(d => deploymentsById.set(d.deployment_id, d)))
                 .then(refreshBudget)
                 .catch(error => {
                     $("#error_messages").html(`<li style="color: crimson">${JSON.stringify(error.responseJSON)}}</li>`);
