@@ -31,11 +31,11 @@
 
         const OrderType = {
             Move: "Move",
-        }
+        };
 
         const DivisionType = {
             Infantry: "Infantry",
-        }
+        };
 
         let victoryRanking = @json($victory_ranking);
         let budgetItems = mapExportedObject(@json($budget_items));
@@ -48,14 +48,20 @@
 
         let ownNation = @json($own_nation);
         var mapDisplay;
-        var userSelectedPane = null;
         var selectedTerritory = null;
-        const mainTabs = {
-            'nation': 'Nation',
-            'battle-logs': 'Battle logs',
-            'deploy-new-divisions': 'Deploy new divisions',
-        }
         var selectedMainTab = null;
+        var selectedDetailsTab = null;
+        const MainTabs = {
+            Nation: 'Nation',
+            BattleLogs: 'Battle logs',
+            Deployments: 'Deployments',
+        };
+
+        const DetailsTabs = {
+            Divisions: 'divisions',
+            BattleLogs: 'battle-logs',
+            Deployments: 'deployments',
+        };
         
         var pendingDeployments = [];
 
@@ -82,36 +88,62 @@
             return map;
         }
 
-        function queryTerritory(tid) {
+        function selectTerritory(tid) {
             let territory = territoriesById.get(tid);
             selectedTerritory = territory;
-            updateNationPane(nationsById.get(territory.owner_nation_id));
-            updateTerritoryPane();
+            updateNationPane(nationsById.get(territory.owner_nation_id), $("#owner-details"));
+            updateTerritoryInfo();
             updateDivisionsPane();
-            if (!['nation', 'territory', 'deployments', 'divisions'].includes(userSelectedPane)) {
-                selectDetailsPane('territory', true);
-            }
-            enablePanes(['nation', 'territory', 'battle-logs', 'budget', 'deployments', 'divisions', 'victory']);
+            updateTerritoryDeployments();
+            updateBattleLogsPane(allBattleLogs.filter(b => b.territory_id == selectedTerritory.territory_id), $('#battle-logs-details'));
+            selectDetailsPane(selectedDetailsTab ? selectedDetailsTab : 'divisions');
             mapDisplay.selectedTerritory = territory;
         }
 
         function selectMainTab(tab) {
             selectedMainTab = selectedMainTab == tab ? null : tab;
             updateMainTabs();
+
+            stopDeploying();
+
+            $("#details").hide();
+
+            let mainDisplays = $("#main > div");
+            mainDisplays.hide();
+
+            switch (selectedMainTab) {
+                case 'Nation':
+                    $("#nation-display").show();
+                    break;
+                case 'BattleLogs':
+                    $("#battle-logs-display").show();
+                    break;
+                case 'Deployments':
+                    $("#deployments-display").show();
+                    startDeploying();
+                    break;
+                case null:
+                    if (selectedTerritory) {
+                        $("#details").show();
+                    }
+                    break;
+                default:
+                    throw new Error("Unreacheable.");
+            }
         }
 
         function updateMainTabs() {
-            $("#main-tabs").html(['Nation', 'Battle logs', 'Deploy new divisions'].map(tab => renderActionLink(tab, `selectMainTab('${tab}')`, tab == selectedMainTab)).join(" "));
+            $("#main-tabs").html(Object.keys(MainTabs).map(tab => renderActionLink(MainTabs[tab], `selectMainTab('${tab}')`, tab == selectedMainTab)).join(" "));
         }
 
-        function updateTerritoryPane() {
-            $("#territory-details").html(
+        function updateTerritoryInfo() {
+            $("#territory-info").html(
                 `<p><b>${selectedTerritory.name}</b><br>`
                 + (selectedTerritory.terrain_type == TerrainType.Water
                     ? "Sea"
                     : (selectedTerritory.has_sea_access ? "Coastal" : "No sea access")
                 )
-                + (selectedTerritory.connected_territory_ids.length > 0 ? '. Land access to ' + selectedTerritory.connected_territory_ids.map(ctid => territoriesById.get(ctid)).map(t => renderActionLink(t.name, `queryTerritory(${t.territory_id})`)).join(', ') : '')
+                + (selectedTerritory.connected_territory_ids.length > 0 ? '. Land access to ' + selectedTerritory.connected_territory_ids.map(ctid => territoriesById.get(ctid)).map(t => renderActionLink(t.name, `selectTerritory(${t.territory_id})`)).join(', ') : '')
                 + '</p>'
                 + (selectedTerritory.owner_nation_id != null ? `<p>Owned by ${nationsById.get(selectedTerritory.owner_nation_id).usual_name}</p>` : '')
             );
@@ -119,10 +151,10 @@
 
         function updateNationPane(nation, component) {
             if (nation !== undefined) {
-                component.html(`<p><b>${nation.usual_name}</b></p>`);
+                component.html(`<h1><b>${nation.usual_name}</b></h1>`);
             }
             else {
-                component.html("<p><b>Neutral territory</b></p>");
+                component.html("<h1><b>Neutral territory</b></h1>");
             }
         }
 
@@ -180,34 +212,55 @@
             }
         }
 
-        function updateDeploymentsPane() {
+        function updateTerritoryDeployments() {
+            if (!selectedTerritory) {
+                return;
+            }
+            
+            deploymentsInTerritory = deploymentsById.values().filter(d => d.territory_id == selectedTerritory.territory_id).toArray();
+
+            $("#deployments-details").html(renderDeploymentList(deploymentsInTerritory));
+        }
+
+        function renderDeploymentList(deployments) {
             var html = "";
-            let remainingDeployments = budget.max_remaining_deployments - pendingDeployments.length;
-            if (currentMapMode == MapMode.DeployDivisions) {
-                html += `<p>You can still deploy</a> ${remainingDeployments} divisions this turn. <a href="javascript:void(0)" onclick="stopDeploying()">stop deploying</a></p>`;
-            }
-            else {
-                html += `<p>You can still <a href="javascript:void(0)" onclick="startDeploying()">deploy</a> ${remainingDeployments} divisions this turn.</p>`;
-            }
 
-            if (pendingDeployments.length > 0) {
-                html += '<p>Pending deployments (<a href="javascript:void(0)" onclick="confirmAllPendingDeployment()">confirm all</a> or <a href="javascript:void(0)" onclick="cancelAllPendingDeployment()">cancel all</a>): '
-                    + '<p>'
-                    + `<ul>${pendingDeployments.map(tid => `<li><a href="javascript:void(0)" onclick="queryTerritory(${tid})">${territoriesById.get(tid).name}</a> - <a href="javascript:void(0)" onclick="removeDeployment(${tid})">cancel</a></li>`).join("")}</ul>`
-                    + '</p>';
-            }
-
-            if (deploymentsById.size > 0) {
+            if (deployments.length > 0) {
                 html += '<p>Will be deployed next turn:</p>'
                     + '<p>'
-                    + `<ul>${deploymentsById.values().map(d => `<li><a href="javascript:void(0)" onclick="queryTerritory(${d.territory_id})">${territoriesById.get(d.territory_id).name}</a> - <a href="javascript:void(0)" onclick="cancelDeployment(${d.deployment_id})">cancel</a></li>`).toArray().join("")}</ul>`
+                    + `<ul>${deployments.map(d => `<li><a href="javascript:void(0)" onclick="selectTerritory(${d.territory_id})">${territoriesById.get(d.territory_id).name}</a> - <a href="javascript:void(0)" onclick="cancelDeployment(${d.deployment_id})">cancel</a></li>`).join("")}</ul>`
                     + '</p>';
             }
             else {
                 html += "<p>No confirmed deployments for now.</p>"
             }
 
-            $('#deployments-details').html(html);
+            return html;
+        }
+
+        function updateDeploymentsPane() {
+            var html = "";
+            let remainingDeployments = budget.max_remaining_deployments - pendingDeployments.length;
+
+            html += `<p>You can still deploy</a> ${remainingDeployments} divisions this turn.`;
+
+            // if (currentMapMode == MapMode.DeployDivisions) {
+            //     html += `<p>You can still deploy</a> ${remainingDeployments} divisions this turn. <a href="javascript:void(0)" onclick="stopDeploying()">stop deploying</a></p>`;
+            // }
+            // else {
+            //     html += `<p>You can still <a href="javascript:void(0)" onclick="startDeploying()">deploy</a> ${remainingDeployments} divisions this turn.</p>`;
+            // }
+
+            if (pendingDeployments.length > 0) {
+                html += '<p>Pending deployments (<a href="javascript:void(0)" onclick="confirmAllPendingDeployment()">confirm all</a> or <a href="javascript:void(0)" onclick="cancelAllPendingDeployment()">cancel all</a>): '
+                    + '<p>'
+                    + `<ul>${pendingDeployments.map(tid => `<li><a href="javascript:void(0)" onclick="selectTerritory(${tid})">${territoriesById.get(tid).name}</a> - <a href="javascript:void(0)" onclick="removeDeployment(${tid})">cancel</a></li>`).join("")}</ul>`
+                    + '</p>';
+            }
+
+            html += renderDeploymentList(deploymentsById.values().toArray());
+
+            $('#deployments-display').html(html);
         }
 
         function updateDivisionsPane() {
@@ -258,7 +311,7 @@
             }
 
             let destination = territoriesById.get(order.destination_territory_id);
-            let destinationLink = renderActionLink(`${destination.name} (${destination.owner_nation_id ? nationsById.get(destination.owner_nation_id).usual_name : "neutral"})`, `queryTerritory(${destination.territory_id})`);
+            let destinationLink = renderActionLink(`${destination.name} (${destination.owner_nation_id ? nationsById.get(destination.owner_nation_id).usual_name : "neutral"})`, `selectTerritory(${destination.territory_id})`);
 
             if (destination.owner_nation_id == ownNation.nation_id) {
                 return `moving to ${destinationLink}`;
@@ -321,18 +374,17 @@
             onDivisionSelectionChange();
         }
 
-        function selectDetailsPane(pane, userAction = false) {
-            let detailsPanes = $("#details > div");
+        function selectDetailsPane(pane) {
+            selectedDetailsTab = pane;
+            updateDetailsTabs();
+            selectMainTab(null);
+            let detailsPanes = $("#details-panes > div");
             detailsPanes.hide();
             $(`#${pane}-details`).show();
-            userSelectedPane = userAction ? pane : null;
-            if (['divisions'].includes(pane)) {
-                $("#territory-details").show();
-            }
         }
 
-        function enablePanes(panes) {
-            $("#details-tabs").html(panes.map(pane => renderActionLink(pane, `selectDetailsPane('${pane}', true)`)).join(" "));
+        function updateDetailsTabs() {
+            $("#details-tabs").html(Object.keys(DetailsTabs).map(pane => renderActionLink(pane, `selectDetailsPane('${DetailsTabs[pane]}')`, DetailsTabs[pane] == selectedDetailsTab)).join(" "));
         }
 
         function renderActionLink(title, onclick, selected = false) {
@@ -341,12 +393,10 @@
 
         function stopDeploying() {
             setMapMode(MapMode.Default);
-            updateDeploymentsPane();
         }
 
         function startDeploying() {
             setMapMode(MapMode.DeployDivisions);
-            updateDeploymentsPane();
         }
 
         function addDeployment(tid) {
@@ -371,7 +421,6 @@
         }
 
         function confirmAllPendingDeployment() {
-            setMapMode(MapMode.Default);
             $("#deployments-detail").html("<p>Waiting for the server to respond...</p>");
             let pendingDeploymentsByTerritoryId = Map.groupBy(pendingDeployments, tid => tid);
             pendingDeployments.length = 0;
@@ -382,22 +431,27 @@
                 callChain = callChain
                     .then(() => {
                         return services.deployInTerritory(tid, { division_type: DivisionType.Infantry, number_of_divisions: group.length })
-                            .then(deployments => deployments.forEach(d => deploymentsById.set(d.deployment_id, d)));
+                            .then(deployments => deployments.forEach(d => deploymentsById.set(d.deployment_id, d)))
+                            .then(updateTerritoryDeployments);
                     })
             });
 
             callChain
                 .then(refreshBudget)
+                .then(updateDeploymentsPane)
                 .catch(error => {
                     $("#error_messages").html(`<li style="color: crimson">${JSON.stringify(error.responseJSON)}}</li>`);
                 });
         }
 
         function cancelDeployment(deploymentId) {
-            setMapMode(MapMode.Default);
             services.cancelDeployments({deployment_ids: [deploymentId]})
-                .then(() => deploymentsById.delete(deploymentId))
+                .then(() => {
+                    deploymentsById.delete(deploymentId);
+                    updateTerritoryDeployments();
+                })
                 .then(refreshBudget)
+                .then(updateDeploymentsPane)
                 .catch(error => {
                     $("#error_messages").html(`<li style="color: crimson">${JSON.stringify(error.responseJSON)}}</li>`);
                 });
@@ -408,7 +462,6 @@
                     budget = data;
                 })
                 .then(() => {
-                    updateDeploymentsPane();
                     updateBudgetPane();
                 });
         }
@@ -428,7 +481,7 @@
             switch(mode) {
                 case MapMode.QueryTerritory:
                     mapDisplay.setAllClickable(true);
-                    mapDisplay.onClick = queryTerritory;
+                    mapDisplay.onClick = selectTerritory;
                     mapDisplay.onContextMenu = undefined;
                     mapDisplay.setLayers([defaultMapLayer]);
                     break;
@@ -471,13 +524,14 @@
             });
             setMapMode(MapMode.Default);
             updateMainTabs();
-            updateNationPane(ownNation, $('#nation-display'));
+            updateDetailsTabs();
+            updateNationPane(ownNation, $('#own-nation-details'));
             updateVictoryPane();
             updateBudgetPane();
             updateBattleLogsPane(allBattleLogs, $('#battle-logs-display'));
             updateDeploymentsPane();
-            enablePanes(['nation', 'battle-logs', 'budget', 'deployments', 'victory']);
-            selectDetailsPane('nation');
+            $("#details").hide();
+            selectMainTab(null);
         });
     </script>
     <body>
@@ -492,35 +546,49 @@
             @endif
             <x-dev-mode />
         </div>
-        <div id="main-tabs">
-        </div>
+        <span id="main-tabs"></span>
         <x-map-display id="map-display" />
-        <div id="nation-display">
-        </div>
-        <div id="battle-logs-display">
-        </div>
-        <div id="details">
-            <span id="details-tabs"></span>
-            <div id="nation-details">
-                nation
-            </div>
-            <div id="territory-details">
-                territory
-            </div>
-            <div id="budget-details">
-                budget
-            </div>
-            <div id="victory-details">
+        <div id="main">
+            <div id="nation-display">
+                <div id="own-nation-details">
+                    own nation
+                </div>
+                <h3>Budget</h3>
+                <div id="budget-details">
+                    budget
+                </div>
+                <h3>Victory progression</h3>
+                <div id="victory-details">
                 victory
             </div>
-            <div id="battle-logs-details">
+            </div>
+            <div id="battle-logs-display">
                 battle logs
             </div>
-            <div id="deployments-details">
+            <div id="deployments-display">
                 deployments
             </div>
-            <div id="divisions-details">
-                divisions
+        </div>
+        <div id="details">
+            <div id="details-header">
+                <span id="details-tabs"></span>
+                <div id="territory-info">
+                    infos
+                </div>
+            </div>
+            <div id="details-panes">
+                <div id="owner-details">
+                    owner
+                </div>
+                <div id="battle-logs-details">
+                    battle logs
+                </div>
+                <div id="deployments-details">
+                    deployments
+                </div>
+                <div id="divisions-details">
+                    divisions
+                </div>
             </div>
         </div>
     </body>
