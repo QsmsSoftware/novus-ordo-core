@@ -2,26 +2,14 @@
 
 namespace App\Http\Controllers;
 
-use App\Domain\DeploymentCommand;
 use App\Domain\DivisionType;
 use App\Models\Deployment;
 use App\Models\Territory;
 use App\Services\NationContext;
 use App\Utils\HttpStatusCode;
-use App\Utils\MapsArrayToInstance;
 use App\Utils\MapsValidatedDataToFormRequest;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\JsonResponse;
-
-// readonly class DeployInTerritoryRequest {
-//     use MapsArrayToInstance;
-//     public function __construct(
-//         public int $number_of_divisions
-//     )
-//     {
-        
-//     }
-// }
 
 class DeployInTerritoryRequest extends FormRequest {
     use MapsValidatedDataToFormRequest;
@@ -42,49 +30,12 @@ class DeployInTerritoryRequest extends FormRequest {
             'division_type' => [
                 'required',
                 'string',
-                DivisionType::createValidation()
+                DivisionType::createValidationByName()
             ],
             'number_of_divisions' => 'required|int|min:1',
         ];
     }
 }
-
-// class DeployDivisionsRequest extends FormRequest {
-
-//     public readonly array $deployments;
-
-//     public function authorize(): bool
-//     {
-//         return true;
-//     }
-
-//     public function __construct(
-//         private readonly NationContext $context
-//     )
-//     {
-        
-//     }
-
-//     public function passedValidation(): void {
-//         $data = $this->validated();
-
-//         $this->deployments = array_map(fn ($d) => new DeploymentCommand($d["territory_id"], $d["division_type"]), $data["deployments"]);
-//     }
-
-//     public function rules(): array
-//     {
-//         return [
-//             'deployments.*.territory_id' => 'required|int|min:1',
-//             'deployments.*.order_type' => 'required|string|min:1',
-//             'deployments' => [
-//                 'required',
-//                 'array',
-//                 'min:1',
-//                 Deployment::createValidationDeloymentData($this->context->getNation()),
-//             ]
-//         ];
-//     }
-// }
 
 class CancelDeploymentsRequest extends FormRequest {
     use MapsValidatedDataToFormRequest;

@@ -4,12 +4,9 @@ namespace App\Models;
 
 use App\Domain\DivisionType;
 use App\Utils\GuardsForAssertions;
-use Closure;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Validation\Rules\Exists;
 use LogicException;
 
 class Division extends Model
