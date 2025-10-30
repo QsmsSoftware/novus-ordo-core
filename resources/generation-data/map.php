@@ -2,6 +2,7 @@
 
 // Copied from NO 2.x source code.
 
+// Terrain types (see App\Domain\TerrainType), $map[x][y]
 $map[0][0] = 0;
 $map[1][0] = 0;
 $map[2][0] = 0;
@@ -602,6 +603,8 @@ $map[26][19] = 4;
 $map[27][19] = 4;
 $map[28][19] = 0;
 $map[29][19] = 0;
+
+// Usable land ratio, between 0.00 - 1.00 (0% - 100%)
 $usable[0][0] = 0;
 $usable[1][0] = 0;
 $usable[2][0] = 0;
@@ -1203,6 +1206,7 @@ $usable[27][19] = 0.23;
 $usable[28][19] = 0;
 $usable[29][19] = 0;
 
+//Borders that are considered a coast are set to a truthy value, [x][y][border]; border from midnight clockwise (0 = Top, 1 = Top Right, 2 = Right, 3 = Bottom Right, 4 = Bottom, 5 = Bottom Left, 6 = Left, 7 = Top Left)
 $coasts[0][0][0] = 1;
 $coasts[0][0][1] = 1;
 $coasts[0][0][2] = 1;
