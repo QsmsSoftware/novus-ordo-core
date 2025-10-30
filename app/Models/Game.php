@@ -6,6 +6,7 @@ use App\Domain\GenerationData;
 use App\Domain\TerrainType;
 use App\Domain\TerritoryConnectionData;
 use App\Utils\GuardsForAssertions;
+use App\Utils\RuntimeInfo;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
@@ -153,40 +154,47 @@ class Game extends Model
     }
 
     public function nextTurn(): void {
-        Cache::lock("critical_section:next_turn_game_{$this->getId()}", ini_get('max_execution_time') * 0.8)->block(1, function () {
-            $currentTurn = Turn::getCurrentForGame($this);
-            $nextTurn = $currentTurn->createNext();
+        $lock = Cache::lock("critical_section:next_turn_game_{$this->getId()}", RuntimeInfo::maxExectutionTimeSeconds() * 0.8);
 
-            // Upkeep.
-            $this->nations()->get()->each(fn (Nation $n) => $n->onNextTurn($currentTurn, $nextTurn));
-            $this->territories()->get()->each(fn (Territory $t) => $t->onNextTurn($currentTurn, $nextTurn));
-            $this->activeDivisionsInTurn($currentTurn)->get()->each(fn (Division $d) => $d->onNextTurn($currentTurn, $nextTurn));
+        $gotLock = $lock->get(function () {
+                $currentTurn = Turn::getCurrentForGame($this);
+                $nextTurn = $currentTurn->createNext();
 
-            // Move divisions.
-            $this->activeDivisionsInTurn($currentTurn)->get()->each(fn (Division $d) => $d->onMovePhase($currentTurn, $nextTurn));
+                // Upkeep.
+                $this->nations()->get()->each(fn (Nation $n) => $n->onNextTurn($currentTurn, $nextTurn));
+                $this->territories()->get()->each(fn (Territory $t) => $t->onNextTurn($currentTurn, $nextTurn));
+                $this->activeDivisionsInTurn($currentTurn)->get()->each(fn (Division $d) => $d->onNextTurn($currentTurn, $nextTurn));
 
-            // Attacks.
-            $divisionsByOwnerAndDestinationTerritory = $this->activeDivisionsInTurn($currentTurn)->get()
-                ->filter(fn (Division $d) => $d->getDetail($currentTurn)->isAttacking())
-                ->groupBy([
-                    fn (Division $d) => $d->getNation()->getId() . '-' . $d->getDetail($currentTurn)->getOrder()->getDestinationTerritory()->getId()
-                ])
-                ->shuffle();
-            foreach ($divisionsByOwnerAndDestinationTerritory as $attackingDivisions) {
-                $destinationTerritoryId = Division::notNull($attackingDivisions->first())
-                    ->getDetail($currentTurn)
-                    ->getOrder()
-                    ->getDestinationTerritory()
-                    ->getId();
-                $destinationTerritory = $this->getTerritoryWithId($destinationTerritoryId);
-                Battle::resolveBattle($destinationTerritory, $attackingDivisions);
-                $attackingDivisions->each(fn (Division $d) => $d->getDetail($currentTurn)->getOrder()->onExecution());
-            }
+                // Move divisions.
+                $this->activeDivisionsInTurn($currentTurn)->get()->each(fn (Division $d) => $d->onMovePhase($currentTurn, $nextTurn));
 
-            $this->updateVictoryStatus();
+                // Attacks.
+                $divisionsByOwnerAndDestinationTerritory = $this->activeDivisionsInTurn($currentTurn)->get()
+                    ->filter(fn (Division $d) => $d->getDetail($currentTurn)->isAttacking())
+                    ->groupBy([
+                        fn (Division $d) => $d->getNation()->getId() . '-' . $d->getDetail($currentTurn)->getOrder()->getDestinationTerritory()->getId()
+                    ])
+                    ->shuffle();
+                foreach ($divisionsByOwnerAndDestinationTerritory as $attackingDivisions) {
+                    $destinationTerritoryId = Division::notNull($attackingDivisions->first())
+                        ->getDetail($currentTurn)
+                        ->getOrder()
+                        ->getDestinationTerritory()
+                        ->getId();
+                    $destinationTerritory = $this->getTerritoryWithId($destinationTerritoryId);
+                    Battle::resolveBattle($destinationTerritory, $attackingDivisions);
+                    $attackingDivisions->each(fn (Division $d) => $d->getDetail($currentTurn)->getOrder()->onExecution());
+                }
 
-            $this->save();
-        });
+                $this->updateVictoryStatus();
+
+                $this->save();
+            });
+        
+        if (!$gotLock) {
+            // Assuming that another next turn command is executing, waiting for the execution to finish.
+            $lock->block(RuntimeInfo::maxExectutionTimeSeconds() * 0.8, function () {});
+        }
     }
 
     public function rollbackLastTurn(): void {
