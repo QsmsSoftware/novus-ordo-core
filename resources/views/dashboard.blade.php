@@ -58,6 +58,7 @@
         };
 
         const DetailsTabs = {
+            Info: 'info',
             Divisions: 'divisions',
             BattleLogs: 'battle-logs',
             Deployments: 'deployments',
@@ -91,12 +92,11 @@
         function selectTerritory(tid) {
             let territory = territoriesById.get(tid);
             selectedTerritory = territory;
-            updateNationPane(nationsById.get(territory.owner_nation_id), $("#owner-details"));
             updateTerritoryInfo();
             updateDivisionsPane();
             updateTerritoryDeployments();
             updateBattleLogsPane(allBattleLogs.filter(b => b.territory_id == selectedTerritory.territory_id), $('#battle-logs-details'));
-            selectDetailsPane(selectedDetailsTab ? selectedDetailsTab : 'divisions');
+            selectDetailsPane(selectedDetailsTab ? selectedDetailsTab : 'info');
             mapDisplay.selectedTerritory = territory;
         }
 
@@ -146,6 +146,19 @@
                 + (selectedTerritory.connected_territory_ids.length > 0 ? '. Land access to ' + selectedTerritory.connected_territory_ids.map(ctid => territoriesById.get(ctid)).map(t => renderActionLink(t.name, `selectTerritory(${t.territory_id})`)).join(', ') : '')
                 + '</p>'
                 + (selectedTerritory.owner_nation_id != null ? `<p>Owned by ${nationsById.get(selectedTerritory.owner_nation_id).usual_name}</p>` : '')
+            );
+
+            $("#info-details").html(
+                '<table>'
+                + '<tr>'
+                + '<td>'
+                + 'Usable land area:'
+                + '</td>'
+                + '<td>'
+                + `${(selectedTerritory.usable_land_ratio * 100).toFixed(0)}%`
+                + '</td>'
+                + '</tr>'
+                + '</table>'
             );
         }
 
@@ -577,6 +590,9 @@
                 </div>
             </div>
             <div id="details-panes">
+                <div id="info-details">
+                    info
+                </div>
                 <div id="owner-details">
                     owner
                 </div>

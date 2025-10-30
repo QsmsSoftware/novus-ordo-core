@@ -11,6 +11,7 @@ final class GenerationData {
     private const BottomLeft = 5;
     private const Left = 6;
     private const TopLeft = 7;
+    private const MinimumUsableLandRatio = 0.20;
 
     public static function getTerritoryNames(): array {
         return include(resource_path('generation-data/territory-names.php'));
@@ -23,7 +24,15 @@ final class GenerationData {
 
         for($x = 0; $x < MapData::WIDTH; $x++) {
             for($y = 0; $y < MapData::HEIGHT; $y++) {
-                $terrainType = TerrainType::from($map[$x][$y]);
+                if ($usable[$x][$y] >= GenerationData::MinimumUsableLandRatio) {
+                    $usableLandRatio = $usable[$x][$y];
+                    $terrainType = TerrainType::from($map[$x][$y]);
+                }
+                else {
+                    $usableLandRatio = 0;
+                    $terrainType = TerrainType::Water;
+                }
+                
                 $connections = [];
 
                 if (isset($map[$x][$y - 1])) {
@@ -60,7 +69,7 @@ final class GenerationData {
                     x: $x,
                     y: $y,
                     terrainType: $terrainType,
-                    usableLandRatio: $usable[$x][$y],
+                    usableLandRatio: $usableLandRatio,
                     hasSeaAccess: $hasSeaAccess,
                     connections: $connections,
                 );
