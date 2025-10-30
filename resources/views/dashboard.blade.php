@@ -97,7 +97,6 @@
             updateTerritoryDeployments();
             updateBattleLogsPane(allBattleLogs.filter(b => b.territory_id == selectedTerritory.territory_id), $('#battle-logs-details'));
             selectDetailsPane(selectedDetailsTab ? selectedDetailsTab : 'info');
-            mapDisplay.selectedTerritory = territory;
         }
 
         function selectMainTab(tab) {
@@ -256,13 +255,6 @@
             let remainingDeployments = budget.max_remaining_deployments - pendingDeployments.length;
 
             html += `<p>You can still deploy</a> ${remainingDeployments} divisions this turn.`;
-
-            // if (currentMapMode == MapMode.DeployDivisions) {
-            //     html += `<p>You can still deploy</a> ${remainingDeployments} divisions this turn. <a href="javascript:void(0)" onclick="stopDeploying()">stop deploying</a></p>`;
-            // }
-            // else {
-            //     html += `<p>You can still <a href="javascript:void(0)" onclick="startDeploying()">deploy</a> ${remainingDeployments} divisions this turn.</p>`;
-            // }
 
             if (pendingDeployments.length > 0) {
                 html += '<p>Pending deployments (<a href="javascript:void(0)" onclick="confirmAllPendingDeployment()">confirm all</a> or <a href="javascript:void(0)" onclick="cancelAllPendingDeployment()">cancel all</a>): '
@@ -497,15 +489,22 @@
                     mapDisplay.onClick = selectTerritory;
                     mapDisplay.onContextMenu = undefined;
                     mapDisplay.setLayers([defaultMapLayer]);
+                    mapDisplay.setTopLayers([(ctx, md) => {
+                        if (selectedTerritory) {
+                            md.fillTerritory(selectedTerritory, "black");
+                            md.labelTerritory(selectedTerritory, "?", "white");
+                        }
+                    }]);
                     break;
                 case MapMode.DeployDivisions:
                     territoriesById.values().forEach(t => mapDisplay.setClickable(t.territory_id, t.owner_nation_id == ownNation.nation_id));
-                    mapDisplay.onClick = tid => addDeployment(tid);
+                    mapDisplay.onClick = addDeployment;
                     mapDisplay.onContextMenu = (tid, event) => {
                         event.preventDefault();
                         removeDeployment(tid);
                     }
                     mapDisplay.setLayers([defaultMapLayer]);
+                    mapDisplay.setTopLayers([]);
                     break;
                 case MapMode.SelectDestinationTerritory:
                     let origin = selectedTerritory;
@@ -516,12 +515,13 @@
                             || t.has_sea_access && origin.has_sea_access
                         ).toArray();
                     territoriesById.values().forEach(t => mapDisplay.setClickable(t.territory_id, legalDestinations.some(dest => dest.territory_id == t.territory_id)));
-                    mapDisplay.onClick = tid => sendMoveOrderToSelectedDivisions(tid);
+                    mapDisplay.onClick = sendMoveOrderToSelectedDivisions;
                     mapDisplay.onContextMenu = undefined;
                     mapDisplay.setLayers([defaultMapLayer, (ctx, md) => {
                         legalDestinations
                             .forEach(t => t.owner_nation_id == ownNation.nation_id ? md.fillTerritory(t, "blue") : md.fillTerritory(t, "red"));
                     }]);
+                    mapDisplay.setTopLayers([]);
                     break;
                 default:
                     throw new Error("Unreacheable.");
@@ -533,7 +533,7 @@
             mapDisplay = new MapDisplay("map-display", territoriesById, md => {
                 md.territoryLabeler = t => `${t.name} (${nationsById.has(t.owner_nation_id) ? nationsById.get(t.owner_nation_id).usual_name : "neutral"})`;
                 md.addInternationalBorders = true;
-                md.addLayer(defaultMapLayer);
+                md.setLayers([defaultMapLayer]);
             });
             setMapMode(MapMode.Default);
             updateMainTabs();

@@ -96,11 +96,11 @@
                 md.onClick = selectTerritory;
                 md.territoryLabeler = t => t.name + (alreadyTakenIds.includes(t.territory_id) ? " (already taken)" : "");
                 
-                md.addLayer((ctx, md) => {
+                md.setLayers([(ctx, md) => {
                     selectableTerritoriesIds.forEach(tid => md.fillTerritory(territoriesById.get(tid), "green"));
                     alreadyTakenIds.forEach(tid => md.fillTerritory(territoriesById.get(tid), "black"));
                     selectedTerritoriesIds.forEach(tid => md.fillTerritory(territoriesById.get(tid), "blue"));
-                });
+                }]);
             });
 
             clearSelection();

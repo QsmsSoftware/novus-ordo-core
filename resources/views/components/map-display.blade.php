@@ -11,13 +11,13 @@ class MapDisplay {
     #containerId;
     #territoriesById;
     #canvas;
-    #layerRenderers = [];
+    #middleLayerRenderers = [];
+    #topLayerRenderers = [];
     #onClick;
     #onContextMenu;
     #metadataByTerritoryId;
     #territoryLabeler;
     #addInternationalBorders = false;
-    #selectedTerritory = null;
 
     constructor(containerId, territoriesById, config) {
         this.#containerId = containerId;
@@ -104,19 +104,12 @@ class MapDisplay {
         this.#addInternationalBorders = b;
     }
 
-    set selectedTerritory(territory) {
-        if (this.#selectedTerritory != territory) {
-            this.#selectedTerritory = territory;
-            this.refresh();
-        }
-    }
-
-    addLayer(renderer) {
-        this.#layerRenderers.push(renderer);
-    }
-
     setLayers(renderers) {
-        this.#layerRenderers = renderers;
+        this.#middleLayerRenderers = renderers;
+    }
+
+    setTopLayers(renderers) {
+        this.#topLayerRenderers = renderers;
     }
 
     setAllClickable(clickable) {
@@ -140,6 +133,21 @@ class MapDisplay {
             ctx.textBaseline = 'middle';
             ctx.fillText(text, (territory.x + 0.5) * {{ $map_tile_width_px }}, (territory.y + 0.5) * {{ $map_tile_height_px }});
         }
+        ctx.fillStyle = previousFillStyle;
+        ctx.globalAlpha = previousGlobalAlpha;
+    }
+
+    labelTerritory(territory, text, fillStyle) {
+        let ctx = this.#canvas.getContext("2d");
+        let previousFillStyle = ctx.fillStyle;
+        let previousGlobalAlpha = ctx.globalAlpha;
+        ctx.fillStyle = fillStyle;
+        ctx.globalAlpha = 0.5;
+
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, (territory.x + 0.5) * {{ $map_tile_width_px }}, (territory.y + 0.5) * {{ $map_tile_height_px }});
+
         ctx.fillStyle = previousFillStyle;
         ctx.globalAlpha = previousGlobalAlpha;
     }
@@ -205,14 +213,12 @@ class MapDisplay {
     refresh() {
         let ctx = this.#canvas.getContext("2d");
         ctx.drawImage(document.getElementById(this.#containerId +  "-map-layer-0"), 0, 0, this.#canvas.width, this.#canvas.height);
-        this.#layerRenderers.forEach(renderer => renderer(ctx, this));
+        this.#middleLayerRenderers.forEach(renderer => renderer(ctx, this));
         if (this.#addInternationalBorders) {
             this.#drawInternationalBorders(ctx);
         }
         ctx.drawImage(document.getElementById(this.#containerId +  "-map-layer-2"), 0, 0, this.#canvas.width, this.#canvas.height);
-        if (this.#selectedTerritory) {
-            this.fillTerritory(this.#selectedTerritory, "black", "?");
-        }
+        this.#topLayerRenderers.forEach(renderer => renderer(ctx, this));
     }
 }
 </script>
