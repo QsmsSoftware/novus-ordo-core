@@ -27,18 +27,6 @@
 
 {!! $js_metadata !!}
 
-        // const TerrainType = {
-        //     Water: "Water",
-        // };
-
-        // const OrderType = {
-        //     Move: "Move",
-        // };
-
-        // const DivisionType = {
-        //     Infantry: "Infantry",
-        // };
-
         let victoryRanking = @json($victory_ranking);
         let budgetItems = mapExportedObject(@json($budget_items));
         let territoriesById = mapExportedArray(@json($territories), t => t.territory_id);
