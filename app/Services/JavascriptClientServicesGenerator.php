@@ -1,9 +1,39 @@
 <?php
 namespace App\Services;
 
+use App\Utils\ParsableFromCaseName;
 use Illuminate\Support\Facades\Route;
+use LogicException;
+use ReflectionEnum;
 
 class JavascriptClientServicesGenerator {
+    public function generateClientEnum(string $enumClassName) {
+        if (!enum_exists($enumClassName)) {
+            throw new LogicException("Not an enum: $enumClassName");
+        }
+
+        $enumInfo = new ReflectionEnum($enumClassName);
+
+        $useNames = in_array(ParsableFromCaseName::class, class_uses_recursive($enumClassName));
+        
+        $js = "const {$enumInfo->getShortName()} = {" . PHP_EOL;
+
+        foreach($enumInfo->getCases() as $case) {
+            $name = $case->getName();
+
+            if ($useNames) {
+                $js .= "    $name: " . json_encode($name) . "," . PHP_EOL;
+            }
+            else {
+                $js .= "    $name: " . json_encode($case->getValue()->value) . "," . PHP_EOL;
+            }
+        }
+
+        $js .= "};" . PHP_EOL;
+
+        return $js;
+    }
+
     public function generateClientService(string $clientServiceClassName, string $routePrefix): string {
         $routeFunctions = [];
         foreach (Route::getRoutes() as $route) {

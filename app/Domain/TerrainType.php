@@ -2,9 +2,12 @@
 namespace App\Domain;
 
 use App\Utils\Annotations\Description;
+use App\Utils\ParsableFromCaseName;
 use ReflectionEnum;
 
 enum TerrainType :int {
+    use ParsableFromCaseName;
+    
     case Water = 0;
     case Plain = 1;
     #[Description('Plain (with major river)')]

@@ -2,29 +2,26 @@
 
 namespace App\Http\Controllers;
 
-use App\Domain\MapData;
+use App\Domain\DivisionType;
+use App\Domain\OrderType;
+use App\Domain\TerrainType;
 use App\Models\Battle;
 use App\Models\Deployment;
 use App\Models\Division;
 use App\Models\Game;
 use App\Models\Nation;
-use App\Models\NationWithSameNameAlreadyExists;
 use App\Models\NewNation;
 use App\Models\NotEnoughFreeTerritories;
 use App\Models\Territory;
-use App\Models\Turn;
 use App\Models\User;
 use App\Models\UserCredentials;
 use App\Models\UserCredentialsRejected;
 use App\Models\UserLogedIn;
 use App\Models\VictoryStatus;
-use App\ReadModels\TerritoryInfo;
 use App\Services\JavascriptClientServicesGenerator;
 use App\Services\LoggedInGameContext;
-use App\Services\LoggedInUserContext;
 use App\Services\NationContext;
 use App\Services\NationSetupContext;
-use App\Utils\HttpStatusCode;
 use App\Utils\MapsValidatedDataToFormRequest;
 use App\Utils\MapsValidatorToInstance;
 use Illuminate\Foundation\Http\FormRequest;
@@ -32,9 +29,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\View\View;
-use LogicException;
 
 class CreateNationUiRequest extends FormRequest {
     use MapsValidatedDataToFormRequest;
@@ -173,6 +168,7 @@ class UiController extends Controller
                     ->map(fn (Division $d) => $d->getDetail()->exportForOwner())
                     ->values(),
                 'js_client_services' => $servicesGenerator->generateClientService("NovusOrdoServices", "ajax"),
+                'js_metadata' => join(PHP_EOL, [$servicesGenerator->generateClientEnum(TerrainType::class), $servicesGenerator->generateClientEnum(OrderType::class), $servicesGenerator->generateClientEnum(DivisionType::class)]),
                 'victory_ranking' => $game->getVictoryProgression()->values(),
                 'budget' => $nation->getDetail()->exportBudget(),
                 'budget_items' => ['production' => new Asset('Production'), 'reserves' => new Asset('Reserves'), 'upkeep' => new Liability('Upkeep'), 'expenses' => new Liability('Expenses'), 'available_production' => new Asset('Available Production')],

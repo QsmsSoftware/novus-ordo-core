@@ -14,7 +14,7 @@
         }
     </style>
     <script>
-        {!! $js_client_services !!}
+{!! $js_client_services !!}
         let services = new NovusOrdoServices(@json(url("")), @json(csrf_token()));
 
         const MapMode = {
@@ -25,17 +25,19 @@
         };
         var currentMapMode;
 
-        const TerrainType = {
-            Water: "Water",
-        };
+{!! $js_metadata !!}
 
-        const OrderType = {
-            Move: "Move",
-        };
+        // const TerrainType = {
+        //     Water: "Water",
+        // };
 
-        const DivisionType = {
-            Infantry: "Infantry",
-        };
+        // const OrderType = {
+        //     Move: "Move",
+        // };
+
+        // const DivisionType = {
+        //     Infantry: "Infantry",
+        // };
 
         let victoryRanking = @json($victory_ranking);
         let budgetItems = mapExportedObject(@json($budget_items));
