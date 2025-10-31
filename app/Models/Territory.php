@@ -217,7 +217,7 @@ class Territory extends Model
     private static function statsFromRow(object $t): array {
         return [
             new TerritoryStat('Usable land ratio', $t->usable_land_ratio, StatUnit::Percent->name),
-            new TerritoryStat('Area', $t->usable_land_ratio * Territory::TERRITORY_AREA_KM2, StatUnit::Km2->name),
+            new TerritoryStat('Land area', $t->usable_land_ratio * Territory::TERRITORY_AREA_KM2, StatUnit::Km2->name),
         ];
     }
 
