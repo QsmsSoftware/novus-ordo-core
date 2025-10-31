@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Domain\StatUnit;
 use App\Domain\TerrainType;
 use App\Domain\TerritoryData;
 use App\ReadModels\TerritoryInfo;
@@ -17,11 +18,21 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Exists;
 
+readonly class TerritoryStat {
+    public function __construct(
+        public string $title,
+        public mixed $value,
+        public string $unit,
+    ) {}
+}
+
 class Territory extends Model
 {
     use GuardsForAssertions;
 
     public const float MIN_USABLE_LAND_FOR_HOMELAND = 0.05;
+
+    public const int TERRITORY_AREA_KM2 = 80_000;
 
     public function game(): BelongsTo {
         return $this->belongsTo(Game::class);
@@ -68,6 +79,10 @@ class Territory extends Model
 
     public function getUsableLandRatio(): float {
         return $this->usable_land_ratio;
+    }
+
+    public function getUsableLandKm2(): int {
+        return $this->usable_land_ratio * Territory::TERRITORY_AREA_KM2;
     }
 
     public function hasSeaAccess(): bool {
@@ -195,24 +210,19 @@ class Territory extends Model
                 ->map(fn ($c) => $c->connected_territory_id)
                 ->values()
                 ->all(),
+            'stats' => Territory::statsFromRow($t)
         ]), $territories);
+    }
 
-        // return array_map(fn ($t) => new TerritoryInfo (
-        //     territory_id: $t->territory_id,
-        //     turn_number: $turn->getNumber(),
-        //     x: $t->x,
-        //     y: $t->y,
-        //     terrain_type: TerrainType::from($t->terrain_type)->name,
-        //     usable_land_ratio: $t->usable_land_ratio,
-        //     name: $t->name,
-        //     owner_nation_id: $t->owner_nation_id,
-        //     has_sea_access: $t->has_sea_access,
-        //     connected_territory_ids: collect($connections[$t->territory_id])
-        //         ->filter(fn ($c) => $c->is_connected_by_land)
-        //         ->map(fn ($c) => $c->connected_territory_id)
-        //         ->values()
-        //         ->all(),
-        // ), $territories);
+    private static function statsFromRow(object $t): array {
+        return [
+            new TerritoryStat('Usable land ratio', $t->usable_land_ratio, StatUnit::Percent->name),
+            new TerritoryStat('Area', $t->usable_land_ratio * Territory::TERRITORY_AREA_KM2, StatUnit::Km2->name),
+        ];
+    }
+
+    public function getStats(): array {
+        return Territory::statsFromRow($this);
     }
 
     public static function create(Game $game, TerritoryData $territoryData): Territory {

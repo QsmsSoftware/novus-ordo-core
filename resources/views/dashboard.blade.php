@@ -12,6 +12,9 @@
         .selected-action-link {
             font-weight: bold;
         }
+        .stat-value {
+            text-align: right;
+        }
     </style>
     <script>
 {!! $js_client_services !!}
@@ -126,6 +129,17 @@
             $("#main-tabs").html(Object.keys(MainTabs).map(tab => renderActionLink(MainTabs[tab], `selectMainTab('${tab}')`, tab == selectedMainTab)).join(" "));
         }
 
+        function formatValue(value, unit) {
+            switch (unit) {
+                case StatUnit.Percent:
+                    return `${(value * 100).toFixed(0)}%`;
+                case StatUnit.Km2:
+                    return `${Intl.NumberFormat().format(value)} km<sup>2</sup>`;
+                default:
+                    throw new Error("Unreacheable.");
+            }
+        }
+
         function updateTerritoryInfo() {
             $("#territory-info").html(
                 `<p><b>${selectedTerritory.name}</b><br>`
@@ -140,14 +154,7 @@
 
             $("#info-details").html(
                 '<table>'
-                + '<tr>'
-                + '<td>'
-                + 'Usable land area:'
-                + '</td>'
-                + '<td>'
-                + `${(selectedTerritory.usable_land_ratio * 100).toFixed(0)}%`
-                + '</td>'
-                + '</tr>'
+                + selectedTerritory.stats.map(stat => `<tr><td>${stat.title}</td><td class="stat-value">${formatValue(stat.value, stat.unit)}</td></tr>`).join("")
                 + '</table>'
             );
         }

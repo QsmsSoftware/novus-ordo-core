@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Domain\DivisionType;
 use App\Domain\OrderType;
+use App\Domain\StatUnit;
 use App\Domain\TerrainType;
 use App\Models\Battle;
 use App\Models\Deployment;
@@ -168,7 +169,12 @@ class UiController extends Controller
                     ->map(fn (Division $d) => $d->getDetail()->exportForOwner())
                     ->values(),
                 'js_client_services' => $servicesGenerator->generateClientService("NovusOrdoServices", "ajax"),
-                'js_metadata' => join(PHP_EOL, [$servicesGenerator->generateClientEnum(TerrainType::class, true), $servicesGenerator->generateClientEnum(OrderType::class, true), $servicesGenerator->generateClientEnum(DivisionType::class, true)]),
+                'js_metadata' => join(PHP_EOL, [
+                    $servicesGenerator->generateClientEnum(TerrainType::class, true),
+                    $servicesGenerator->generateClientEnum(OrderType::class, true),
+                    $servicesGenerator->generateClientEnum(DivisionType::class, true),
+                    $servicesGenerator->generateClientEnum(StatUnit::class, true)
+                ]),
                 'victory_ranking' => $game->getVictoryProgression()->values(),
                 'budget' => $nation->getDetail()->exportBudget(),
                 'budget_items' => ['production' => new Asset('Production'), 'reserves' => new Asset('Reserves'), 'upkeep' => new Liability('Upkeep'), 'expenses' => new Liability('Expenses'), 'available_production' => new Asset('Available Production')],

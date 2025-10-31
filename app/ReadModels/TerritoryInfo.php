@@ -18,5 +18,6 @@ readonly class TerritoryInfo {
         public ?int $owner_nation_id,
         public bool $has_sea_access,
         public array $connected_territory_ids,
+        public array $stats,
     ) {}
 }
