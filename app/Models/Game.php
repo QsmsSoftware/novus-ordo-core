@@ -277,7 +277,9 @@ class Game extends Model
     }
 
     public static function createNew(): Game {
-        return Cache::lock("critical_section:create_game", ini_get('max_execution_time') * 0.8)->block(1, function () {
+        $lock = Cache::lock("critical_section:create_game", RuntimeInfo::maxExectutionTimeSeconds() * 0.8);
+
+        $gameOrFalsy = $lock->get(function () {
             $currentGameOrNull = Game::getCurrentOrNull();
 
             Option::fromValue($currentGameOrNull)->forAll(function (Game $currentGame) {
@@ -287,6 +289,16 @@ class Game extends Model
 
             return Game::create();
         });
+
+        if (!$gameOrFalsy) {
+            // Assuming that another create game command is executing, waiting for the execution to finish.
+            $lock->block(RuntimeInfo::maxExectutionTimeSeconds() * 0.8, function () {});
+
+            return Game::getCurrent();
+        }
+        else {
+            return $gameOrFalsy;
+        }
     }
 
     private static function create() {
