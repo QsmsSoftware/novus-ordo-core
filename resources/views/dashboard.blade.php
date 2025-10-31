@@ -51,14 +51,15 @@
         let ownNation = @json($own_nation);
         var mapDisplay;
         var selectedTerritory = null;
+
         var selectedMainTab = null;
-        var selectedDetailsTab = null;
         const MainTabs = {
             Nation: 'Nation',
             BattleLogs: 'Battle logs',
             Deployments: 'Deployments',
         };
-
+        
+        var selectedDetailsTab = null;
         const DetailsTabs = {
             Info: 'info',
             Divisions: 'divisions',
