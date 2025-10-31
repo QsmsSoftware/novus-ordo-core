@@ -5,23 +5,22 @@ use App\Utils\ParsableFromCaseName;
 use Illuminate\Support\Facades\Route;
 use LogicException;
 use ReflectionEnum;
+use ReflectionEnumBackedCase;
 
 class JavascriptClientServicesGenerator {
-    public function generateClientEnum(string $enumClassName) {
+    public function generateClientEnum(string $enumClassName, bool $caseNamesAsValues = false) {
         if (!enum_exists($enumClassName)) {
             throw new LogicException("Not an enum: $enumClassName");
         }
 
         $enumInfo = new ReflectionEnum($enumClassName);
-
-        $useNames = in_array(ParsableFromCaseName::class, class_uses_recursive($enumClassName));
         
         $js = "const {$enumInfo->getShortName()} = {" . PHP_EOL;
 
         foreach($enumInfo->getCases() as $case) {
             $name = $case->getName();
 
-            if ($useNames) {
+            if ($caseNamesAsValues || !($case instanceof ReflectionEnumBackedCase)) {
                 $js .= "    $name: " . json_encode($name) . "," . PHP_EOL;
             }
             else {

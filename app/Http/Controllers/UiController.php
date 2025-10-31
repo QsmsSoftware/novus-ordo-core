@@ -168,7 +168,7 @@ class UiController extends Controller
                     ->map(fn (Division $d) => $d->getDetail()->exportForOwner())
                     ->values(),
                 'js_client_services' => $servicesGenerator->generateClientService("NovusOrdoServices", "ajax"),
-                'js_metadata' => join(PHP_EOL, [$servicesGenerator->generateClientEnum(TerrainType::class), $servicesGenerator->generateClientEnum(OrderType::class), $servicesGenerator->generateClientEnum(DivisionType::class)]),
+                'js_metadata' => join(PHP_EOL, [$servicesGenerator->generateClientEnum(TerrainType::class, true), $servicesGenerator->generateClientEnum(OrderType::class, true), $servicesGenerator->generateClientEnum(DivisionType::class, true)]),
                 'victory_ranking' => $game->getVictoryProgression()->values(),
                 'budget' => $nation->getDetail()->exportBudget(),
                 'budget_items' => ['production' => new Asset('Production'), 'reserves' => new Asset('Reserves'), 'upkeep' => new Liability('Upkeep'), 'expenses' => new Liability('Expenses'), 'available_production' => new Asset('Available Production')],

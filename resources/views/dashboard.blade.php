@@ -17,15 +17,15 @@
 {!! $js_client_services !!}
         let services = new NovusOrdoServices(@json(url("")), @json(csrf_token()));
 
+{!! $js_metadata !!}
+
+        var currentMapMode;
         const MapMode = {
             Default: 0,
             QueryTerritory: 0,
             DeployDivisions: 1,
             SelectDestinationTerritory: 2,
         };
-        var currentMapMode;
-
-{!! $js_metadata !!}
 
         let victoryRanking = @json($victory_ranking);
         let budgetItems = mapExportedObject(@json($budget_items));
