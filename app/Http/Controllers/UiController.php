@@ -140,15 +140,16 @@ class UiController extends Controller
 
         return view('new_nation', [
             'territories' => Territory::exportAll($context->getGame(), $context->getGame()->getCurrentTurn()),
+            'static_js_territories' => Territory::getAllTerritoriesClientResource($context->getGame()->getCurrentTurn()),
             'territories_by_row_column' => $territoriesByRowThenColumn,
             'number_of_home_territories' => Game::NUMBER_OF_STARTING_TERRITORIES,
             'suitable_as_home_ids' => $context->getGame()->freeSuitableTerritoriesInTurn()->pluck('id'),
             'already_taken_ids' => $context->getGame()->alreadyTakenTerritoriesInTurn()->pluck('id'),
-            'js_client_services' => $servicesGenerator->generateClientService("NovusOrdoServices", "ajax"),
+            // 'js_client_services' => $servicesGenerator->generateClientService("NovusOrdoServices", "ajax"),
         ]);
     }
 
-    public function dashboard(JavascriptClientServicesGenerator $servicesGenerator) : View|RedirectResponse {
+    public function dashboard() : View|RedirectResponse {
         $nationOrNull = Nation::getCurrentOrNull();
         if ($nationOrNull === null) {
             return redirect()->route('nation.create');
@@ -168,14 +169,8 @@ class UiController extends Controller
                 'divisions' => $nation->getDetail()->activeDivisions()->get()
                     ->map(fn (Division $d) => $d->getDetail()->exportForOwner())
                     ->values(),
-                'static_js' => StaticJavascriptResource::permanent('clientservices', fn () => join(PHP_EOL, [
-                    $servicesGenerator->generateClientEnum(TerrainType::class, true),
-                    $servicesGenerator->generateClientEnum(OrderType::class, true),
-                    $servicesGenerator->generateClientEnum(DivisionType::class, true),
-                    $servicesGenerator->generateClientEnum(StatUnit::class, true),
-                    $servicesGenerator->generateClientService("NovusOrdoServices", "ajax"),
-                ])),
-                'static_territories' => Territory::getAllTerritoriesClientResource($game->getCurrentTurn()),
+                'static_js_services' => $this->getStaticJsServices(),
+                'static_js_territories' => Territory::getAllTerritoriesClientResource($game->getCurrentTurn()),
                 'victory_ranking' => $game->getVictoryProgression()->values(),
                 'budget' => $nation->getDetail()->exportBudget(),
                 'budget_items' => ['production' => new Asset('Production'), 'reserves' => new Asset('Reserves'), 'upkeep' => new Liability('Upkeep'), 'expenses' => new Liability('Expenses'), 'available_production' => new Asset('Available Production')],
@@ -190,6 +185,18 @@ class UiController extends Controller
             ])
         };
     }
+
+    private function getStaticJsServices(): StaticJavascriptResource {
+        $servicesGenerator = new JavascriptClientServicesGenerator();
+        return StaticJavascriptResource::permanent('clientservices', fn () => join(PHP_EOL, [
+                $servicesGenerator->generateClientEnum(TerrainType::class, true),
+                $servicesGenerator->generateClientEnum(OrderType::class, true),
+                $servicesGenerator->generateClientEnum(DivisionType::class, true),
+                $servicesGenerator->generateClientEnum(StatUnit::class, true),
+                $servicesGenerator->generateClientService("NovusOrdoServices", "ajax"),
+        ]));
+    }
+
     public function loginUser(Request $request) :RedirectResponse {
         $validated = $request->validate([
             'username' => 'required|string|min:1',

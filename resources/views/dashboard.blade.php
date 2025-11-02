@@ -16,8 +16,8 @@
             text-align: right;
         }
     </style>
-    {!! $static_js->render() !!}
-    {!! $static_territories->render() !!}
+    {!! $static_js_services->render() !!}
+    {!! $static_js_territories->render() !!}
     <script>
         let services = new NovusOrdoServices(@json(url("")), @json(csrf_token()));
 

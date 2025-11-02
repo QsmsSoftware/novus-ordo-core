@@ -5,14 +5,15 @@
         <title>{{ config('app.name', 'Laravel') }}</title>
         <script src="{{ asset('js/jquery-3.7.1.min.js') }}"></script>
     </head>
+    {{-- {!! $static_js->render() !!} --}}
+    {!! $static_js_territories->render() !!}
     <script>
-        {!! $js_client_services !!}
-        let services = new NovusOrdoServices(@json(url("")), @json(csrf_token()));
+        // let services = new NovusOrdoServices(@json(url("")), @json(csrf_token()));
 
         let numberOfHomeTerritories = {{$number_of_home_territories}};
         let suitableAsHomeIds = @json($suitable_as_home_ids);
         let alreadyTakenIds = @json($already_taken_ids);
-        let territoriesById = mapExportedArray(@json($territories), t => t.territory_id);
+        let territoriesById = mapExportedArray(allTerritories, t => t.territory_id);
         var selectedTerritoriesIds = [];
         var selectableTerritoriesIds = [];
         var mapDisplay;
