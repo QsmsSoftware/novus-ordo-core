@@ -3,12 +3,8 @@
 namespace App\Console\Commands;
 
 use App\Models\Game;
-use App\Models\ProvisionedUser;
-use App\Models\User;
-use App\Models\UserAlreadyExists;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
-use LogicException;
 
 class CommissionServer extends Command
 {
