@@ -85,7 +85,7 @@ class StaticJavascriptResource {
     }
 
     public function render(): string {
-        $force = config('novusordo.always_render_js');
+        $force = config('novusordo.always_rerender_permanent_js');
         $identifier = $this->getIdentifier();
         if (!$force) {
             $filenameOrNull = $this->findMostRecentCachedFileOrNull();
