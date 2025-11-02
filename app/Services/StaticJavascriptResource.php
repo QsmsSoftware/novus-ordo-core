@@ -45,8 +45,11 @@ class StaticJavascriptResource {
     
 
     public static function expireAllForGame(Game $game): void {
-        $cachedFiles = glob(public_path("var/*-game_{$game->getId()}-*"));
-        array_walk($cachedFiles, fn ($filename) => unlink($filename));
+        Cache::lock("purging_static_js", RuntimeInfo::maxExectutionTimeSeconds() * 0.8)
+            ->block(RuntimeInfo::maxExectutionTimeSeconds() * 0.8, function () use ($game) {
+                $cachedFiles = glob(public_path("var/*-game_{$game->getId()}-*.js"));
+                array_walk($cachedFiles, fn ($filename) => unlink($filename));
+            });
     }
 
     private static function hashValue(string $value): string {
