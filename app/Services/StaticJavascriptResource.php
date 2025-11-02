@@ -7,13 +7,14 @@ use App\Models\Turn;
 use App\Utils\RuntimeInfo;
 use Closure;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
 class StaticJavascriptResource {
     private function __construct(
         public readonly string $staticResourseName,
         private readonly Closure $codeGenerator,
-        private readonly Closure $staticDifferentiator,
+        private readonly Closure $staticDifferentiators,
     )
     {
         
@@ -23,7 +24,7 @@ class StaticJavascriptResource {
         return new StaticJavascriptResource(
             $staticResourseName,
             $codeGenerator,
-            static fn () => StaticJavascriptResource::hashValue(RuntimeInfo::readGitCommitHashOrNull()??"global")
+            static fn () => [StaticJavascriptResource::hashValue(RuntimeInfo::readGitCommitHashOrNull()??"global")]
         );
     }
 
@@ -31,7 +32,7 @@ class StaticJavascriptResource {
         return new StaticJavascriptResource(
             $staticResourseName,
             $codeGenerator,
-            static fn () => "game_{$game->getId()}",
+            static fn () => ["game_{$game->getId()}"],
         );
     }
 
@@ -39,17 +40,15 @@ class StaticJavascriptResource {
         return new StaticJavascriptResource(
             $staticResourseName,
             $codeGenerator,
-            static fn () => "game_{$turn->getGame()->getId()}-turn_{$turn->getId()}",
+            static fn () => ["game_{$turn->getGame()->getId()}", "turn_{$turn->getId()}"],
         );
     }
     
 
     public static function expireAllForGame(Game $game): void {
-        Cache::lock("purging_static_js", RuntimeInfo::maxExectutionTimeSeconds() * 0.8)
-            ->block(RuntimeInfo::maxExectutionTimeSeconds() * 0.8, function () use ($game) {
-                $cachedFiles = glob(public_path("var/*-game_{$game->getId()}-*.js"));
-                array_walk($cachedFiles, fn ($filename) => unlink($filename));
-            });
+        DB::table('cache')
+            ->where('key', 'like', "static_js_file:game_{$game->getId()}-%")
+            ->delete();
     }
 
     private static function hashValue(string $value): string {
@@ -57,28 +56,20 @@ class StaticJavascriptResource {
     }
 
     private function getIdentifier(): string {
-        $differentiator = ($this->staticDifferentiator)();
+        $differentiator = join("-", ($this->staticDifferentiators)());
         return "{$this->staticResourseName}-$differentiator";
     }
 
-    private function findMostRecentCachedFileOrNull(): ?string {
-        $filenamesOrError = glob(public_path("var/{$this->getIdentifier()}-*.js"));
-        if ($filenamesOrError === false) {
-            throw new RuntimeException("An error happened while looking up cached files");
-        }
-        usort($filenamesOrError, function($a, $b) {
-            return filemtime($b) <=> filemtime($a);
-        });
-        return array_first($filenamesOrError);
-    }
-
     private function cacheAsFile(string $renderedCode, string $filename): void {
-        $lock = Cache::lock("caching_static_js_file:{$this->getIdentifier()}", RuntimeInfo::maxExectutionTimeSeconds() * 0.8);
-        $gotLock = $lock->get(function () use ($filename, $renderedCode) {
+        $identifier = $this->getIdentifier();
+        $lock = Cache::lock("caching_static_js_file:$identifier", RuntimeInfo::maxExectutionTimeSeconds() * 0.8);
+        $gotLock = $lock->get(function () use ($filename, $renderedCode, $identifier) {
             $bytesWritten = file_put_contents($filename, $renderedCode);
             if ($bytesWritten !== strlen($renderedCode)) {
                 throw new RuntimeException("Rendered static Javascript file could not be written properly");
             }
+            Cache::delete("static_js_file:$identifier");
+            Cache::set("static_js_file:$identifier", $filename);
         });
 
         if (!$gotLock) {
@@ -91,8 +82,8 @@ class StaticJavascriptResource {
         $force = config('novusordo.always_rerender_permanent_js');
         $identifier = $this->getIdentifier();
         if (!$force) {
-            $filenameOrNull = $this->findMostRecentCachedFileOrNull();
-            if (!is_null($filenameOrNull)) {
+            $filenameOrNull = Cache::get("static_js_file:$identifier");
+            if (!is_null($filenameOrNull) && file_exists($filenameOrNull)) {
                 $filename = $filenameOrNull;
             }
         }
