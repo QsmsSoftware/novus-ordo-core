@@ -16,11 +16,9 @@
             text-align: right;
         }
     </style>
+    {!! $static_js->renderResource() !!}
     <script>
-{!! $js_client_services !!}
         let services = new NovusOrdoServices(@json(url("")), @json(csrf_token()));
-
-{!! $js_metadata !!}
 
         var currentMapMode;
         const MapMode = {

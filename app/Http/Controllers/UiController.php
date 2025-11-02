@@ -23,6 +23,7 @@ use App\Services\JavascriptClientServicesGenerator;
 use App\Services\LoggedInGameContext;
 use App\Services\NationContext;
 use App\Services\NationSetupContext;
+use App\Services\StaticJavascriptResource;
 use App\Utils\MapsValidatedDataToFormRequest;
 use App\Utils\MapsValidatorToInstance;
 use Illuminate\Foundation\Http\FormRequest;
@@ -168,13 +169,13 @@ class UiController extends Controller
                 'divisions' => $nation->getDetail()->activeDivisions()->get()
                     ->map(fn (Division $d) => $d->getDetail()->exportForOwner())
                     ->values(),
-                'js_client_services' => $servicesGenerator->generateClientService("NovusOrdoServices", "ajax"),
-                'js_metadata' => join(PHP_EOL, [
+                'static_js' => new StaticJavascriptResource('clientservices', fn () => join(PHP_EOL, [
                     $servicesGenerator->generateClientEnum(TerrainType::class, true),
                     $servicesGenerator->generateClientEnum(OrderType::class, true),
                     $servicesGenerator->generateClientEnum(DivisionType::class, true),
-                    $servicesGenerator->generateClientEnum(StatUnit::class, true)
-                ]),
+                    $servicesGenerator->generateClientEnum(StatUnit::class, true),
+                    $servicesGenerator->generateClientService("NovusOrdoServices", "ajax"),
+                ])),
                 'victory_ranking' => $game->getVictoryProgression()->values(),
                 'budget' => $nation->getDetail()->exportBudget(),
                 'budget_items' => ['production' => new Asset('Production'), 'reserves' => new Asset('Reserves'), 'upkeep' => new Liability('Upkeep'), 'expenses' => new Liability('Expenses'), 'available_production' => new Asset('Available Production')],
