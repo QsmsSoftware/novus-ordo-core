@@ -16,7 +16,8 @@
             text-align: right;
         }
     </style>
-    {!! $static_js->renderResource() !!}
+    {!! $static_js->render() !!}
+    {!! $static_territories->render() !!}
     <script>
         let services = new NovusOrdoServices(@json(url("")), @json(csrf_token()));
 
@@ -30,7 +31,7 @@
 
         let victoryRanking = @json($victory_ranking);
         let budgetItems = mapExportedObject(@json($budget_items));
-        let territoriesById = mapExportedArray(@json($territories), t => t.territory_id);
+        let territoriesById = mapExportedArray(allTerritories, t => t.territory_id);
         let nationsById = mapExportedArray(@json($nations), n => n.nation_id);
         let allBattleLogs = @json($battle_logs);
         var deploymentsById = mapExportedArray(@json($deployments), d => d.deployment_id);

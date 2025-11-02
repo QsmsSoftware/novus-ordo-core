@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Domain\NationSetupStatus;
+use App\Services\StaticJavascriptResource;
 use App\Utils\GuardsForAssertions;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -79,6 +80,8 @@ class NewNation extends Model
             $nation->nation_setup_status = NationSetupStatus::FinishedSetup;
             NationDetail::create($nation);
             $nation->save();
+
+            StaticJavascriptResource::expireAllForGame($nation->getGame());
 
             return $nation;
         });

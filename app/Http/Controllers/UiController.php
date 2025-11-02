@@ -162,20 +162,20 @@ class UiController extends Controller
                 'context' => new NationContext,
                 'own_nation' => $nation->getDetail()->exportForOwner(),
                 'nations' => $nationsById->values(),
-                'territories' => Territory::exportAll($game, $game->getCurrentTurn()),
                 'deployments' => $nation->activeDeployments()->get()
                     ->map(fn (Deployment $d) => $d->export())
                     ->values(),
                 'divisions' => $nation->getDetail()->activeDivisions()->get()
                     ->map(fn (Division $d) => $d->getDetail()->exportForOwner())
                     ->values(),
-                'static_js' => new StaticJavascriptResource('clientservices', fn () => join(PHP_EOL, [
+                'static_js' => StaticJavascriptResource::permanent('clientservices', fn () => join(PHP_EOL, [
                     $servicesGenerator->generateClientEnum(TerrainType::class, true),
                     $servicesGenerator->generateClientEnum(OrderType::class, true),
                     $servicesGenerator->generateClientEnum(DivisionType::class, true),
                     $servicesGenerator->generateClientEnum(StatUnit::class, true),
                     $servicesGenerator->generateClientService("NovusOrdoServices", "ajax"),
                 ])),
+                'static_territories' => Territory::getAllTerritoriesClientResource($game->getCurrentTurn()),
                 'victory_ranking' => $game->getVictoryProgression()->values(),
                 'budget' => $nation->getDetail()->exportBudget(),
                 'budget_items' => ['production' => new Asset('Production'), 'reserves' => new Asset('Reserves'), 'upkeep' => new Liability('Upkeep'), 'expenses' => new Liability('Expenses'), 'available_production' => new Asset('Available Production')],

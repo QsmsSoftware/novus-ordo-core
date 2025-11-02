@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Utils\GuardsForAssertions;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Turn extends Model
@@ -11,6 +12,14 @@ class Turn extends Model
     use GuardsForAssertions;
 
     public const string FIELD_TURN_NUMBER = 'number';
+
+    public function game(): BelongsTo {
+        return $this->belongsTo(Game::class);
+    }
+
+    public function getGame(): Game {
+        return $this->game;
+    }
 
     public function deployments() :HasMany {
         return $this->hasMany(Deployment::class);

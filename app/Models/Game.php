@@ -154,7 +154,7 @@ class Game extends Model
     }
 
     public function nextTurn(): void {
-        $lock = Cache::lock("critical_section:next_turn_game_{$this->getId()}", RuntimeInfo::maxExectutionTimeSeconds() * 0.8);
+        $lock = Cache::lock("critical_section:change_turn_game_{$this->getId()}", RuntimeInfo::maxExectutionTimeSeconds() * 0.8);
 
         $gotLock = $lock->get(function () {
                 $currentTurn = Turn::getCurrentForGame($this);
@@ -192,26 +192,35 @@ class Game extends Model
             });
         
         if (!$gotLock) {
-            // Assuming that another next turn command is executing, waiting for the execution to finish.
+            // Assuming that another next turn or rollback command is executing, waiting for the execution to finish.
             $lock->block(RuntimeInfo::maxExectutionTimeSeconds() * 0.8, function () {});
         }
     }
 
     public function rollbackLastTurn(): void {
-        $lastTurn = Turn::getCurrentForGame($this);
+        $lock = Cache::lock("critical_section:change_turn_game_{$this->getId()}", RuntimeInfo::maxExectutionTimeSeconds() * 0.8);
 
-        if ($lastTurn->getNumber() == 1) {
-            throw new LogicException("Can't roll back the first turn!");
+        $gotLock = $lock->get(function () {
+            $lastTurn = Turn::getCurrentForGame($this);
+
+            if ($lastTurn->getNumber() == 1) {
+                throw new LogicException("Can't roll back the first turn!");
+            }
+
+            $lastTurn->delete(); // Will cascade.
+
+            $currentTurn = Turn::getCurrentForGame($this);
+
+            $currentTurn->deployments()->rawUpdate([ Deployment::FIELD_HAS_BEEN_DEPLOYED => false]);
+            $currentTurn->orders()->rawUpdate([ Order::FIELD_HAS_BEEN_EXECUTED => false]);
+
+            $this->updateVictoryStatus();
+        });
+
+        if (!$gotLock) {
+            // Assuming that another next turn or rollback command is executing, waiting for the execution to finish.
+            $lock->block(RuntimeInfo::maxExectutionTimeSeconds() * 0.8, function () {});
         }
-
-        $lastTurn->delete(); // Will cascade.
-
-        $currentTurn = Turn::getCurrentForGame($this);
-
-        $currentTurn->deployments()->rawUpdate([ Deployment::FIELD_HAS_BEEN_DEPLOYED => false]);
-        $currentTurn->orders()->rawUpdate([ Order::FIELD_HAS_BEEN_EXECUTED => false]);
-
-        $this->updateVictoryStatus();
     }
     
     private function updateVictoryStatus(): void {

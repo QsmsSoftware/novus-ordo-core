@@ -6,6 +6,7 @@ use App\Domain\StatUnit;
 use App\Domain\TerrainType;
 use App\Domain\TerritoryData;
 use App\ReadModels\TerritoryInfo;
+use App\Services\StaticJavascriptResource;
 use App\Utils\GuardsForAssertions;
 use Closure;
 use Illuminate\Database\Eloquent\Builder;
@@ -212,6 +213,14 @@ class Territory extends Model
                 ->all(),
             'stats' => Territory::statsFromRow($t)
         ]), $territories);
+    }
+
+    public static function getAllTerritoriesClientResource(Turn $turn): StaticJavascriptResource {
+        return StaticJavascriptResource::permanentForTurn(
+            'territories',
+            fn() => "let allTerritories = " . json_encode(Territory::exportAll($turn->getGame(), $turn)) . ";",
+            $turn
+        );
     }
 
     private static function statsFromRow(object $t): array {
