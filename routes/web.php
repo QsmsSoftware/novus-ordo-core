@@ -32,8 +32,6 @@ Route::middleware(['auth', EnsureWhenRunningInDevelopmentOnly::class])->group(fu
     Route::get('/dev-panel/ajax-deployment', [DevController::class, 'ajaxDeployment'])->name('dev.ajax.deployment');
     Route::get('/dev-panel/services', [DevController::class, 'generateServices'])->name('dev.generate-js-client-services');
     Route::get('/dev-panel/spa/{userId}', [DevController::class, 'userSpa'])->name('dev.spa');
-    Route::post('/dev-panel/ajax-ready-for-next-turn', [DevController::class, 'ajaxReadyForNextTurn'])
-        ->name('dev.ajax.ready-for-next-turn');
     Route::post('/dev-panel/ajax-force-next-turn', [DevController::class, 'ajaxForceNextTurn'])
         ->name('dev.ajax.force-next-turn');
     //Temporary endpoints:
@@ -128,4 +126,6 @@ Route::middleware('auth')->group(function () {
         ->name('nation.create');
     Route::post('/create-nation', [UiController::class, 'storeNation'])
         ->name('nation.store');
+    Route::post('/ready-for-next-turn', [UiController::class, 'readyForNextTurn'])
+        ->name('ajax.ready-for-next-turn');
 });

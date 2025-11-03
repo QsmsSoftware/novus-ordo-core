@@ -14,6 +14,7 @@ use App\Models\Nation;
 use App\Models\NewNation;
 use App\Models\NotEnoughFreeTerritories;
 use App\Models\Territory;
+use App\Models\Turn;
 use App\Models\User;
 use App\Models\UserCredentials;
 use App\Models\UserCredentialsRejected;
@@ -33,6 +34,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class CreateNationUiRequest extends FormRequest {
@@ -99,6 +101,32 @@ readonly class Liability {
         public string $description,
     ) {
         $this->type = "Liability";
+    }
+}
+
+class ReadyForNextTurnRequest extends FormRequest {
+    use MapsValidatedDataToFormRequest;
+
+    public readonly int $turn_number;
+
+    public function __construct(
+        private readonly LoggedInGameContext $context,
+    )
+    {
+        
+    }
+    
+    public function rules(): array
+    {
+        return [
+            'turn_number' => [
+                'required',
+                'int',
+                'min:1',
+                Rule::exists(Turn::class, Turn::FIELD_TURN_NUMBER)
+                    ->where('game_id', $this->context->getGame()->getId())
+            ],
+        ];
     }
 }
 
@@ -216,5 +244,14 @@ class UiController extends Controller
                     'username' => 'Credentials rejected.',
                 ])->onlyInput('username'),
         };
+    }
+
+    public function readyForNextTurn(NationContext $context, ReadyForNextTurnRequest $request): JsonResponse {
+        $game = $context->getNation()->getGame();
+        $turn = Turn::getForGameByNumberOrNull($game, $request->turn_number);
+        $context->getNation()->readyForNextTurn($turn);
+        $game->tryNextTurnIfNationsReady($turn);
+
+        return response()->json($context->getNation()->getGame()->exportReadyStatus());
     }
 }

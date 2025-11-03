@@ -51,6 +51,8 @@
         var readyStatus = @json($ready_status);
         var forcingNextTurn = false;
         var refreshReadyStatusInterval = null;
+        let runningInDevelopment = @json(EnsureWhenRunningInDevelopmentOnly::isRunningInDevelopmentEnvironment());
+        let readyForNextTurnButtonEnabled = @json(config('novusordo.show_ready_for_next_turn_button'));
         var mapDisplay;
         var selectedTerritory = null;
 
@@ -560,7 +562,7 @@
             readyStatus.ready_for_next_turn_nation_ids.push(ownNation.nation_id);
             updateReadyStatus();
 
-            devServices.readyForNextTurn({ turn_number: ownNation.turn_number })
+            services.readyForNextTurn({ turn_number: ownNation.turn_number })
                 .then(data => {
                     readyStatus = data;
                     updateReadyStatus();
@@ -579,7 +581,11 @@
             $("#force-next-turn-section").hide();
             $("#ready-for-next-turn-section").hide();
             $("#ready-for-next-turn-status").hide();
-            if (ownNation.is_ready_for_next_turn) {
+
+            if (!readyForNextTurnButtonEnabled) {
+                $("#force-next-turn-section").show();
+            }
+            else if (ownNation.is_ready_for_next_turn) {
                 $("#force-next-turn-section").show();
                 $("#ready-for-next-turn-status").html(`${readyStatus.ready_for_next_turn_nation_ids.length} out of ${readyStatus.nation_count} are ready for next turn: ${nationsById.values().map(n => `<span class="${readyStatus.ready_for_next_turn_nation_ids.includes(n.nation_id) ? "ready-nation" : "not-ready-nation"}">${n.usual_name}</span>`).toArray().join(", ")}`);
                 $("#ready-for-next-turn-status").show();
@@ -606,12 +612,15 @@
             $("#details").hide();
             selectMainTab(null);
             updateReadyStatus();
-            document.addEventListener('keydown', function(event) {
-                document.getElementById("force-next-turn-button").disabled = !(!forcingNextTurn && event.shiftKey);
-            });
-            document.addEventListener('keyup', function(event) {
-                document.getElementById("force-next-turn-button").disabled = !(!forcingNextTurn && event.shiftKey);
-            });
+            if (runningInDevelopment && readyForNextTurnButtonEnabled) {
+                document.getElementById("force-next-turn-button").disabled = true;
+                document.addEventListener('keydown', function(event) {
+                    document.getElementById("force-next-turn-button").disabled = !(!forcingNextTurn && event.shiftKey);
+                });
+                document.addEventListener('keyup', function(event) {
+                    document.getElementById("force-next-turn-button").disabled = !(!forcingNextTurn && event.shiftKey);
+                });
+            }
         });
     </script>
     <body>
@@ -620,8 +629,10 @@
             <a href="{{route('logout')}}">logout</a>
             @if(EnsureWhenRunningInDevelopmentOnly::isRunningInDevelopmentEnvironment())
                 <div id="force-next-turn-section">
-                    <button id="force-next-turn-button" class="btn btn-primary" title="CTRL-click to force the end of the turn." onclick="forceNextTurn()" disabled>Force next turn</button>
+                    <button id="force-next-turn-button" class="btn btn-primary" title="CTRL-click to force the end of the turn." onclick="forceNextTurn()">Force next turn</button>
                 </div>
+            @endif
+            @if(config('novusordo.show_ready_for_next_turn_button'))
                 <div id="ready-for-next-turn-section">
                     <button class="btn btn-primary" onclick="readyForNextTurn()">Ready for next turn</button>
                 </div>
