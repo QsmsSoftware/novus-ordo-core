@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Services\StaticJavascriptResource;
 use App\Utils\RuntimeInfo;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
@@ -31,6 +32,7 @@ class PurgeStaticAssetsCache extends Command
             ->block(RuntimeInfo::maxExectutionTimeSeconds() * 0.8, function () {
                 $cachedFiles = glob(public_path("var/*.js"));
                 array_walk($cachedFiles, fn ($filename) => unlink($filename));
+                StaticJavascriptResource::expireAll();
             });
     }
 }

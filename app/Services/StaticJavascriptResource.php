@@ -43,11 +43,16 @@ class StaticJavascriptResource {
             static fn () => ["game_{$turn->getGame()->getId()}", "turn_{$turn->getId()}"],
         );
     }
-    
+
+    public static function expireAll(): void {
+        DB::table('cache')
+            ->where('key', 'like', config('cache.prefix') . "static_js_file:%")
+            ->delete();
+    }
 
     public static function expireAllForGame(Game $game): void {
         DB::table('cache')
-            ->where('key', 'like', "static_js_file:game_{$game->getId()}-%")
+            ->where('key', 'like', config('cache.prefix') . "static_js_file:game_{$game->getId()}-%")
             ->delete();
     }
 
