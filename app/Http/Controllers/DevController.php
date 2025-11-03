@@ -315,11 +315,10 @@ class DevController extends Controller
     }
 
     public function ajaxReadyForNextTurn(NationContext $context, ReadyForNextTurnRequest $request): JsonResponse {
-        $context->getNation()->readyForNextTurn();
-
         $game = $context->getNation()->getGame();
-
-        $game->tryNextTurnIfNationsReady(Turn::getForGameByNumberOrNull($game, $request->turn_number));
+        $turn = Turn::getForGameByNumberOrNull($game, $request->turn_number);
+        $context->getNation()->readyForNextTurn($turn);
+        $game->tryNextTurnIfNationsReady($turn);
 
         return response()->json($context->getNation()->getGame()->exportReadyStatus());
     }

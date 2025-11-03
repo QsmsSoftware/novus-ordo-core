@@ -103,9 +103,11 @@ class Nation extends Model
             ->where('is_ready_for_next_turn', true);
     }
 
-    public function readyForNextTurn(): void {
-        $this->is_ready_for_next_turn = true;
-        $this->save();
+    public function readyForNextTurn(Turn $turn): void {
+        if ($this->getGame()->getCurrentTurn()->getId() == $turn->getId()) {
+            $this->is_ready_for_next_turn = true;
+            $this->save();
+        }
     }
 
     public function onNextTurn(Turn $currentTurn, Turn $nextTurn): void {
