@@ -18,6 +18,12 @@
     </style>
     {!! $static_js_services->render() !!}
     {!! $static_js_territories->render() !!}
+    @if(EnsureWhenRunningInDevelopmentOnly::isRunningInDevelopmentEnvironment())
+    {!! $static_js_dev_services->render() !!}
+    <script>
+        let devServices = new DevServices(@json(url("")), @json(csrf_token()));
+    </script>
+    @endif
     <script>
         let services = new NovusOrdoServices(@json(url("")), @json(csrf_token()));
 
@@ -39,6 +45,8 @@
         var budget = @json($budget);
 
         let ownNation = @json($own_nation);
+        var readyStatus = @json($ready_status);
+        var submitForceNextTurn = false;
         var mapDisplay;
         var selectedTerritory = null;
 
@@ -496,8 +504,7 @@
                 case MapMode.DeployDivisions:
                     territoriesById.values().forEach(t => mapDisplay.setClickable(t.territory_id, t.owner_nation_id == ownNation.nation_id));
                     mapDisplay.onClick = addDeployment;
-                    mapDisplay.onContextMenu = (tid, event) => {
-                        event.preventDefault();
+                    mapDisplay.onContextMenu = (tid) => {
                         removeDeployment(tid);
                     }
                     mapDisplay.setLayers([defaultMapLayer]);
@@ -526,6 +533,48 @@
             mapDisplay.refresh();
         }
 
+        function forceNextTurn() {
+            ownNation.is_ready_for_next_turn = true;
+            updateReadyStatus();
+
+            devServices.forceNextTurn()
+                .then(() => window.location.reload());
+        }
+
+        function readyForNextTurn() {
+            ownNation.is_ready_for_next_turn = true;
+            readyStatus.ready_for_next_turn_count++;
+            updateReadyStatus();
+
+            devServices.readyForNextTurn()
+                .then(data => {
+                    readyStatus = data;
+                    setInterval(() => {
+                        services.getGameReadyStatus()
+                            .then(data => readyStatus = data)
+                            .then(updateReadyStatus);
+                    }, 1000);
+                    updateReadyStatus();
+                });
+        }
+
+        function updateReadyStatus() {
+            if (readyStatus.turn_number != ownNation.turn_number) {
+                window.location.reload();
+            }
+            $("#force-next-turn-section").hide();
+            $("#ready-for-next-turn-section").hide();
+            $("#ready-for-next-turn-status").hide();
+            if (ownNation.is_ready_for_next_turn) {
+                $("#force-next-turn-section").show();
+                $("#ready-for-next-turn-status").html(`Waiting: ${readyStatus.ready_for_next_turn_count} of ${readyStatus.nation_count} nations are ready for next turn.`);
+                $("#ready-for-next-turn-status").show();
+            }
+            else {
+                $("#ready-for-next-turn-section").show();
+            }
+        }
+
         window.addEventListener("load", function() {
             mapDisplay = new MapDisplay("map-display", territoriesById, md => {
                 md.territoryLabeler = t => `${t.name} (${nationsById.has(t.owner_nation_id) ? nationsById.get(t.owner_nation_id).usual_name : "neutral"})`;
@@ -542,6 +591,13 @@
             updateDeploymentsPane();
             $("#details").hide();
             selectMainTab(null);
+            updateReadyStatus();
+            document.addEventListener('keydown', function(event) {
+                document.getElementById("force-next-turn-button").disabled = !event.shiftKey;
+            });
+            document.addEventListener('keyup', function(event) {
+                document.getElementById("force-next-turn-button").disabled = !event.shiftKey;
+            });
         });
     </script>
     <body>
@@ -549,10 +605,14 @@
         <b>{{ $context->getNation()->getUsualName() }}</b>, turn #{{ $context->getCurrentTurn()->getNumber() }}
             <a href="{{route('logout')}}">logout</a>
             @if(EnsureWhenRunningInDevelopmentOnly::isRunningInDevelopmentEnvironment())
-                <form method="post" enctype="multipart/form-data" action="{{route('dev.next-turn')}}">
-                    @csrf
-                    <button class="btn btn-primary" type="submit">Next turn</button>
-                </form>
+                <div id="force-next-turn-section">
+                    <button id="force-next-turn-button" class="btn btn-primary" title="CTRL-click to force the end of the turn." onclick="forceNextTurn()" disabled>Force next turn</button>
+                </div>
+                <div id="ready-for-next-turn-section">
+                    <button class="btn btn-primary" onclick="readyForNextTurn()">Ready for next turn</button>
+                </div>
+                <div id="ready-for-next-turn-status">
+                </div>
             @endif
             <x-dev-mode />
         </div>

@@ -32,7 +32,10 @@ Route::middleware(['auth', EnsureWhenRunningInDevelopmentOnly::class])->group(fu
     Route::get('/dev-panel/ajax-deployment', [DevController::class, 'ajaxDeployment'])->name('dev.ajax.deployment');
     Route::get('/dev-panel/services', [DevController::class, 'generateServices'])->name('dev.generate-js-client-services');
     Route::get('/dev-panel/spa/{userId}', [DevController::class, 'userSpa'])->name('dev.spa');
-
+    Route::get('/dev-panel/ajax-ready-for-next-turn', [DevController::class, 'ajaxReadyForNextTurn'])
+        ->name('dev.ajax.ready-for-next-turn');
+    Route::get('/dev-panel/ajax-force-next-turn', [DevController::class, 'ajaxForceNextTurn'])
+        ->name('dev.ajax.force-next-turn');
     //Temporary endpoints:
     // Route::get('/dev/territory-assign/{territoryId}/{nationId}', [DevController::class, 'assignTerritory'])
     //     ->whereNumber('territoryId', 'nationId');
@@ -56,6 +59,8 @@ Route::middleware('auth')->group(function () {
 
 //Game routes
 Route::get('/game', [GameController::class, 'info']);
+Route::get('/game/ready-status', [GameController::class, 'readyStatus'])
+    ->name('ajax.get-game-ready-status');
 
 //Nation routes.
 Route::middleware('auth')->group(function () {

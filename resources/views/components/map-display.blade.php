@@ -40,7 +40,8 @@ class MapDisplay {
             let territoryId = this.#getTerritoryUnderCursorOrUndefined(x, y).territory_id;
             
             if (this.#onContextMenu && this.#metadataByTerritoryId.get(territoryId).clickable) {
-                this.#onContextMenu(territoryId, event);
+                event.preventDefault();
+                this.#onContextMenu(territoryId);
             }
         });
         this.#canvas.addEventListener('mousemove', (event) => {

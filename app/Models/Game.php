@@ -46,6 +46,17 @@ readonly class VictoryProgress {
     }
 }
 
+readonly class GameReadyStatusInfo {
+    public function __construct(
+        public int $turn_number,
+        public int $ready_for_next_turn_count,
+        public int $nation_count,
+    )
+    {
+    
+    }
+}
+
 readonly class GameInfo {
     public function __construct(
         public int $game_id,
@@ -62,6 +73,11 @@ class Game extends Model
 
     public function nations(): HasMany {
         return $this->hasMany(Nation::class);
+    }
+
+    public function nationsReadyForNextTurn(): HasMany {
+        return $this->hasMany(Nation::class)
+            ->where(Nation::whereReadyForNextTurn());
     }
 
     public function territories(): HasMany {
@@ -130,6 +146,15 @@ class Game extends Model
         return new GameInfo(
             game_id: $this->getId(),
             turn_number: $turn->getNumber(),
+            
+        );
+    }
+
+    public function exportReadyStatus(): GameReadyStatusInfo {
+        return new GameReadyStatusInfo(
+            turn_number: $this->getCurrentTurn()->getNumber(),
+            ready_for_next_turn_count: $this->nationsReadyForNextTurn()->count(),
+            nation_count: $this->nations()->count(),
         );
     }
 
@@ -151,6 +176,12 @@ class Game extends Model
     
     public function getVictoryStatus(): VictoryStatus {
         return VictoryStatus::from($this->victory_status);
+    }
+
+    public function nextTurnIfNationsReady(): void {
+        if ($this->nations()->count() == $this->nationsReadyForNextTurn()->count()) {
+            $this->nextTurn();
+        }
     }
 
     public function nextTurn(): void {
@@ -189,6 +220,8 @@ class Game extends Model
                 $this->updateVictoryStatus();
 
                 $this->save();
+
+                Nation::resetAllReadyForNextTurnStatuses($this);
             });
         
         if (!$gotLock) {

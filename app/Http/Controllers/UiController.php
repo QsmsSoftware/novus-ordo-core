@@ -27,10 +27,12 @@ use App\Services\StaticJavascriptResource;
 use App\Utils\MapsValidatedDataToFormRequest;
 use App\Utils\MapsValidatorToInstance;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\View\View;
 
 class CreateNationUiRequest extends FormRequest {
@@ -149,7 +151,7 @@ class UiController extends Controller
         ]);
     }
 
-    public function dashboard() : View|RedirectResponse {
+    public function dashboard(JavascriptClientServicesGenerator $servicesGenerator) : View|RedirectResponse {
         $nationOrNull = Nation::getCurrentOrNull();
         if ($nationOrNull === null) {
             return redirect()->route('nation.create');
@@ -162,6 +164,7 @@ class UiController extends Controller
             VictoryStatus::HasNotBeenWon => view('dashboard', [
                 'context' => new NationContext,
                 'own_nation' => $nation->getDetail()->exportForOwner(),
+                'ready_status' => $game->exportReadyStatus(),
                 'nations' => $nationsById->values(),
                 'deployments' => $nation->activeDeployments()->get()
                     ->map(fn (Deployment $d) => $d->export())
@@ -170,6 +173,7 @@ class UiController extends Controller
                     ->map(fn (Division $d) => $d->getDetail()->exportForOwner())
                     ->values(),
                 'static_js_services' => $this->getStaticJsServices(),
+                'static_js_dev_services' => StaticJavascriptResource::permanent('devservices', fn () => $servicesGenerator->generateClientService('DevServices', 'dev.ajax')),
                 'static_js_territories' => Territory::getAllTerritoriesClientResource($game->getCurrentTurn()),
                 'victory_ranking' => $game->getVictoryProgression()->values(),
                 'budget' => $nation->getDetail()->exportBudget(),

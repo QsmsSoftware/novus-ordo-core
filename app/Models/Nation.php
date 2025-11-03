@@ -6,6 +6,7 @@ use App\Domain\DeploymentCommand;
 use App\Domain\DivisionType;
 use App\Domain\NationSetupStatus;
 use App\Utils\GuardsForAssertions;
+use Closure;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -70,6 +71,15 @@ class Nation extends Model
         return $this->usual_name;
     }
 
+    public function isReadyForNextTurn(): bool {
+        return $this->is_ready_for_next_turn;
+    }
+
+    public static function resetAllReadyForNextTurnStatuses(Game $game): void {
+        Nation::where('game_id', $game->getId())
+            ->update(['is_ready_for_next_turn' => false]);
+    }
+
     public function deploy(Territory $territory, DivisionType $type, int $numberOfDivisions): array {
         if ($numberOfDivisions <= 0) {
             throw new LogicException("Parameter numberOfDivisions must be at least 1");
@@ -86,6 +96,16 @@ class Nation extends Model
         }
 
         return $deployments;
+    }
+
+    public static function whereReadyForNextTurn(): Closure {
+        return fn (Builder $builder) => $builder
+            ->where('is_ready_for_next_turn', true);
+    }
+
+    public function readyForNextTurn(): void {
+        $this->is_ready_for_next_turn = true;
+        $this->save();
     }
 
     public function onNextTurn(Turn $currentTurn, Turn $nextTurn): void {

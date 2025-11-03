@@ -12,6 +12,7 @@ use App\Models\Turn;
 use App\Models\User;
 use App\Models\UserAlreadyExists;
 use App\Services\JavascriptClientServicesGenerator;
+use App\Services\NationContext;
 use App\Utils\HttpStatusCode;
 use App\Utils\MapsValidatorToInstance;
 use Illuminate\Http\JsonResponse;
@@ -255,5 +256,19 @@ class DevController extends Controller
 
     public function ajaxGeneratePassword(): JsonResponse {
         return response()->json(['password' => Password::randomize()->value]);
+    }
+
+    public function ajaxReadyForNextTurn(NationContext $context): JsonResponse {
+        $context->getNation()->readyForNextTurn();
+
+        $context->getNation()->getGame()->nextTurnIfNationsReady();
+
+        return response()->json($context->getNation()->getGame()->exportReadyStatus());
+    }
+
+    public function ajaxForceNextTurn(): JsonResponse {
+        Game::getCurrent()->nextTurn();
+
+        return response()->json();
     }
 }

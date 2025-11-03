@@ -23,6 +23,7 @@ readonly class OwnedNationInfo {
         public int $nation_id,
         public int $turn_number,
         public string $usual_name,
+        public bool $is_ready_for_next_turn,
     ) {}
 }
 
@@ -111,6 +112,7 @@ class NationDetail extends Model
             nation_id: $this->getNation()->getId(),
             turn_number: $this->getTurn()->getNumber(),
             usual_name: $this->getNation()->getUsualName(),
+            is_ready_for_next_turn: $this->getNation()->isReadyForNextTurn(),
         );
     }
 
