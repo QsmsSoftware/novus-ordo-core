@@ -13,6 +13,7 @@ final class HttpStatusCode {
     public const int OK = 200;
     /** Created indicates that the request resulted in a new resource created before the response was sent. */
     public const int Created = 201;
+
     /**  BadRequest indicates that the request could not be understood by the server. BadRequest is sent when no other error is applicable, or if the exact error is unknown or does not have its own error code. */
     public const int BadRequest = 400;
     /** Unauthorized indicates that the requested resource requires authentication. The WWW-Authenticate header contains the details of how to perform the authentication. */
@@ -23,4 +24,7 @@ final class HttpStatusCode {
     public const int Conflict = 409;
     /** UnprocessableContent indicates that the request was well-formed but was unable to be followed due to semantic errors. */
     public const int UnprocessableContent = 422;
+
+    /** ServiceUnavailable indicates that the server is temporarily unavailable, usually due to high load or maintenance. */
+    public const int ServiceUnavailable = 503;
 }

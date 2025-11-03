@@ -8,6 +8,7 @@ use App\Http\Controllers\NationController;
 use App\Http\Controllers\TerritoryController;
 use App\Http\Controllers\UiController;
 use App\Http\Controllers\UserController;
+use App\Http\Middleware\EnsureGameIsNotUpkeeping;
 use App\Http\Middleware\EnsureWhenRunningInDevelopmentOnly;
 use App\Models\User;
 use App\Services\NationContext;
@@ -66,14 +67,16 @@ Route::get('/game/ready-status', [GameController::class, 'readyStatus'])
 Route::middleware('auth')->group(function () {
     Route::get('/nation', [NationController::class, 'ownNationInfo'])
         ->name('ajax.get-nation-info');
-    Route::post('/nation', [NationController::class, 'createNation'])
-        ->name('ajax.create-nation');
-    Route::post('/nation:select-home-territories', [NationController::class, 'selectHomeTerritories'])
-        ->name('ajax.select-home-territories');
     Route::get('/nation/budget', [NationController::class, 'budgetInfo'])
         ->name('ajax.get-nation-budget');
     Route::get('/nation/battle-logs/', [NationController::class, 'lastTurnBattleLogs'])
         ->name('ajax.get-nation-battle-logs');
+    Route::middleware(EnsureGameIsNotUpkeeping::class)->group(function () {
+        Route::post('/nation', [NationController::class, 'createNation'])
+            ->name('ajax.create-nation');
+        Route::post('/nation:select-home-territories', [NationController::class, 'selectHomeTerritories'])
+            ->name('ajax.select-home-territories');
+    });
 });
 Route::get('/nations/{nationId}', [NationController::class, 'info'])
     ->whereNumber('nationId');
@@ -95,39 +98,43 @@ Route::get('/territories/{territoryId}', [TerritoryController::class, 'info'])
 Route::middleware('auth')->group(function () {
     Route::get('/nation/divisions', [DivisionController::class, 'allOwnedDivisions'])
         ->name('ajax.get-nation-divisions');
-    Route::post('/nation/divisions/orders', [DivisionController::class, 'sendMoveOrders'])
-        ->name('ajax.send-move-orders');
-    Route::post('/nation/divisions:cancel-orders', [DivisionController::class, 'cancelOrders'])
-        ->name('ajax.cancel-orders');
     Route::get('/nation/divisions/{divisionId}', [DivisionController::class, 'ownedDivision'])
         ->whereNumber('divisionId')
         ->name('ajax.get-nation-division');
+    Route::middleware(EnsureGameIsNotUpkeeping::class)->group(function () {
+            Route::post('/nation/divisions/orders', [DivisionController::class, 'sendMoveOrders'])
+                ->name('ajax.send-move-orders');
+            Route::post('/nation/divisions:cancel-orders', [DivisionController::class, 'cancelOrders'])
+                ->name('ajax.cancel-orders');
+    });
 });
 
 // Deployment routes
 Route::middleware('auth')->group(function () {
     Route::get('nation/deployments', [DeploymentController::class, 'allDeployments'])
         ->name('ajax.get-all-deployments');
-    // Route::post('nation/deployments', [DeploymentController::class, 'deployDivisions'])
-    //     ->name('ajax.deployDivisions');
-    Route::post('nation/deployments/cancel-deployment-requests', [DeploymentController::class, 'cancelDeployments'])
-        ->name('ajax.cancel-deployments');
     Route::get('nation/territories/{territoryId}/deployments', [DeploymentController::class, 'allDeploymentsInOwnedTerritory'])
         ->whereNumber('territoryId')
         ->name('ajax.get-territory-deployments');
-    Route::post('nation/territories/{territoryId}/deployments', [DeploymentController::class, 'deployInOwnedTerritory'])
-        ->whereNumber('territoryId')
-        ->name('ajax.deploy-in-territory');
+    Route::middleware(EnsureGameIsNotUpkeeping::class)->group(function () {
+        Route::post('nation/deployments/cancel-deployment-requests', [DeploymentController::class, 'cancelDeployments'])
+            ->name('ajax.cancel-deployments');
+        Route::post('nation/territories/{territoryId}/deployments', [DeploymentController::class, 'deployInOwnedTerritory'])
+            ->whereNumber('territoryId')
+            ->name('ajax.deploy-in-territory');
+    });
 });
 
 //UI
 Route::middleware('auth')->group(function () {
     Route::get('/dashboard', [UiController::class, 'dashboard'])
         ->name('dashboard');
-    Route::get('/create-nation', [UiController::class, 'createNation'])
-        ->name('nation.create');
-    Route::post('/create-nation', [UiController::class, 'storeNation'])
-        ->name('nation.store');
     Route::post('/ready-for-next-turn', [UiController::class, 'readyForNextTurn'])
         ->name('ajax.ready-for-next-turn');
+    Route::middleware(EnsureGameIsNotUpkeeping::class)->group(function () {
+            Route::get('/create-nation', [UiController::class, 'createNation'])
+                ->name('nation.create');
+            Route::post('/create-nation', [UiController::class, 'storeNation'])
+                ->name('nation.store');
+    });
 });

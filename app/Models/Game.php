@@ -193,6 +193,18 @@ class Game extends Model
         return $this->getCurrentTurn();
     }
 
+    public function isUpkeeping(): bool {
+        $creatingGame = !Cache::lock(Game::CacheLockKeyCritalSectionCreateGame, RuntimeInfo::maxExectutionTimeSeconds() * 0.8)
+            ->get(0, fn () => true);
+
+        if ($creatingGame) {
+            return true;
+        }
+
+        return !Cache::lock($this->getCacheLockKeyForChangeTurn(), RuntimeInfo::maxExectutionTimeSeconds() * 0.8)
+            ->get(0, fn () => true);
+    }
+
     private function getCacheLockKeyForChangeTurn(): string {
         return "critical_section:change_turn_game_{$this->getId()}";
     }
@@ -337,9 +349,10 @@ class Game extends Model
         return Game::where('is_active', 1)
             ->first();
     }
+    private const CacheLockKeyCritalSectionCreateGame = "critical_section:create_game";
 
     public static function createNew(): Game {
-        $lock = Cache::lock("critical_section:create_game", RuntimeInfo::maxExectutionTimeSeconds() * 0.8);
+        $lock = Cache::lock(Game::CacheLockKeyCritalSectionCreateGame, RuntimeInfo::maxExectutionTimeSeconds() * 0.8);
 
         $gameOrFalsy = $lock->get(function () {
             $currentGameOrNull = Game::getCurrentOrNull();
