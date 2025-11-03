@@ -47,6 +47,7 @@
         let ownNation = @json($own_nation);
         var readyStatus = @json($ready_status);
         var forcingNextTurn = false;
+        var refreshReadyStatusInterval = null;
         var mapDisplay;
         var selectedTerritory = null;
 
@@ -536,6 +537,9 @@
         function forceNextTurn() {
             forcingNextTurn = true;
             document.getElementById("force-next-turn-button").disabled = true;
+            if (refreshReadyStatusInterval) {
+                clearInterval(refreshReadyStatusInterval);
+            }
 
             devServices.forceNextTurn()
                 .then(() => window.location.reload());
@@ -549,7 +553,7 @@
             devServices.readyForNextTurn()
                 .then(data => {
                     readyStatus = data;
-                    setInterval(() => {
+                    refreshReadyStatusInterval = setInterval(() => {
                         services.getGameReadyStatus()
                             .then(data => readyStatus = data)
                             .then(updateReadyStatus);
