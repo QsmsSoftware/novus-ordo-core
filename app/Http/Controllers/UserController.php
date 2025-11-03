@@ -3,18 +3,23 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
-use App\Services\LoggedInUserContext;
+use App\Services\LoggedInGameContext;
+use App\Services\LoggedUserContext;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-use Illuminate\Support\Facades\Auth;
 
 class UserController extends Controller
 {
-    public function info(LoggedInUserContext $context) :JsonResponse {
+    public function info(LoggedUserContext $context) :JsonResponse {
         $user = $context->getUser();
         
         return response()->json($user->exportForOwner());
+    }
+
+    public function nationSetupStatus(LoggedInGameContext $context) :JsonResponse {
+        $user = $context->getUser();
+        
+        return response()->json($user->exportNationSetupSatusForOwner($context->getGame()));
     }
     
     public function logoutCurrentUser() :Response {

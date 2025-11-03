@@ -5,7 +5,7 @@ use App\Models\User;
 use App\Utils\HttpStatusCode;
 use Illuminate\Support\Facades\Auth;
 
-class LoggedInUserContext {
+class LoggedUserContext {
     private readonly User $user;
     public function __construct()
     {

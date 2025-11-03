@@ -3,15 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\Game;
-use App\Models\Nation;
 use App\Models\Territory;
 use App\Models\Turn;
 use App\Services\NationContext;
+use App\Services\PublicGameContext;
 use App\Utils\HttpStatusCode;
 use App\Utils\MapsArrayToInstance;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 readonly class TerritoryForTurnParams {
     use MapsArrayToInstance;
@@ -22,15 +21,15 @@ readonly class TerritoryForTurnParams {
 
 class TerritoryController extends Controller
 {
-    public function allTerritoriesSuitableAsHomeIds() :JsonResponse {
-        $game = Game::getCurrent();
+    public function allTerritoriesSuitableAsHomeIds(PublicGameContext $context) :JsonResponse {
+        $game = $context->getGame();
         $territories = $game->freeSuitableTerritoriesInTurn()->pluck('id')->all();
 
         return response()->json($territories);
     }
 
-    public function allTerritories() :JsonResponse {
-        $game = Game::getCurrent();
+    public function allTerritories(PublicGameContext $context) :JsonResponse {
+        $game = $context->getGame();
         $territories = Territory::exportAll($game, $game->getCurrentTurn());
 
         return response()->json($territories);
@@ -43,12 +42,12 @@ class TerritoryController extends Controller
         return response()->json($territories);
     }
 
-    public function info(Request $request, int $territoryId) :JsonResponse {
+    public function info(PublicGameContext $context, Request $request, int $territoryId) :JsonResponse {
         $validated = $request->validate([
             'turn_number' => 'nullable|integer',
         ]);
 
-        $game = Game::getCurrent();
+        $game = $context->getGame();
         $territory = Territory::asOrNotFound($game->territories()->find($territoryId), "No territory with ID $territoryId in the current game.");
 
         if (isset($validated['turn_number'])) {

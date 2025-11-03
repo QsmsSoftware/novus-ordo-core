@@ -9,14 +9,13 @@ use App\Models\Nation;
 use App\Models\NewNation;
 use App\Models\Territory;
 use App\Services\LoggedInGameContext;
-use App\Services\LoggedInUserContext;
 use App\Services\NationContext;
 use App\Services\NationSetupContext;
+use App\Services\PublicGameContext;
 use App\Utils\HttpStatusCode;
 use App\Utils\MapsValidatedDataToFormRequest;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Validation\Rule;
 
 class NewNationRequest extends FormRequest {
     use MapsValidatedDataToFormRequest;
@@ -111,8 +110,8 @@ class NationController extends Controller
         );
     }
 
-    public function info(int $nationId): JsonResponse {
-        $nationOrNull = Game::getCurrent()->getNationWithIdOrNull($nationId);
+    public function info(PublicGameContext $context, int $nationId): JsonResponse {
+        $nationOrNull = $context->getGame()->getNationWithIdOrNull($nationId);
         if ($nationOrNull === null) {
             return response()->json(['errors' => ['nationId' => "No nation with that ID in the current game."]], HttpStatusCode::UnprocessableContent);
         }

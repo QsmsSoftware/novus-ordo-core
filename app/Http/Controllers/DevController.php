@@ -203,7 +203,7 @@ class DevController extends Controller
     }
 
     public function nextTurn(LoggedInGameContext $context): RedirectResponse {
-        Game::getCurrent()->tryNextTurn($context->getGame()->getCurrentTurn());
+        $context->getGame()->tryNextTurn($context->getGame()->getCurrentTurn());
 
         return redirect()->back();
     }

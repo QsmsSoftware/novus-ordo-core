@@ -53,6 +53,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/logout', [UserController::class, 'logoutCurrentUser'])->name('logout');
     Route::get('/user', [UserController::class, 'info'])
         ->name('ajax.get-user-info');
+    Route::get('/user/nation-setup-status', [UserController::class, 'nationSetupStatus'])
+        ->name('ajax.get-user-nation-setup-status');
 });
 
 //Game routes

@@ -14,6 +14,12 @@ readonly class UserOwnerInfo {
     public bool $is_logged_in_game;
     public function __construct(
         public string $user_name,
+    ) {}
+}
+
+readonly class UserNationSetupStatusOwnerInfo {
+    public bool $is_logged_in_game;
+    public function __construct(
         public ?int $game_id,
         public ?int $nation_id,
         public string $nation_setup_status,
@@ -91,13 +97,17 @@ class User extends Authenticatable
     }
 
     public function exportForOwner(): UserOwnerInfo {
-        $gameOrNull = Game::getCurrentOrNull();
-        $nationOrNull = is_null($gameOrNull) ? null : Nation::getForUserOrNull($gameOrNull, $this);
-        $setupStatus = is_null($gameOrNull) ? NationSetupStatus::None : $this->getNationSetupStatus($gameOrNull);
-
         return new UserOwnerInfo(
             user_name: $this->getName(),
-            game_id: $gameOrNull?->getId(),
+        );
+    }
+
+    public function exportNationSetupSatusForOwner(Game $game): UserNationSetupStatusOwnerInfo {
+        $nationOrNull = Nation::getForUserOrNull($game, $this);
+        $setupStatus =  $this->getNationSetupStatus($game);
+
+        return new UserNationSetupStatusOwnerInfo(
+            game_id: $game->getId(),
             nation_id: $nationOrNull?->getId(),
             nation_setup_status: $setupStatus->name,
         );
