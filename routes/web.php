@@ -32,9 +32,9 @@ Route::middleware(['auth', EnsureWhenRunningInDevelopmentOnly::class])->group(fu
     Route::get('/dev-panel/ajax-deployment', [DevController::class, 'ajaxDeployment'])->name('dev.ajax.deployment');
     Route::get('/dev-panel/services', [DevController::class, 'generateServices'])->name('dev.generate-js-client-services');
     Route::get('/dev-panel/spa/{userId}', [DevController::class, 'userSpa'])->name('dev.spa');
-    Route::get('/dev-panel/ajax-ready-for-next-turn', [DevController::class, 'ajaxReadyForNextTurn'])
+    Route::post('/dev-panel/ajax-ready-for-next-turn', [DevController::class, 'ajaxReadyForNextTurn'])
         ->name('dev.ajax.ready-for-next-turn');
-    Route::get('/dev-panel/ajax-force-next-turn', [DevController::class, 'ajaxForceNextTurn'])
+    Route::post('/dev-panel/ajax-force-next-turn', [DevController::class, 'ajaxForceNextTurn'])
         ->name('dev.ajax.force-next-turn');
     //Temporary endpoints:
     // Route::get('/dev/territory-assign/{territoryId}/{nationId}', [DevController::class, 'assignTerritory'])

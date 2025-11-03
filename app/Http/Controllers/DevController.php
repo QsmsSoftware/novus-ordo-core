@@ -12,9 +12,12 @@ use App\Models\Turn;
 use App\Models\User;
 use App\Models\UserAlreadyExists;
 use App\Services\JavascriptClientServicesGenerator;
+use App\Services\LoggedInGameContext;
 use App\Services\NationContext;
 use App\Utils\HttpStatusCode;
+use App\Utils\MapsValidatedDataToFormRequest;
 use App\Utils\MapsValidatorToInstance;
+use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -22,6 +25,7 @@ use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 readonly class AddUserRequest {
@@ -79,6 +83,58 @@ readonly class DevDeploymentInfo {
         public int $territory_id,
         public bool $has_been_deployed,
     ) {}
+}
+
+class DevForceNextTurnRequest extends FormRequest {
+    use MapsValidatedDataToFormRequest;
+
+    public readonly int $turn_number;
+
+    public function __construct(
+        private readonly LoggedInGameContext $context,
+    )
+    {
+        
+    }
+    
+    public function rules(): array
+    {
+        return [
+            'turn_number' => [
+                'required',
+                'int',
+                'min:1',
+                Rule::exists(Turn::class, Turn::FIELD_TURN_NUMBER)
+                    ->where('game_id', $this->context->getGame()->getId())
+            ],
+        ];
+    }
+}
+
+class ReadyForNextTurnRequest extends FormRequest {
+    use MapsValidatedDataToFormRequest;
+
+    public readonly int $turn_number;
+
+    public function __construct(
+        private readonly LoggedInGameContext $context,
+    )
+    {
+        
+    }
+    
+    public function rules(): array
+    {
+        return [
+            'turn_number' => [
+                'required',
+                'int',
+                'min:1',
+                Rule::exists(Turn::class, Turn::FIELD_TURN_NUMBER)
+                    ->where('game_id', $this->context->getGame()->getId())
+            ],
+        ];
+    }
 }
 
 class DevController extends Controller
@@ -172,8 +228,8 @@ class DevController extends Controller
         return redirect()->route('dev.panel');
     }
 
-    public function nextTurn(): RedirectResponse {
-        Game::getCurrent()->nextTurn();
+    public function nextTurn(LoggedInGameContext $context): RedirectResponse {
+        Game::getCurrent()->tryNextTurn($context->getGame()->getCurrentTurn());
 
         return redirect()->back();
     }
@@ -258,17 +314,19 @@ class DevController extends Controller
         return response()->json(['password' => Password::randomize()->value]);
     }
 
-    public function ajaxReadyForNextTurn(NationContext $context): JsonResponse {
+    public function ajaxReadyForNextTurn(NationContext $context, ReadyForNextTurnRequest $request): JsonResponse {
         $context->getNation()->readyForNextTurn();
 
-        $context->getNation()->getGame()->nextTurnIfNationsReady();
+        $game = $context->getNation()->getGame();
+
+        $game->tryNextTurnIfNationsReady(Turn::getForGameByNumberOrNull($game, $request->turn_number));
 
         return response()->json($context->getNation()->getGame()->exportReadyStatus());
     }
 
-    public function ajaxForceNextTurn(): JsonResponse {
-        Game::getCurrent()->nextTurn();
+    public function ajaxForceNextTurn(DevForceNextTurnRequest $request, LoggedInGameContext $context): JsonResponse {
+        $turn = $context->getGame()->tryNextTurn(Turn::getForGameByNumberOrNull($context->getGame(), $request->turn_number));
 
-        return response()->json();
+        return response()->json(["turn_number" => $turn->getNumber()]);
     }
 }

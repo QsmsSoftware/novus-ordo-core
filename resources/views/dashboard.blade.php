@@ -15,6 +15,9 @@
         .stat-value {
             text-align: right;
         }
+        .ready-nation {
+            color: green;
+        }
     </style>
     {!! $static_js_services->render() !!}
     {!! $static_js_territories->render() !!}
@@ -541,24 +544,31 @@
                 clearInterval(refreshReadyStatusInterval);
             }
 
-            devServices.forceNextTurn()
-                .then(() => window.location.reload());
+            devServices.forceNextTurn({ turn_number: ownNation.turn_number })
+                .then((data) => {
+                    if (ownNation.turn_number == data.turn_number) {
+                        throw new Error(`Force next turn failed: turn number is still ${ownNation.turn_number}`);
+                        return;
+                    }
+
+                    window.location.reload();
+                });
         }
 
         function readyForNextTurn() {
             ownNation.is_ready_for_next_turn = true;
-            readyStatus.ready_for_next_turn_count++;
+            readyStatus.ready_for_next_turn_nation_ids.push(ownNation.nation_id);
             updateReadyStatus();
 
-            devServices.readyForNextTurn()
+            devServices.readyForNextTurn({ turn_number: ownNation.turn_number })
                 .then(data => {
                     readyStatus = data;
+                    updateReadyStatus();
                     refreshReadyStatusInterval = setInterval(() => {
                         services.getGameReadyStatus()
                             .then(data => readyStatus = data)
                             .then(updateReadyStatus);
                     }, 1000);
-                    updateReadyStatus();
                 });
         }
 
@@ -571,7 +581,7 @@
             $("#ready-for-next-turn-status").hide();
             if (ownNation.is_ready_for_next_turn) {
                 $("#force-next-turn-section").show();
-                $("#ready-for-next-turn-status").html(`Waiting: ${readyStatus.ready_for_next_turn_count} of ${readyStatus.nation_count} nations are ready for next turn.`);
+                $("#ready-for-next-turn-status").html(`${readyStatus.ready_for_next_turn_nation_ids.length} out of ${readyStatus.nation_count} are ready for next turn: ${nationsById.values().map(n => `<span class="${readyStatus.ready_for_next_turn_nation_ids.includes(n.nation_id) ? "ready-nation" : "not-ready-nation"}">${n.usual_name}</span>`).toArray().join(", ")}`);
                 $("#ready-for-next-turn-status").show();
             }
             else {

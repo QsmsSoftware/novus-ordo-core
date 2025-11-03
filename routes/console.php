@@ -16,7 +16,7 @@ Artisan::command('inspire', function () {
 Artisan::command('next-turn', function () {
     $game = Game::getCurrent();
 
-    $game->nextTurn();
+    $game->tryNextTurn($game->getCurrentTurn());
 })->purpose('Move the game to next turn.');
 
 Artisan::command('rollback-turn', function () {

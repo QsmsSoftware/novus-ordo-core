@@ -49,7 +49,7 @@ readonly class VictoryProgress {
 readonly class GameReadyStatusInfo {
     public function __construct(
         public int $turn_number,
-        public int $ready_for_next_turn_count,
+        public array $ready_for_next_turn_nation_ids,
         public int $nation_count,
     )
     {
@@ -73,6 +73,11 @@ class Game extends Model
 
     public function nations(): HasMany {
         return $this->hasMany(Nation::class);
+    }
+
+    public function nationsStillNotReadyForNextTurn(): HasMany {
+        return $this->hasMany(Nation::class)
+            ->whereNot(Nation::whereReadyForNextTurn());
     }
 
     public function nationsReadyForNextTurn(): HasMany {
@@ -153,7 +158,7 @@ class Game extends Model
     public function exportReadyStatus(): GameReadyStatusInfo {
         return new GameReadyStatusInfo(
             turn_number: $this->getCurrentTurn()->getNumber(),
-            ready_for_next_turn_count: $this->nationsReadyForNextTurn()->count(),
+            ready_for_next_turn_nation_ids: $this->nationsReadyForNextTurn()->pluck('id')->all(),
             nation_count: $this->nations()->count(),
         );
     }
@@ -178,17 +183,24 @@ class Game extends Model
         return VictoryStatus::from($this->victory_status);
     }
 
-    public function nextTurnIfNationsReady(): void {
-        if ($this->nations()->count() == $this->nationsReadyForNextTurn()->count()) {
-            $this->nextTurn();
+    public function tryNextTurnIfNationsReady(Turn $turnToEnd): Turn {
+        if (!$this->nationsStillNotReadyForNextTurn()->exists()) {
+            return $this->tryNextTurn($turnToEnd);
         }
+
+        return $this->getCurrentTurn();
     }
 
-    public function nextTurn(): void {
+    public function tryNextTurn(Turn $turnToEnd): Turn {
         $lock = Cache::lock("critical_section:change_turn_game_{$this->getId()}", RuntimeInfo::maxExectutionTimeSeconds() * 0.8);
 
-        $gotLock = $lock->get(function () {
+        $gotLock = $lock->get(function () use ($turnToEnd) {
                 $currentTurn = Turn::getCurrentForGame($this);
+
+                if ($turnToEnd->getId() != $currentTurn->getId()) {
+                    return;
+                }
+
                 $nextTurn = $currentTurn->createNext();
 
                 // Upkeep.
@@ -228,6 +240,8 @@ class Game extends Model
             // Assuming that another next turn or rollback command is executing, waiting for the execution to finish.
             $lock->block(RuntimeInfo::maxExectutionTimeSeconds() * 0.8, function () {});
         }
+
+        return $this->getCurrentTurn();
     }
 
     public function rollbackLastTurn(): void {
