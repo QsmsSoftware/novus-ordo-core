@@ -156,6 +156,8 @@ class Game extends Model
     }
 
     public function exportReadyStatus(): GameReadyStatusInfo {
+        Cache::lock($this->getCacheLockKeyForChangeTurn(), RuntimeInfo::maxExectutionTimeSeconds() * 0.8)
+            ->block(RuntimeInfo::maxExectutionTimeSeconds() * 0.8, function () {});
         return new GameReadyStatusInfo(
             turn_number: $this->getCurrentTurn()->getNumber(),
             ready_for_next_turn_nation_ids: $this->nationsReadyForNextTurn()->pluck('id')->all(),
@@ -191,8 +193,12 @@ class Game extends Model
         return $this->getCurrentTurn();
     }
 
+    private function getCacheLockKeyForChangeTurn(): string {
+        return "critical_section:change_turn_game_{$this->getId()}";
+    }
+
     public function tryNextTurn(Turn $turnToEnd): Turn {
-        $lock = Cache::lock("critical_section:change_turn_game_{$this->getId()}", RuntimeInfo::maxExectutionTimeSeconds() * 0.8);
+        $lock = Cache::lock($this->getCacheLockKeyForChangeTurn(), RuntimeInfo::maxExectutionTimeSeconds() * 0.8);
 
         $gotLock = $lock->get(function () use ($turnToEnd) {
                 $currentTurn = Turn::getCurrentForGame($this);
@@ -245,7 +251,7 @@ class Game extends Model
     }
 
     public function rollbackLastTurn(): void {
-        $lock = Cache::lock("critical_section:change_turn_game_{$this->getId()}", RuntimeInfo::maxExectutionTimeSeconds() * 0.8);
+        $lock = Cache::lock($this->getCacheLockKeyForChangeTurn(), RuntimeInfo::maxExectutionTimeSeconds() * 0.8);
 
         $gotLock = $lock->get(function () {
             $lastTurn = Turn::getCurrentForGame($this);
