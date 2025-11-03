@@ -54,10 +54,6 @@ class Turn extends Model
         return $turn;
     }
 
-    public static function getCurrent() :Turn {
-        return Turn::getCurrentForGame(Game::getCurrent());
-    }
-
     public static function getCurrentForGame(Game $game) :Turn {
         return Turn::where('game_id', $game->getId())
             ->orderByDesc('number')

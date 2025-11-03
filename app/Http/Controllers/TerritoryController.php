@@ -6,6 +6,7 @@ use App\Models\Game;
 use App\Models\Nation;
 use App\Models\Territory;
 use App\Models\Turn;
+use App\Services\NationContext;
 use App\Utils\HttpStatusCode;
 use App\Utils\MapsArrayToInstance;
 use Illuminate\Http\JsonResponse;
@@ -35,8 +36,8 @@ class TerritoryController extends Controller
         return response()->json($territories);
     }
 
-    public function allOwnedTerritories() :JsonResponse {
-        $nation = Nation::getCurrent();
+    public function allOwnedTerritories(NationContext $context) :JsonResponse {
+        $nation = $context->getNation();
         $territories = $nation->getDetail()->territories()->get()->map(fn (Territory $t) => $t->getDetail()->exportForOwner())->all();
 
         return response()->json($territories);

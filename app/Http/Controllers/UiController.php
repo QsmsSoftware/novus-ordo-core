@@ -23,7 +23,6 @@ use App\Models\VictoryStatus;
 use App\Services\JavascriptClientServicesGenerator;
 use App\Services\LoggedInGameContext;
 use App\Services\NationContext;
-use App\Services\NationSetupContext;
 use App\Services\StaticJavascriptResource;
 use App\Utils\MapsValidatedDataToFormRequest;
 use App\Utils\MapsValidatorToInstance;
@@ -33,7 +32,6 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -44,7 +42,7 @@ class CreateNationUiRequest extends FormRequest {
     public readonly array $territory_ids;
 
     public function __construct(
-        private readonly NationSetupContext $context
+        private readonly LoggedInGameContext $context
     )
     {
         
@@ -152,8 +150,8 @@ class UiController extends Controller
     private function generateNotEnoughTerritoriesResponse(NotEnoughFreeTerritories $error) :Response {
         return new Response("Unable to create nation: There are not enough free territories remaining. {$error->required} required, {$error->remaining} remaining.");
     }
-    public function createNation(LoggedInGameContext $context, JavascriptClientServicesGenerator $servicesGenerator) : View|Response {
-        if (Nation::getCurrentOrNull() !== null) {
+    public function createNation(LoggedInGameContext $context) : View|Response {
+        if (Nation::getForUserOrNull($context->getGame(), $context->getUser()) !== null) {
             return response("User already has a nation (you should not have landed on this page).");
         }
 
@@ -179,13 +177,14 @@ class UiController extends Controller
         ]);
     }
 
-    public function dashboard(JavascriptClientServicesGenerator $servicesGenerator) : View|RedirectResponse {
-        $nationOrNull = Nation::getCurrentOrNull();
+    public function dashboard(JavascriptClientServicesGenerator $servicesGenerator, LoggedInGameContext $context) : View|RedirectResponse {
+        $nationOrNull = Nation::getForUserOrNull($context->getGame(), $context->getUser());
         if ($nationOrNull === null) {
             return redirect()->route('nation.create');
         }
-        $nation = Nation::notNull($nationOrNull);
-        $game = $nation->getGame();
+        $context = new NationContext;
+        $nation = $context->getNation();
+        $game = $context->getGame();
         $nationsById = $game->nations()->get()->mapWithKeys(fn (Nation $nation) => [$nation->getId() => $nation->getDetail()->export()]);
 
         return match ($game->getVictoryStatus()) {
@@ -247,11 +246,11 @@ class UiController extends Controller
     }
 
     public function readyForNextTurn(NationContext $context, ReadyForNextTurnRequest $request): JsonResponse {
-        $game = $context->getNation()->getGame();
+        $game = $context->getGame();
         $turn = Turn::getForGameByNumberOrNull($game, $request->turn_number);
         $context->getNation()->readyForNextTurn($turn);
         $game->tryNextTurnIfNationsReady($turn);
 
-        return response()->json($context->getNation()->getGame()->exportReadyStatus());
+        return response()->json($context->getGame()->exportReadyStatus());
     }
 }

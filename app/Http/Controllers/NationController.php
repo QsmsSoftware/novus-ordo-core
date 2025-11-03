@@ -90,32 +90,20 @@ class NationController extends Controller
         return response()->json();
     }
 
-    public function ownNationInfo(): JsonResponse {
-        $currentNationOrNull = Nation::getCurrentOrNull();
-        if ($currentNationOrNull === null) {
-            return response()->json(['errors' => ["User has not created their nation yet."]], HttpStatusCode::Conflict);
-        }
-        $nation = Nation::notNull($currentNationOrNull);
+    public function ownNationInfo(NationContext $context): JsonResponse {
+        $nation = $context->getNation();
 
         return response()->json($nation->getDetail()->exportForOwner());
     }
 
-    public function budgetInfo(): JsonResponse {
-        $currentNationOrNull = Nation::getCurrentOrNull();
-        if ($currentNationOrNull === null) {
-            return response()->json(['errors' => ["User has not created their nation yet."]], HttpStatusCode::Conflict);
-        }
-        $nation = Nation::notNull($currentNationOrNull);
+    public function budgetInfo(NationContext $context): JsonResponse {
+        $nation = $context->getNation();
 
         return response()->json($nation->getDetail()->exportBudget());
     }
 
-    public function lastTurnBattleLogs(): JsonResponse {
-        $currentNationOrNull = Nation::getCurrentOrNull();
-        if ($currentNationOrNull === null) {
-            return response()->json(['errors' => ["User has not created their nation yet."]], HttpStatusCode::Conflict);
-        }
-        $nation = Nation::notNull($currentNationOrNull);
+    public function lastTurnBattleLogs(NationContext $context): JsonResponse {
+        $nation = $context->getNation();
 
         return response()->json($nation->getDetail()
             ->getAllBattlesWhereParticipant()
@@ -123,7 +111,6 @@ class NationController extends Controller
         );
     }
 
-    // Questionnement: dédier un controlleur pour les routes publiques?
     public function info(int $nationId): JsonResponse {
         $nationOrNull = Game::getCurrent()->getNationWithIdOrNull($nationId);
         if ($nationOrNull === null) {

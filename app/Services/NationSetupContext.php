@@ -1,7 +1,6 @@
 <?php
 namespace App\Services;
 
-use App\Domain\NationSetupStatus;
 use App\Models\Game;
 use App\Models\NewNation;
 use App\Models\User;
@@ -9,32 +8,39 @@ use App\Utils\HttpStatusCode;
 use Illuminate\Support\Facades\Auth;
 
 class NationSetupContext {
-    public function getUser(): User {
+    private readonly User $user;
+    private readonly Game $game;
+    private readonly NewNation $newNation;
+    public function __construct()
+    {
         $userOrNull = Auth::user();
         if(is_null($userOrNull)) {
-            abort(HttpStatusCode::Unauthorized, 'Bad context: need an authenticated user with a nation to set up.');
+            abort(HttpStatusCode::Unauthorized, 'Bad context: need an authenticated user with a nation to set up. No authenticated user.');
         }
-        return $userOrNull;
+        $this->user = $userOrNull;
+
+        $gameOrNull = Game::getCurrentOrNull();
+        if(is_null($gameOrNull)) {
+            abort(HttpStatusCode::BadRequest, 'Bad context: need an authenticated user with a nation to set up. No active game.');
+        }
+        $this->game = $gameOrNull;
+        
+        $nationOrNull = NewNation::getForUserOrNull($this->game, $this->user);
+        if (is_null($nationOrNull)) {
+            abort(HttpStatusCode::BadRequest, 'Bad context: need an authenticated user with a nation to set up. This user has not created their nation yet or has finished setting their nation up.');
+        }
+        $this->newNation = $nationOrNull;
+    }
+
+    public function getUser(): User {
+        return $this->user;
     }
 
     public function getGame(): Game {
-        $gameOrNull = Game::getCurrentOrNull();
-        if(is_null($gameOrNull)) {
-            abort(HttpStatusCode::BadRequest, 'Bad context: need an authenticated user with a nation to set up.');
-        }
-
-        return $gameOrNull;
+        return $this->game;
     }
 
     public function getNewNation(): NewNation {
-        $game = $this->getGame();
-        $user = $this->getUser();
-
-        $nationOrNull = NewNation::getForUserOrNull($game, $user);
-        if (is_null($nationOrNull)) {
-            abort(HttpStatusCode::BadRequest, 'Bad context: this user has not created their nation yet or has finished setting their nation up.');
-        }
-
-        return $nationOrNull;
+        return $this->newNation;
     }
 }

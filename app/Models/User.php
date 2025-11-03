@@ -186,10 +186,6 @@ class User extends Authenticatable
         return User::where('name', $name)
             ->first();
     }
-
-    public static function getCurrent(): User {
-        return Auth::user();
-    }
 }
 
 readonly class UserAlreadyExists {}

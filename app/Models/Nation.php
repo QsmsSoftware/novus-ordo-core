@@ -123,14 +123,6 @@ class Nation extends Model
             && $this->getId() == $otherNation->getId();
     }
 
-    public static function getCurrent(): Nation {
-        return Nation::getCurrentOrNull();
-    }
-
-    public static function getCurrentOrNull(): Nation|null {
-        return Nation::getForUserOrNull(Game::getCurrent(), User::getCurrent());
-    }
-
     public static function getForUserOrNull(Game $game, User $user): Nation|null {
         return Nation::where('game_id', $game->getId())
             ->where('user_id', $user->getId())
