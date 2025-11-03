@@ -12,6 +12,7 @@ use App\Models\Turn;
 use App\Models\User;
 use App\Models\UserAlreadyExists;
 use App\Services\JavascriptClientServicesGenerator;
+use App\Services\JavascriptStaticServicesGenerator;
 use App\Services\LoggedInGameContext;
 use App\Services\NationContext;
 use App\Utils\HttpStatusCode;
@@ -113,9 +114,9 @@ class DevForceNextTurnRequest extends FormRequest {
 
 class DevController extends Controller
 {   
-    public function generateServices(JavascriptClientServicesGenerator $servicesGenerator): Response {
+    public function generateServices(JavascriptStaticServicesGenerator $staticServices): Response {
 
-        return new Response($servicesGenerator->generateClientService("NovusOrdoServices", "ajax"));
+        return new Response($staticServices->getStaticJsServices()->renderAsCode());
     }
 
     public function ajaxDivision(Request $request): JsonResponse {

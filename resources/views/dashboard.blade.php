@@ -19,10 +19,10 @@
             color: green;
         }
     </style>
-    {!! $static_js_services->render() !!}
-    {!! $static_js_territories->render() !!}
+    {!! $static_js_services->renderAsTag() !!}
+    {!! $static_js_territories->renderAsTag() !!}
     @if(EnsureWhenRunningInDevelopmentOnly::isRunningInDevelopmentEnvironment())
-    {!! $static_js_dev_services->render() !!}
+    {!! $static_js_dev_services->renderAsTag() !!}
     <script>
         let devServices = new DevServices(@json(url("")), @json(csrf_token()));
     </script>

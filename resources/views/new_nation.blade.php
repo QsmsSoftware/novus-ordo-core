@@ -5,8 +5,8 @@
         <title>{{ config('app.name', 'Laravel') }}</title>
         <script src="{{ asset('js/jquery-3.7.1.min.js') }}"></script>
     </head>
-    {{-- {!! $static_js->render() !!} --}}
-    {!! $static_js_territories->render() !!}
+    {{-- {!! $static_js->renderAsTag() !!} --}}
+    {!! $static_js_territories->renderAsTag() !!}
     <script>
         // let services = new NovusOrdoServices(@json(url("")), @json(csrf_token()));
 

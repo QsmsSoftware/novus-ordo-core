@@ -1,0 +1,25 @@
+<?php
+namespace App\Services;
+
+use App\Domain\DivisionType;
+use App\Domain\OrderType;
+use App\Domain\StatUnit;
+use App\Domain\TerrainType;
+
+class JavascriptStaticServicesGenerator {
+    public function __construct(
+        private readonly JavascriptClientServicesGenerator $servicesGenerator,
+    )
+    {
+        
+    }
+    public function getStaticJsServices(): StaticJavascriptResource {
+        return StaticJavascriptResource::permanent('clientservices', fn () => join(PHP_EOL, [
+                $this->servicesGenerator->generateClientEnum(TerrainType::class, true),
+                $this->servicesGenerator->generateClientEnum(OrderType::class, true),
+                $this->servicesGenerator->generateClientEnum(DivisionType::class, true),
+                $this->servicesGenerator->generateClientEnum(StatUnit::class, true),
+                $this->servicesGenerator->generateClientService("NovusOrdoServices", "ajax"),
+        ]));
+    }
+}

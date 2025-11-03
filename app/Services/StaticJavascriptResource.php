@@ -83,7 +83,7 @@ class StaticJavascriptResource {
         }
     }
 
-    public function render(): string {
+    private function render(): string {
         $force = config('novusordo.always_rerender_permanent_js');
         $identifier = $this->getIdentifier();
         if (!$force) {
@@ -101,6 +101,18 @@ class StaticJavascriptResource {
                 $this->cacheAsFile($renderedCode, $filename);
             }
         }
+
+        return $filename;
+    }
+
+    public function renderAsCode(): string {
+        $filename = $this->render();
+
+        return file_get_contents($filename);
+    }
+
+    public function renderAsTag(): string {
+        $filename = $this->render();
 
         return '<script src="' . "/var/" . basename($filename) . '"></script>';
     }

@@ -2,10 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Domain\DivisionType;
-use App\Domain\OrderType;
-use App\Domain\StatUnit;
-use App\Domain\TerrainType;
 use App\Models\Battle;
 use App\Models\Deployment;
 use App\Models\Division;
@@ -21,6 +17,7 @@ use App\Models\UserCredentialsRejected;
 use App\Models\UserLogedIn;
 use App\Models\VictoryStatus;
 use App\Services\JavascriptClientServicesGenerator;
+use App\Services\JavascriptStaticServicesGenerator;
 use App\Services\LoggedInGameContext;
 use App\Services\NationContext;
 use App\Services\StaticJavascriptResource;
@@ -173,11 +170,10 @@ class UiController extends Controller
             'number_of_home_territories' => Game::NUMBER_OF_STARTING_TERRITORIES,
             'suitable_as_home_ids' => $context->getGame()->freeSuitableTerritoriesInTurn()->pluck('id'),
             'already_taken_ids' => $context->getGame()->alreadyTakenTerritoriesInTurn()->pluck('id'),
-            // 'js_client_services' => $servicesGenerator->generateClientService("NovusOrdoServices", "ajax"),
         ]);
     }
 
-    public function dashboard(JavascriptClientServicesGenerator $servicesGenerator, LoggedInGameContext $context) : View|RedirectResponse {
+    public function dashboard(JavascriptStaticServicesGenerator $staticServices, JavascriptClientServicesGenerator $servicesGenerator, LoggedInGameContext $context) : View|RedirectResponse {
         $nationOrNull = Nation::getForUserOrNull($context->getGame(), $context->getUser());
         if ($nationOrNull === null) {
             return redirect()->route('nation.create');
@@ -199,7 +195,7 @@ class UiController extends Controller
                 'divisions' => $nation->getDetail()->activeDivisions()->get()
                     ->map(fn (Division $d) => $d->getDetail()->exportForOwner())
                     ->values(),
-                'static_js_services' => $this->getStaticJsServices(),
+                'static_js_services' => $staticServices->getStaticJsServices(),
                 'static_js_dev_services' => StaticJavascriptResource::permanent('devservices', fn () => $servicesGenerator->generateClientService('DevServices', 'dev.ajax')),
                 'static_js_territories' => Territory::getAllTerritoriesClientResource($game->getCurrentTurn()),
                 'victory_ranking' => $game->getVictoryProgression()->values(),
@@ -215,17 +211,6 @@ class UiController extends Controller
                 'nationsById' => $nationsById,
             ])
         };
-    }
-
-    private function getStaticJsServices(): StaticJavascriptResource {
-        $servicesGenerator = new JavascriptClientServicesGenerator();
-        return StaticJavascriptResource::permanent('clientservices', fn () => join(PHP_EOL, [
-                $servicesGenerator->generateClientEnum(TerrainType::class, true),
-                $servicesGenerator->generateClientEnum(OrderType::class, true),
-                $servicesGenerator->generateClientEnum(DivisionType::class, true),
-                $servicesGenerator->generateClientEnum(StatUnit::class, true),
-                $servicesGenerator->generateClientService("NovusOrdoServices", "ajax"),
-        ]));
     }
 
     public function loginUser(Request $request) :RedirectResponse {
