@@ -46,7 +46,7 @@
 
         let ownNation = @json($own_nation);
         var readyStatus = @json($ready_status);
-        var submitForceNextTurn = false;
+        var forcingNextTurn = false;
         var mapDisplay;
         var selectedTerritory = null;
 
@@ -534,8 +534,8 @@
         }
 
         function forceNextTurn() {
-            ownNation.is_ready_for_next_turn = true;
-            updateReadyStatus();
+            forcingNextTurn = true;
+            document.getElementById("force-next-turn-button").disabled = true;
 
             devServices.forceNextTurn()
                 .then(() => window.location.reload());
@@ -593,10 +593,10 @@
             selectMainTab(null);
             updateReadyStatus();
             document.addEventListener('keydown', function(event) {
-                document.getElementById("force-next-turn-button").disabled = !event.shiftKey;
+                document.getElementById("force-next-turn-button").disabled = !(!forcingNextTurn && event.shiftKey);
             });
             document.addEventListener('keyup', function(event) {
-                document.getElementById("force-next-turn-button").disabled = !event.shiftKey;
+                document.getElementById("force-next-turn-button").disabled = !(!forcingNextTurn && event.shiftKey);
             });
         });
     </script>
