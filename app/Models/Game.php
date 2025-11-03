@@ -194,14 +194,14 @@ class Game extends Model
     }
 
     public function isUpkeeping(): bool {
-        $creatingGame = !Cache::lock(Game::CacheLockKeyCritalSectionCreateGame, RuntimeInfo::maxExectutionTimeSeconds() * 0.8)
+        $creatingGame = !Cache::lock(Game::CacheLockKeyCritalSectionCreateGame, 1)
             ->get(0, fn () => true);
 
         if ($creatingGame) {
             return true;
         }
 
-        return !Cache::lock($this->getCacheLockKeyForChangeTurn(), RuntimeInfo::maxExectutionTimeSeconds() * 0.8)
+        return !Cache::lock($this->getCacheLockKeyForChangeTurn(), 1)
             ->get(0, fn () => true);
     }
 
