@@ -195,14 +195,14 @@ class Game extends Model
 
     public function isUpkeeping(): bool {
         $creatingGame = !Cache::lock(Game::CacheLockKeyCritalSectionCreateGame, 1)
-            ->get(0, fn () => true);
+            ->get(fn () => true);
 
         if ($creatingGame) {
             return true;
         }
 
         return !Cache::lock($this->getCacheLockKeyForChangeTurn(), 1)
-            ->get(0, fn () => true);
+            ->get(fn () => true);
     }
 
     private function getCacheLockKeyForChangeTurn(): string {
