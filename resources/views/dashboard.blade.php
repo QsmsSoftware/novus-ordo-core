@@ -422,6 +422,7 @@
 
             pendingDeployments.push(tid);
             updateDeploymentsPane();
+            mapDisplay.refresh();
         }
 
         function removeDeployment(tid) {
@@ -434,6 +435,7 @@
                 pendingDeployments.splice(index, 1); // Removes 1 element starting from the found index
             }
             updateDeploymentsPane();
+            mapDisplay.refresh();
         }
 
         function confirmAllPendingDeployment() {
@@ -455,6 +457,7 @@
             callChain
                 .then(refreshBudget)
                 .then(updateDeploymentsPane)
+                .then(() => mapDisplay.refresh())
                 .catch(error => {
                     $("#error_messages").html(`<li style="color: crimson">${JSON.stringify(error.responseJSON)}}</li>`);
                 });
@@ -468,6 +471,7 @@
                 })
                 .then(refreshBudget)
                 .then(updateDeploymentsPane)
+                .then(() => mapDisplay.refresh())
                 .catch(error => {
                     $("#error_messages").html(`<li style="color: crimson">${JSON.stringify(error.responseJSON)}}</li>`);
                 });
@@ -490,6 +494,7 @@
         function cancelAllPendingDeployment() {
             pendingDeployments.length = 0;
             updateDeploymentsPane();
+            mapDisplay.refresh();
         }
         
         function setMapMode(mode) {
@@ -508,13 +513,36 @@
                     }]);
                     break;
                 case MapMode.DeployDivisions:
-                    territoriesById.values().forEach(t => mapDisplay.setClickable(t.territory_id, t.owner_nation_id == ownNation.nation_id));
+                    let deployableTerritoryIds = [];
+                    territoriesById.values().forEach(t => {
+                        if (t.owner_nation_id == ownNation.nation_id) {
+                            deployableTerritoryIds.push(t.territory_id);
+                        }
+                    })
+                    territoriesById.values().forEach(t => mapDisplay.setClickable(t.territory_id, deployableTerritoryIds.includes(t.territory_id)));
                     mapDisplay.onClick = addDeployment;
                     mapDisplay.onContextMenu = (tid) => {
                         removeDeployment(tid);
                     }
                     mapDisplay.setLayers([defaultMapLayer]);
-                    mapDisplay.setTopLayers([]);
+                    mapDisplay.setTopLayers([(ctx, md) => {
+                        currentDeploymentsByTerritoryId = Map.groupBy(deploymentsById.values(), d => d.territory_id);
+                        pendingDeploymentsByTerritoryId = Map.groupBy(pendingDeployments, tid => tid);
+                        deployableTerritoryIds.forEach(tid => {
+                            let numberOfCurrent = currentDeploymentsByTerritoryId.has(tid) ? currentDeploymentsByTerritoryId.get(tid).length : 0;
+                            let numberOfPending = pendingDeploymentsByTerritoryId.has(tid) ? pendingDeploymentsByTerritoryId.get(tid).length : 0;
+                            if (numberOfCurrent + numberOfPending > 0) {
+                                var label = "";
+                                if (numberOfPending > 0) {
+                                    label += `+${Math.min(99, numberOfPending)}`;
+                                }
+                                if (numberOfCurrent > 0) {
+                                    label =  Math.min(99, numberOfCurrent).toString() + label;
+                                }
+                                md.labelTerritory(territoriesById.get(tid), label, "white");
+                            }
+                        });
+                    }]);
                     break;
                 case MapMode.SelectDestinationTerritory:
                     let origin = selectedTerritory;
