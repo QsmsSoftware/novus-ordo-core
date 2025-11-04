@@ -542,9 +542,7 @@
         function forceNextTurn() {
             forcingNextTurn = true;
             document.getElementById("force-next-turn-button").disabled = true;
-            if (refreshReadyStatusInterval) {
-                clearInterval(refreshReadyStatusInterval);
-            }
+            stopCheckingForNextTurn();
 
             devServices.forceNextTurn({ turn_number: ownNation.turn_number })
                 .then((data) => {
@@ -565,19 +563,31 @@
             services.readyForNextTurn({ turn_number: ownNation.turn_number })
                 .then(data => {
                     readyStatus = data;
-                    updateReadyStatus();
-                    refreshReadyStatusInterval = setInterval(() => {
-                        services.getGameReadyStatus()
-                            .then(data => readyStatus = data)
-                            .then(updateReadyStatus);
-                    }, 1000);
+                    if (readyStatus.turn_number != ownNation.turn_number) {
+                        window.location.reload();
+                    }
+                    else {
+                        updateReadyStatus();
+                        startCheckingForNextTurn();
+                    }
                 });
         }
 
-        function updateReadyStatus() {
-            if (readyStatus.turn_number != ownNation.turn_number) {
-                window.location.reload();
+        function startCheckingForNextTurn() {
+            refreshReadyStatusInterval = setInterval(() => {
+                services.getGameReadyStatus()
+                    .then(data => readyStatus = data)
+                    .then(updateReadyStatus);
+            }, 1000);
+        }
+
+        function stopCheckingForNextTurn() {
+            if (refreshReadyStatusInterval) {
+                clearInterval(refreshReadyStatusInterval);
             }
+        }
+
+        function updateReadyStatus() {
             $("#force-next-turn-section").hide();
             $("#ready-for-next-turn-section").hide();
             $("#ready-for-next-turn-status").hide();
@@ -612,6 +622,9 @@
             $("#details").hide();
             selectMainTab(null);
             updateReadyStatus();
+            if (ownNation.is_ready_for_next_turn) {
+                startCheckingForNextTurn();
+            }
             if (runningInDevelopment && readyForNextTurnButtonEnabled) {
                 document.getElementById("force-next-turn-button").disabled = true;
                 document.addEventListener('keydown', function(event) {
