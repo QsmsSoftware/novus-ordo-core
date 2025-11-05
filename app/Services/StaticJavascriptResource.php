@@ -52,7 +52,13 @@ class StaticJavascriptResource {
 
     public static function expireAllForGame(Game $game): void {
         DB::table('cache')
-            ->where('key', 'like', config('cache.prefix') . "static_js_file:game_{$game->getId()}-%")
+            ->where('key', 'like', config('cache.prefix') . "static_js_file:%-game_{$game->getId()}-%")
+            ->delete();
+    }
+
+    public static function expireAllforTurn(Turn $turn): void {
+        DB::table('cache')
+            ->where('key', 'like', config('cache.prefix') . "static_js_file:%-game_{$turn->getGame()->getId()}-turn_{$turn->getId()}-%")
             ->delete();
     }
 
@@ -73,8 +79,8 @@ class StaticJavascriptResource {
             if ($bytesWritten !== strlen($renderedCode)) {
                 throw new RuntimeException("Rendered static Javascript file could not be written properly");
             }
-            Cache::delete("static_js_file:$identifier");
-            Cache::set("static_js_file:$identifier", $filename);
+            Cache::delete("static_js_file:$identifier-");
+            Cache::set("static_js_file:$identifier-", $filename);
         });
 
         if (!$gotLock) {
@@ -87,7 +93,7 @@ class StaticJavascriptResource {
         $force = config('novusordo.always_rerender_permanent_js');
         $identifier = $this->getIdentifier();
         if (!$force) {
-            $filenameOrNull = Cache::get("static_js_file:$identifier");
+            $filenameOrNull = Cache::get("static_js_file:$identifier-");
             if (!is_null($filenameOrNull) && file_exists($filenameOrNull)) {
                 $filename = $filenameOrNull;
             }
@@ -97,7 +103,11 @@ class StaticJavascriptResource {
             $renderedCode = ($this->codeGenerator)();
             $hash = $this->hashValue($renderedCode);
             $filename = public_path("var/$identifier-$hash.js");
-            if (!file_exists($filename)) {
+            if (file_exists($filename)) {
+                // Content was stored in static file but cache entry was missing.
+                Cache::set("static_js_file:$identifier-", $filename);
+            }
+            else {
                 $this->cacheAsFile($renderedCode, $filename);
             }
         }

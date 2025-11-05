@@ -6,14 +6,14 @@
         <script src="{{ asset('js/jquery-3.7.1.min.js') }}"></script>
     </head>
     {{-- {!! $static_js->renderAsTag() !!} --}}
-    {!! $static_js_territories->renderAsTag() !!}
+    {!! $static_js_territories_base_info->renderAsTag() !!}
     <script>
         // let services = new NovusOrdoServices(@json(url("")), @json(csrf_token()));
 
         let numberOfHomeTerritories = {{$number_of_home_territories}};
         let suitableAsHomeIds = @json($suitable_as_home_ids);
         let alreadyTakenIds = @json($already_taken_ids);
-        let territoriesById = mapExportedArray(allTerritories, t => t.territory_id);
+        let territoriesById = mapExportedArray(allTerritoriesBaseInfo, t => t.territory_id);
         var selectedTerritoriesIds = [];
         var selectableTerritoriesIds = [];
         var mapDisplay;

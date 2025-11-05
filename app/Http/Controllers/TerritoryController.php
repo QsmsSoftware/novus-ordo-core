@@ -28,9 +28,15 @@ class TerritoryController extends Controller
         return response()->json($territories);
     }
 
-    public function allTerritories(PublicGameContext $context) :JsonResponse {
+    public function allTerritoriesBaseInfo(PublicGameContext $context) :JsonResponse {
         $game = $context->getGame();
-        $territories = Territory::exportAll($game, $game->getCurrentTurn());
+        $territories = Territory::exportAllBasePublicInfo($game);
+
+        return response()->json($territories);
+    }
+
+    public function allTerritoriesTurnInfo(PublicGameContext $context) :JsonResponse {
+        $territories = Territory::exportAllTurnPublicInfo($context->getGame()->getCurrentTurn());
 
         return response()->json($territories);
     }

@@ -20,7 +20,8 @@
         }
     </style>
     {!! $static_js_services->renderAsTag() !!}
-    {!! $static_js_territories->renderAsTag() !!}
+    {!! $static_js_territories_base_info->renderAsTag() !!}
+    {!! $static_js_territories_turn_info->renderAsTag() !!}
     @if(EnsureWhenRunningInDevelopmentOnly::isRunningInDevelopmentEnvironment())
     {!! $static_js_dev_services->renderAsTag() !!}
     <script>
@@ -40,7 +41,7 @@
 
         let victoryRanking = @json($victory_ranking);
         let budgetItems = mapExportedObject(@json($budget_items));
-        let territoriesById = mapExportedArray(allTerritories, t => t.territory_id);
+        let territoriesById = mergeMappedObjectsToNewInstances(mapExportedArray(allTerritoriesBaseInfo, t => t.territory_id), mapExportedArray(allTerritoriesTurnInfo, t => t.territory_id), t => t.stats = [...t.stats, ...t.turn_stats]);
         let nationsById = mapExportedArray(@json($nations), n => n.nation_id);
         let allBattleLogs = @json($battle_logs);
         var deploymentsById = mapExportedArray(@json($deployments), d => d.deployment_id);
@@ -94,6 +95,28 @@
             });
 
             return map;
+        }
+
+        function mergeMappedObjectsToNewInstances(map1, map2, afterShallowCopy = (() => {})) {
+            let newMap = new Map();
+
+            map1.keys().forEach(k => {
+                if (!map2.has(k)) {
+                    // Fail silenty.
+                    return;
+                }
+
+                let o1 = map1.get(k);
+                let o2 = map2.get(k);
+                let o1clone = Object.assign({}, o1);
+                Object.assign(o1clone, o2);
+
+                afterShallowCopy(o1clone);
+
+                newMap.set(k, o1clone);
+            });
+
+            return newMap;
         }
 
         function selectTerritory(tid) {

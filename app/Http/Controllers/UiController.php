@@ -164,8 +164,7 @@ class UiController extends Controller
         });
 
         return view('new_nation', [
-            'territories' => Territory::exportAll($context->getGame(), $context->getGame()->getCurrentTurn()),
-            'static_js_territories' => Territory::getAllTerritoriesClientResource($context->getGame()->getCurrentTurn()),
+            'static_js_territories_base_info' => Territory::getAllTerritoriesBaseInfoClientResource($context->getGame()),
             'territories_by_row_column' => $territoriesByRowThenColumn,
             'number_of_home_territories' => Game::NUMBER_OF_STARTING_TERRITORIES,
             'suitable_as_home_ids' => $context->getGame()->freeSuitableTerritoriesInTurn()->pluck('id'),
@@ -181,6 +180,7 @@ class UiController extends Controller
         $context = new NationContext;
         $nation = $context->getNation();
         $game = $context->getGame();
+        $turn = $game->getCurrentTurn();
         $nationsById = $game->nations()->get()->mapWithKeys(fn (Nation $nation) => [$nation->getId() => $nation->getDetail()->export()]);
 
         return match ($game->getVictoryStatus()) {
@@ -197,7 +197,8 @@ class UiController extends Controller
                     ->values(),
                 'static_js_services' => $staticServices->getStaticJsServices(),
                 'static_js_dev_services' => StaticJavascriptResource::permanent('devservices', fn () => $servicesGenerator->generateClientService('DevServices', 'dev.ajax')),
-                'static_js_territories' => Territory::getAllTerritoriesClientResource($game->getCurrentTurn()),
+                'static_js_territories_base_info' => Territory::getAllTerritoriesBaseInfoClientResource($game),
+                'static_js_territories_turn_info' => Territory::getAllTerritoriesTurnInfoClientResource($turn),
                 'victory_ranking' => $game->getVictoryProgression()->values(),
                 'budget' => $nation->getDetail()->exportBudget(),
                 'budget_items' => ['production' => new Asset('Production'), 'reserves' => new Asset('Reserves'), 'upkeep' => new Liability('Upkeep'), 'expenses' => new Liability('Expenses'), 'available_production' => new Asset('Available Production')],

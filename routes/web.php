@@ -85,8 +85,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/nation/territories', [TerritoryController::class, 'allOwnedTerritories'])
         ->name('ajax.get-nation-territories');
 });
-Route::get('/territories', [TerritoryController::class, 'allTerritories'])
-    ->name('ajax.get-all-territories');
+Route::get('/territories/base-infos', [TerritoryController::class, 'allTerritoriesBaseInfo'])
+    ->name('ajax.get-all-territories-base-info');
+Route::get('/territories/turn-infos', [TerritoryController::class, 'allTerritoriesTurnInfo'])
+    ->name('ajax.get-all-territories-turn-info');
 Route::get('/territories/suitable-as-home-ids', [TerritoryController::class, 'allTerritoriesSuitableAsHomeIds'])
     ->name('ajax.get-all-territories-suitable-as-home-ids');
 Route::get('/territories/{territoryId}', [TerritoryController::class, 'info'])

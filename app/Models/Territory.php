@@ -5,7 +5,8 @@ namespace App\Models;
 use App\Domain\StatUnit;
 use App\Domain\TerrainType;
 use App\Domain\TerritoryData;
-use App\ReadModels\TerritoryInfo;
+use App\ReadModels\TerritoryBasePublicInfo;
+use App\ReadModels\TerritoryTurnPublicInfo;
 use App\Services\StaticJavascriptResource;
 use App\Utils\GuardsForAssertions;
 use Closure;
@@ -184,12 +185,9 @@ class Territory extends Model
             ->where('has_sea_access', true);
     }
 
-    public static function exportAll(Game $game, Turn $turn): array {
-        spl_autoload_call(TerritoryDetail::class);
+    public static function exportAllBasePublicInfo(Game $game): array {
         $territories = DB::table('territories')
-            ->where('territories.game_id', $game->getId())
-            ->join('territory_details', 'territories.id', '=', 'territory_details.territory_id')
-            ->where('turn_id', $turn->getId())
+            ->where('game_id', $game->getId())
             ->get()->all();
 
         $connections = DB::table('territory_connections')
@@ -203,10 +201,10 @@ class Territory extends Model
             $territoriesByCoords[$territory->x][$territory->y] = $territory;
         }
 
-        return array_map(fn ($t) => TerritoryInfo::fromObject($t, [
-            'turn_number' => $turn->getNumber(),
+        return array_map(fn ($t) => TerritoryBasePublicInfo::fromObject($t, [
+            'territory_id' => $t->id,
             'terrain_type' => TerrainType::from($t->terrain_type)->name,
-            'connected_territory_ids' => collect($connections[$t->territory_id])
+            'connected_territory_ids' => collect($connections[$t->id])
                 ->filter(fn ($c) => $c->is_connected_by_land)
                 ->map(fn ($c) => $c->connected_territory_id)
                 ->values()
@@ -215,10 +213,30 @@ class Territory extends Model
         ]), $territories);
     }
 
-    public static function getAllTerritoriesClientResource(Turn $turn): StaticJavascriptResource {
+    public static function exportAllTurnPublicInfo(Turn $turn): array {
+        $territories = DB::table('territory_details')
+            ->where('game_id', $turn->getGame()->getId())
+            ->where('turn_id', $turn->getId())
+            ->get()->all();
+
+        return array_map(fn ($t) => TerritoryTurnPublicInfo::fromObject($t, [
+            'turn_number' => $turn->getNumber(),
+            'turn_stats' => []
+        ]), $territories);
+    }
+
+    public static function getAllTerritoriesBaseInfoClientResource(Game $game): StaticJavascriptResource {
+        return StaticJavascriptResource::permanentForGame(
+            'territories-base-js',
+            fn() => "let allTerritoriesBaseInfo = " . json_encode(Territory::exportAllBasePublicInfo($game)) . ";",
+            $game
+        );
+    }
+
+    public static function getAllTerritoriesTurnInfoClientResource(Turn $turn): StaticJavascriptResource {
         return StaticJavascriptResource::permanentForTurn(
-            'territories',
-            fn() => "let allTerritories = " . json_encode(Territory::exportAll($turn->getGame(), $turn)) . ";",
+            'territories-turn-js',
+            fn() => "let allTerritoriesTurnInfo = " . json_encode(Territory::exportAllTurnPublicInfo($turn)) . ";",
             $turn
         );
     }

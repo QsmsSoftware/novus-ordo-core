@@ -81,7 +81,7 @@ class NewNation extends Model
             NationDetail::create($nation);
             $nation->save();
 
-            StaticJavascriptResource::expireAllForGame($nation->getGame());
+            StaticJavascriptResource::expireAllforTurn($nation->getGame()->getCurrentTurn());
 
             return $nation;
         });
