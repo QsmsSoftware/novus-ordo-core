@@ -13,6 +13,8 @@ final class HttpStatusCode {
     public const int OK = 200;
     /** Created indicates that the request resulted in a new resource created before the response was sent. */
     public const int Created = 201;
+    /** NoContent indicates that the request has been successfully processed and that the response is intentionally blank. */
+    public const int NoContent = 204;
 
     /**  BadRequest indicates that the request could not be understood by the server. BadRequest is sent when no other error is applicable, or if the exact error is unknown or does not have its own error code. */
     public const int BadRequest = 400;

@@ -3,16 +3,31 @@
 namespace App\Models;
 
 use App\Domain\OrderType;
+use App\Models\Division;
+use App\Models\Territory;
+use App\Models\Turn;
 use App\Utils\GuardsForAssertions;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-readonly class MoveOrAttackOrderInfo {
+readonly class MoveOrderInfo {
     public function __construct(
         public int $division_id,
         public string $order_type,
         public int $destination_territory_id,
+    )
+    {
+        
+    }
+}
+
+readonly class DisbandOrderInfo {
+    public function __construct(
+        public int $division_id,
+        public string $order_type,
     )
     {
         
@@ -47,13 +62,23 @@ class Order extends Model
         $this->save();
     }
 
-    public function exportForOwner(): MoveOrAttackOrderInfo {
+    #[Scope]
+    protected function move(Builder $query): void
+    {
+        $query->where('type', OrderType::Move->value);
+    }
+
+    public function exportForOwner(): object {
         return match($this->getType()) {
-            OrderType::Move => new MoveOrAttackOrderInfo(
-                    $this->division_id,
-                    order_type: OrderType::Move->name,
-                    destination_territory_id: $this->getDestinationTerritory()->getId(),
-                )
+            OrderType::Move => new MoveOrderInfo(
+                $this->division_id,
+                order_type: OrderType::Move->name,
+                destination_territory_id: $this->getDestinationTerritory()->getId(),
+            ),
+            OrderType::Disband => new DisbandOrderInfo(
+                $this->division_id,
+                order_type: OrderType::Disband->name,
+            ),
         };
     }
 
@@ -69,15 +94,27 @@ class Order extends Model
         ];
     }
 
-
-    public static function createMoveOrder(Division $division, Territory $destinationTerritory): Order {
+    private static function prepareBaseOrder(Division $division, OrderType $type): Order {
         $order = new Order();
-        $order->game_id = $destinationTerritory->getGame()->getId();
+        $order->game_id = $division->getGame()->getId();
         $order->nation_id = $division->getNation()->getId();
         $order->division_id = $division->getId();
-        $order->turn_id = Turn::getCurrentForGame($destinationTerritory->getGame())->getId();
-        $order->type = OrderType::Move->value;
+        $order->turn_id = $division->getGame()->getCurrentTurn()->getId();
+        $order->type = $type->value;
         $order->has_been_executed = false;
+
+        return $order;
+    }
+
+    public static function createDisbandOrder(Division $division): Order {
+        $order = Order::prepareBaseOrder($division, OrderType::Disband);
+        $order->save();
+
+        return $order;
+    }
+
+    public static function createMoveOrder(Division $division, Territory $destinationTerritory): Order {
+        $order = Order::prepareBaseOrder($division, OrderType::Move);
         $order->destination_territory_id = $destinationTerritory->getId();
         $order->save();
 

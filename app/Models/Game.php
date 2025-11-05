@@ -3,15 +3,12 @@
 namespace App\Models;
 
 use App\Domain\GenerationData;
-use App\Domain\TerrainType;
 use App\Domain\TerritoryConnectionData;
 use App\Utils\GuardsForAssertions;
 use App\Utils\RuntimeInfo;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -246,6 +243,8 @@ class Game extends Model
                     Battle::resolveBattle($destinationTerritory, $attackingDivisions);
                     $attackingDivisions->each(fn (Division $d) => $d->getDetail($currentTurn)->getOrder()->onExecution());
                 }
+
+                $this->activeDivisionsInTurn($currentTurn)->get()->each(fn (Division $d) => $d->afterBattlePhase($currentTurn, $nextTurn));
 
                 $this->updateVictoryStatus();
 

@@ -306,7 +306,7 @@
             if (numberOfSelectedDivisions > 0) {
                 $("#send-order-link").html(currentMapMode == MapMode.SelectDestinationTerritory
                     ? `Select the destination territory to move to attack with the ${numberOfSelectedDivisions} selected divisions or <a href="javascript:void(0)" onclick="cancelSelectDestinationForDivisions()">cancel</a>`
-                    : `<a href="javascript:void(0)" onclick="selectDestinationForDivisions()">Move / attack with ${numberOfSelectedDivisions} selected divisions</a>`
+                    : `With ${numberOfSelectedDivisions} selected divisions: <a href="javascript:void(0)" onclick="selectDestinationForDivisions()">move / attack</a> - <a href="javascript:void(0)" onclick="sendDisbandOrdersToSelectedDivisions()">disband</a>`
                 );
             }
             else {
@@ -322,18 +322,22 @@
         }
 
         function describeOrder(order) {
-            if (order.order_type != OrderType.Move) {
-                return "#UNKNOWN ORDER#"
+            if (order.order_type == OrderType.Move) {
+                let destination = territoriesById.get(order.destination_territory_id);
+                let destinationLink = renderActionLink(`${destination.name} (${destination.owner_nation_id ? nationsById.get(destination.owner_nation_id).usual_name : "neutral"})`, `selectTerritory(${destination.territory_id})`);
+
+                if (destination.owner_nation_id == ownNation.nation_id) {
+                    return `moving to ${destinationLink}`;
+                }
+                else {
+                    return `attacking ${destinationLink}`;
+                }
             }
-
-            let destination = territoriesById.get(order.destination_territory_id);
-            let destinationLink = renderActionLink(`${destination.name} (${destination.owner_nation_id ? nationsById.get(destination.owner_nation_id).usual_name : "neutral"})`, `selectTerritory(${destination.territory_id})`);
-
-            if (destination.owner_nation_id == ownNation.nation_id) {
-                return `moving to ${destinationLink}`;
+            else if (order.order_type == OrderType.Disband) {
+                return "disbanding";
             }
             else {
-                return `attacking ${destinationLink}`;
+                return "#UNKNOWN ORDER#";
             }
         }
 
@@ -347,6 +351,15 @@
             setMapMode(MapMode.Default);
             [...document.getElementById('territory-division-list').getElementsByTagName("input")].forEach(cb => cb.disabled = false);
             onDivisionSelectionChange();
+        }
+
+        function sendDisbandOrdersToSelectedDivisions() {
+            let selectedDivisions = getAllSelectedDivisionsInTerritory();
+            services.sendDisbandOrders({orders: selectedDivisions.map(d => ({ division_id: d.division_id }))})
+                .then(data => patchOrders(data))
+                .catch(error => {
+                    $("#error_messages").html(`<li style="color: crimson">${JSON.stringify(error.responseJSON)}}</li>`);
+                });
         }
 
         function sendMoveOrderToSelectedDivisions(tid) {

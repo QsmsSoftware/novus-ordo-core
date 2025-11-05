@@ -96,7 +96,7 @@ class NewNation extends Model
      */
     protected static function booted(): void
     {
-        static::addGlobalScope('ancient', function (Builder $builder) {
+        static::addGlobalScope('nation_setup_not_finished', function (Builder $builder) {
             $builder->whereNot('nation_setup_status', NationSetupStatus::FinishedSetup->value);
         });
     }

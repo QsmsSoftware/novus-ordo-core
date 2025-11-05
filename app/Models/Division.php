@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Domain\DivisionType;
+use App\Domain\OrderType;
 use App\Utils\GuardsForAssertions;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -47,6 +48,22 @@ class Division extends Model
 
     public function orders(): HasMany {
         return $this->hasMany(Order::class);
+    }
+
+    public function sendDisbandOrder(): Order {
+        $detail = $this->getMostRecentDetail();
+
+        if (!$detail->isActive()) {
+            throw new LogicException("Can't give a move order to inactive division {$this->getId()}");
+        }
+
+        $previousOrderOrNull = $detail->getOrderOrNull();
+
+        if ($previousOrderOrNull !== null) {
+            $previousOrderOrNull->delete();
+        }
+
+        return Order::createDisbandOrder($this);
     }
 
     public function sendMoveOrder(Territory $destination): Order {
@@ -94,6 +111,13 @@ class Division extends Model
     public function onMovePhase(Turn $currentTurn, Turn $nextTurn): void {
         if ($this->getDetail($currentTurn)->isMoving()) {
             $this->getDetail($nextTurn)->moveTo($this->getDetail($currentTurn)->getOrder()->getDestinationTerritory());
+            $this->getDetail($currentTurn)->getOrder()->onExecution();
+        }
+    }
+
+    public function afterBattlePhase(Turn $currentTurn, Turn $nextTurn): void {
+        if ($this->getDetail($currentTurn)->getOrderOrNull()?->getType() == OrderType::Disband) {
+            $this->getDetail($nextTurn)->disband();
             $this->getDetail($currentTurn)->getOrder()->onExecution();
         }
     }

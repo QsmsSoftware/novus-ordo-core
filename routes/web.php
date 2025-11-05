@@ -11,7 +11,6 @@ use App\Http\Controllers\UserController;
 use App\Http\Middleware\EnsureGameIsNotUpkeeping;
 use App\Http\Middleware\EnsureWhenRunningInDevelopmentOnly;
 use App\Models\User;
-use App\Services\NationContext;
 use Illuminate\Support\Facades\Route;
 
 // Laravel default index.
@@ -102,8 +101,10 @@ Route::middleware('auth')->group(function () {
         ->whereNumber('divisionId')
         ->name('ajax.get-nation-division');
     Route::middleware(EnsureGameIsNotUpkeeping::class)->group(function () {
-            Route::post('/nation/divisions/orders', [DivisionController::class, 'sendMoveOrders'])
+            Route::post('/nation/divisions/move-orders', [DivisionController::class, 'sendMoveOrders'])
                 ->name('ajax.send-move-orders');
+            Route::post('/nation/divisions/disband-orders', [DivisionController::class, 'sendDisbandOrders'])
+                ->name('ajax.send-disband-orders');
             Route::post('/nation/divisions:cancel-orders', [DivisionController::class, 'cancelOrders'])
                 ->name('ajax.cancel-orders');
     });

@@ -5,7 +5,6 @@ namespace App\Models;
 use App\Domain\OrderType;
 use App\ModelTraits\ReplicatesForTurns;
 use Closure;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -18,7 +17,7 @@ readonly class OwnedDivisionInfo {
         public int $nation_id,
         public int $territory_id,
         public string $division_type,
-        public ?MoveOrAttackOrderInfo $order,
+        public ?object $order,
     )
     {
         
