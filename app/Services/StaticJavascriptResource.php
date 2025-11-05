@@ -20,6 +20,10 @@ class StaticJavascriptResource {
         
     }
 
+    public static function generateStaticResourceNameFromMethodName(string $nameSpace, string $className, string $methodName) {
+        return str_replace($nameSpace . '\\', "", $className) . '-' . str_replace($className . "::", "", $methodName);
+    }
+
     public static function permanent(string $staticResourseName, Closure $codeGenerator): StaticJavascriptResource {
         return new StaticJavascriptResource(
             $staticResourseName,
@@ -113,6 +117,12 @@ class StaticJavascriptResource {
         }
 
         return $filename;
+    }
+
+    public function renderAsRelativeUri(): string {
+        $filename = $this->render();
+
+        return "/var/" . basename($filename);
     }
 
     public function renderAsCode(): string {

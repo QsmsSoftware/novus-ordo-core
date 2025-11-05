@@ -7,10 +7,12 @@ use App\Models\Territory;
 use App\Models\Turn;
 use App\Services\NationContext;
 use App\Services\PublicGameContext;
+use App\Services\StaticJavascriptResource;
 use App\Utils\HttpStatusCode;
 use App\Utils\MapsArrayToInstance;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 readonly class TerritoryForTurnParams {
     use MapsArrayToInstance;
@@ -21,6 +23,13 @@ readonly class TerritoryForTurnParams {
 
 class TerritoryController extends Controller
 {
+    private function getAllTerritoriesBaseInfoResource(Game $game) {
+        return StaticJavascriptResource::permanentForGame(
+            StaticJavascriptResource::generateStaticResourceNameFromMethodName(__NAMESPACE__, __CLASS__, "allTerritoriesBaseInfo"),
+            fn () => json_encode(Territory::exportAllBasePublicInfo($game)),
+            $game
+        );
+    }
     public function allTerritoriesSuitableAsHomeIds(PublicGameContext $context) :JsonResponse {
         $game = $context->getGame();
         $territories = $game->freeSuitableTerritoriesInTurn()->pluck('id')->all();
@@ -30,9 +39,16 @@ class TerritoryController extends Controller
 
     public function allTerritoriesBaseInfo(PublicGameContext $context) :JsonResponse {
         $game = $context->getGame();
-        $territories = Territory::exportAllBasePublicInfo($game);
+        
+        $territories = json_decode($this->getAllTerritoriesBaseInfoResource($game)->renderAsCode());
 
         return response()->json($territories);
+    }
+
+    public function allTerritoriesBaseInfoStaticLink(PublicGameContext $context) :JsonResponse {
+        $game = $context->getGame();
+
+        return response()->json(["href" => $this->getAllTerritoriesBaseInfoResource($game)->renderAsRelativeUri()]);
     }
 
     public function allTerritoriesTurnInfo(PublicGameContext $context) :JsonResponse {
