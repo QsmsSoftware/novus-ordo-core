@@ -2,30 +2,16 @@
 
 namespace App\Models;
 
+use App\Domain\StatUnit;
 use App\ModelTraits\ReplicatesForTurns;
+use App\ReadModels\DemographicStat;
+use App\ReadModels\NationTurnOwnerInfo;
+use App\ReadModels\NationTurnPublicInfo;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Collection;
-
-readonly class NationInfo 
-{
-    public function __construct(
-        public int $nation_id,
-        public int $turn_number,
-        public string $usual_name
-    ) {}
-}
-
-readonly class OwnedNationInfo {
-    public function __construct(
-        public int $nation_id,
-        public int $turn_number,
-        public string $usual_name,
-        public bool $is_ready_for_next_turn,
-    ) {}
-}
 
 readonly class BudgetInfo 
 {
@@ -103,16 +89,21 @@ class NationDetail extends Model
         return $this->battlesWhereAttacker()->get()->concat($this->battlesWhereDefender()->get());
     }
 
-    public function export() :NationInfo {
-        return new NationInfo($this->getNation()->getId(), $this->getTurn()->getId(), $this->getNation()->getUsualName());
-    }
-
-    public function exportForOwner() :OwnedNationInfo {
-        return new OwnedNationInfo(
+    public function export() :NationTurnPublicInfo {
+        return new NationTurnPublicInfo(
             nation_id: $this->getNation()->getId(),
             turn_number: $this->getTurn()->getNumber(),
             usual_name: $this->getNation()->getUsualName(),
+            stats: [new DemographicStat('Total land area', $this->territories()->get()->sum(fn (Territory $t) => $t->getUsableLandKm2()), StatUnit::Km2->name)],
+        );
+    }
+
+    public function exportForOwner() :NationTurnOwnerInfo {
+        return new NationTurnOwnerInfo(
+            nation_id: $this->getNation()->getId(),
+            turn_number: $this->getTurn()->getNumber(),
             is_ready_for_next_turn: $this->getNation()->isReadyForNextTurn(),
+            stats: [new DemographicStat('test2', 1 * Territory::TERRITORY_AREA_KM2, StatUnit::Percent->name)],
         );
     }
 

@@ -41,7 +41,13 @@
 
         let victoryRanking = @json($victory_ranking);
         let budgetItems = mapExportedObject(@json($budget_items));
-        let territoriesById = mergeMappedObjectsToNewInstances(mapExportedArray(allTerritoriesBaseInfo, t => t.territory_id), mapExportedArray(allTerritoriesTurnInfo, t => t.territory_id), t => t.stats = [...t.stats, ...t.turn_stats]);
+        let territoriesById = mergeMappedObjects(
+            mapExportedArray(allTerritoriesBaseInfo, t => t.territory_id),
+            mapExportedArray(allTerritoriesTurnInfo, t => t.territory_id),
+            {
+                turn_stats: (t, t2) => t.stats = [...t.stats, ...t2.turn_stats],
+            }
+        );
         let nationsById = mapExportedArray(@json($nations), n => n.nation_id);
         let allBattleLogs = @json($battle_logs);
         var deploymentsById = mapExportedArray(@json($deployments), d => d.deployment_id);
@@ -67,6 +73,7 @@
         var selectedDetailsTab = null;
         const DetailsTabs = {
             Info: 'info',
+            Owner: 'owner',
             Divisions: 'divisions',
             BattleLogs: 'battle-logs',
             Deployments: 'deployments',
@@ -97,32 +104,40 @@
             return map;
         }
 
-        function mergeMappedObjectsToNewInstances(map1, map2, afterShallowCopy = (() => {})) {
-            let newMap = new Map();
+        function mergeObjects(o1, o2, customMappings = {}) {
+            Object.keys(o2).forEach(attr => {
+                if (customMappings[attr] !== undefined) {
+                    customMappings[attr](o1, o2);
+                }
+                else {
+                    o1[attr] = o2[attr];
+                }
+            });
 
-            map1.keys().forEach(k => {
-                if (!map2.has(k)) {
+            return o1;
+        }
+
+        function mergeMappedObjects(map1, map2, customMappings = {}) {
+            map2.keys().forEach(k => {
+                if (!map1.has(k)) {
                     // Fail silenty.
                     return;
                 }
 
                 let o1 = map1.get(k);
                 let o2 = map2.get(k);
-                let o1clone = Object.assign({}, o1);
-                Object.assign(o1clone, o2);
 
-                afterShallowCopy(o1clone);
-
-                newMap.set(k, o1clone);
+                mergeObjects(o1, o2, customMappings)
             });
 
-            return newMap;
+            return map1;
         }
 
         function selectTerritory(tid) {
             let territory = territoriesById.get(tid);
             selectedTerritory = territory;
             updateTerritoryInfo();
+            updateOwnerPane();
             updateDivisionsPane();
             updateTerritoryDeployments();
             updateBattleLogsPane(allBattleLogs.filter(b => b.territory_id == selectedTerritory.territory_id), $('#battle-logs-details'));
@@ -176,9 +191,15 @@
             }
         }
 
+        function renderDemography(stats) {
+            return '<div><h2>Demographics</h2><table>'
+                + stats.map(stat => `<tr><td>${stat.title}</td><td class="stat-value">${formatValue(stat.value, stat.unit)}</td></tr>`).join("")
+                + '</table></div>';
+        }
+
         function updateTerritoryInfo() {
             $("#territory-info").html(
-                `<p><b>${selectedTerritory.name}</b><br>`
+                `<p><h1>${selectedTerritory.name}</h1><br>`
                 + (selectedTerritory.terrain_type == TerrainType.Water
                     ? "Sea"
                     : (selectedTerritory.has_sea_access ? "Coastal" : "No sea access")
@@ -188,11 +209,20 @@
                 + (selectedTerritory.owner_nation_id != null ? `<p>Owned by ${nationsById.get(selectedTerritory.owner_nation_id).usual_name}</p>` : '')
             );
 
-            $("#info-details").html(
-                '<table>'
-                + selectedTerritory.stats.map(stat => `<tr><td>${stat.title}</td><td class="stat-value">${formatValue(stat.value, stat.unit)}</td></tr>`).join("")
-                + '</table>'
-            );
+            $("#info-details").html(renderDemography(selectedTerritory.stats));
+        }
+
+        function updateOwnerPane() {
+            if (selectedTerritory.owner_nation_id !== undefined) {
+                var nation = nationsById.get(selectedTerritory.owner_nation_id);
+                var html = "";
+                html += `<h1><b>${nation.usual_name}</b></h1>`;
+                html += renderDemography(nation.stats);
+                $("#owner-details").html(html);
+            }
+            else {
+                $("#owner-details").html("<h1><b>Neutral territory</b></h1>");
+            }
         }
 
         function updateNationPane(nation, component) {
@@ -200,7 +230,7 @@
                 component.html(`<h1><b>${nation.usual_name}</b></h1>`);
             }
             else {
-                component.html("<h1><b>Neutral territory</b></h1>");
+                throw new Error("Unreacheable.");
             }
         }
 
@@ -670,6 +700,7 @@
         }
 
         window.addEventListener("load", function() {
+            mergeObjects(ownNation, nationsById.get(ownNation.nation_id), { stats: (o1, o2) => o1.stats = [...o1.stats, ...o2.stats] });
             mapDisplay = new MapDisplay("map-display", territoriesById, md => {
                 md.territoryLabeler = t => `${t.name} (${nationsById.has(t.owner_nation_id) ? nationsById.get(t.owner_nation_id).usual_name : "neutral"})`;
                 md.addInternationalBorders = true;
@@ -679,6 +710,7 @@
             updateMainTabs();
             updateDetailsTabs();
             updateNationPane(ownNation, $('#own-nation-details'));
+            $('#own-nation-demographics').html(renderDemography(ownNation.stats));
             updateVictoryPane();
             updateBudgetPane();
             updateBattleLogsPane(allBattleLogs, $('#battle-logs-display'));
@@ -724,6 +756,9 @@
             <div id="nation-display">
                 <div id="own-nation-details">
                     own nation
+                </div>
+                <div id="own-nation-demographics">
+                    budget
                 </div>
                 <h3>Budget</h3>
                 <div id="budget-details">

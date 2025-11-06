@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Domain\StatUnit;
 use App\Domain\TerrainType;
 use App\Domain\TerritoryData;
+use App\ReadModels\DemographicStat;
 use App\ReadModels\TerritoryBasePublicInfo;
 use App\ReadModels\TerritoryTurnPublicInfo;
 use App\Services\StaticJavascriptResource;
@@ -19,14 +20,6 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Exists;
-
-readonly class TerritoryStat {
-    public function __construct(
-        public string $title,
-        public mixed $value,
-        public string $unit,
-    ) {}
-}
 
 class Territory extends Model
 {
@@ -243,8 +236,8 @@ class Territory extends Model
 
     private static function statsFromRow(object $t): array {
         return [
-            new TerritoryStat('Usable land ratio', $t->usable_land_ratio, StatUnit::Percent->name),
-            new TerritoryStat('Land area', $t->usable_land_ratio * Territory::TERRITORY_AREA_KM2, StatUnit::Km2->name),
+            new DemographicStat('Usable land ratio', $t->usable_land_ratio, StatUnit::Percent->name),
+            new DemographicStat('Land area', $t->usable_land_ratio * Territory::TERRITORY_AREA_KM2, StatUnit::Km2->name),
         ];
     }
 
