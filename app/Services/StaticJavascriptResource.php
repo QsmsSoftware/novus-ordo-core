@@ -136,6 +136,12 @@ class StaticJavascriptResource {
         return new JsonResponse(file_get_contents($filename), json: true);
     }
 
+    public function renderAsCode(): string {
+        $filename = $this->render();
+
+        return file_get_contents($filename);
+    }
+
     public function renderAsTag(): string {
         $filename = $this->render();
 
