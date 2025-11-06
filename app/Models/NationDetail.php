@@ -95,8 +95,12 @@ class NationDetail extends Model
             nation_id: $this->getNation()->getId(),
             turn_number: $this->getTurn()->getNumber(),
             usual_name: $this->getNation()->getUsualName(),
-            stats: [new DemographicStat('Total land area', Metacache::getForNationTurn(__METHOD__, $this->getNation(), $this->getTurn(), fn () => $this->territories()->get()->sum(fn (Territory $t) => $t->getUsableLandKm2())), StatUnit::Km2->name)],
+            stats: [new DemographicStat('Total land area', Metacache::remember($this->getUsableLandKm2(...)), StatUnit::Km2->name)],
         );
+    }
+
+    public function getUsableLandKm2(): int {
+        return $this->territories()->get()->sum(fn (Territory $t) => $t->getUsableLandKm2());
     }
 
     public function exportForOwner() :NationTurnOwnerInfo {
