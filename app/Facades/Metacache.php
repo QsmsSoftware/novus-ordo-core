@@ -38,6 +38,6 @@ final class Metacache {
 
     public static function getForNationTurn(string $key, Nation $nation, Turn $turn, callable $fallback): mixed {
         $hashedKey = hash('xxh128', $key);
-        return Cache::rememberForever("$hashedKey-game_{$nation->getGame()->getId()}-nation_{$nation->getId()}-turn_{$turn->getId()}-", $fallback);
+        return Cache::rememberForever("metacache-$hashedKey-game_{$nation->getGame()->getId()}-nation_{$nation->getId()}-turn_{$turn->getId()}-", $fallback);
     }
 }
