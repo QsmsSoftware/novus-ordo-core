@@ -41,7 +41,7 @@ class TerritoryController extends Controller
     public function allTerritoriesBaseInfo(PublicGameContext $context) :JsonResponse {
         $game = $context->getGame();
 
-        return RawJsonResponse::make($this->getAllTerritoriesBaseInfoResource($game)->renderAsCode());
+        return $this->getAllTerritoriesBaseInfoResource($game)->renderAsJsonResponse();
     }
 
     public function allTerritoriesBaseInfoStaticLink(PublicGameContext $context) :JsonResponse {

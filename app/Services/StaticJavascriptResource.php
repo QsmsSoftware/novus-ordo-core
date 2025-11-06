@@ -5,6 +5,7 @@ use App\Facades\RuntimeInfo;
 use App\Models\Game;
 use App\Models\Turn;
 use Closure;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -129,10 +130,10 @@ class StaticJavascriptResource {
         return "/var/" . basename($filename);
     }
 
-    public function renderAsCode(): string {
+    public function renderAsJsonResponse(): JsonResponse {
         $filename = $this->render();
 
-        return file_get_contents($filename);
+        return new JsonResponse(file_get_contents($filename), json: true);
     }
 
     public function renderAsTag(): string {
