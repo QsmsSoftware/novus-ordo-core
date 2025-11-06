@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Facades\RawJsonResponse;
 use App\Models\Game;
 use App\Models\Territory;
 use App\Models\Turn;
@@ -39,10 +40,8 @@ class TerritoryController extends Controller
 
     public function allTerritoriesBaseInfo(PublicGameContext $context) :JsonResponse {
         $game = $context->getGame();
-        
-        $territories = json_decode($this->getAllTerritoriesBaseInfoResource($game)->renderAsCode());
 
-        return response()->json($territories);
+        return RawJsonResponse::make($this->getAllTerritoriesBaseInfoResource($game)->renderAsCode());
     }
 
     public function allTerritoriesBaseInfoStaticLink(PublicGameContext $context) :JsonResponse {
