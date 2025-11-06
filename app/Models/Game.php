@@ -5,7 +5,7 @@ namespace App\Models;
 use App\Domain\GenerationData;
 use App\Domain\TerritoryConnectionData;
 use App\Utils\GuardsForAssertions;
-use App\Utils\RuntimeInfo;
+use App\Facades\RuntimeInfo;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;

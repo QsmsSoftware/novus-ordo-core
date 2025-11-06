@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Utils;
+namespace App\Facades;
 
 /**
  * Utility class that groups runtime helper static methods.

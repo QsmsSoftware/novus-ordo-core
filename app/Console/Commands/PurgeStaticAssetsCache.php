@@ -2,8 +2,8 @@
 
 namespace App\Console\Commands;
 
+use App\Facades\RuntimeInfo;
 use App\Services\StaticJavascriptResource;
-use App\Utils\RuntimeInfo;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 
