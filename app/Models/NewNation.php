@@ -3,12 +3,11 @@
 namespace App\Models;
 
 use App\Domain\NationSetupStatus;
-use App\Services\StaticJavascriptResource;
+use App\Facades\Metacache;
 use App\Utils\GuardsForAssertions;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Unique;
@@ -81,7 +80,7 @@ class NewNation extends Model
             NationDetail::create($nation);
             $nation->save();
 
-            StaticJavascriptResource::expireAllforTurn($nation->getGame()->getCurrentTurn());
+            Metacache::expireAllforTurn($nation->getGame()->getCurrentTurn());
 
             return $nation;
         });
