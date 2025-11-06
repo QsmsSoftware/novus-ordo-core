@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Domain\StatUnit;
+use App\Facades\Metacache;
 use App\ModelTraits\ReplicatesForTurns;
 use App\ReadModels\DemographicStat;
 use App\ReadModels\NationTurnOwnerInfo;
@@ -94,7 +95,7 @@ class NationDetail extends Model
             nation_id: $this->getNation()->getId(),
             turn_number: $this->getTurn()->getNumber(),
             usual_name: $this->getNation()->getUsualName(),
-            stats: [new DemographicStat('Total land area', $this->territories()->get()->sum(fn (Territory $t) => $t->getUsableLandKm2()), StatUnit::Km2->name)],
+            stats: [new DemographicStat('Total land area', Metacache::getForNationTurn(__METHOD__, $this->getNation(), $this->getTurn(), fn () => $this->territories()->get()->sum(fn (Territory $t) => $t->getUsableLandKm2())), StatUnit::Km2->name)],
         );
     }
 

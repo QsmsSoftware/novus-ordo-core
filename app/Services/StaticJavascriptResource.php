@@ -7,6 +7,7 @@ use App\Models\Turn;
 use Closure;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use InvalidArgumentException;
 use RuntimeException;
 
 class StaticJavascriptResource {
@@ -19,8 +20,12 @@ class StaticJavascriptResource {
         
     }
 
-    public static function generateStaticResourceNameFromMethodName(string $nameSpace, string $className, string $methodName) {
-        return str_replace($nameSpace . '\\', "", $className) . '-' . str_replace($className . "::", "", $methodName);
+    public static function generateStaticResourceNameFromMethodName(string $methodName) {
+        if (preg_match('/\\\\([^:\\\\]+)::([^:\\\\]+)$/', $methodName, $matches) !== 1) {
+            throw new InvalidArgumentException("methodName: expecting Namespace\\Class::Method but got '$methodName'");
+        }
+
+        return "{$matches[1]}-{$matches[2]}";
     }
 
     public static function permanent(string $staticResourseName, Closure $codeGenerator): StaticJavascriptResource {

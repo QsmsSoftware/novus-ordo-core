@@ -26,7 +26,7 @@ class TerritoryController extends Controller
 {
     private function getAllTerritoriesBaseInfoResource(Game $game) {
         return StaticJavascriptResource::permanentForGame(
-            StaticJavascriptResource::generateStaticResourceNameFromMethodName(__NAMESPACE__, __CLASS__, "allTerritoriesBaseInfo"),
+            StaticJavascriptResource::generateStaticResourceNameFromMethodName(__METHOD__),
             fn () => json_encode(Territory::exportAllBasePublicInfo($game)),
             $game
         );
