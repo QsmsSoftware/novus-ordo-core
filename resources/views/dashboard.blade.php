@@ -82,8 +82,26 @@
         var pendingDeployments = [];
 
         function defaultMapLayer(ctx, md) {
-            territoriesById.values().filter(t => t.owner_nation_id != null && t.owner_nation_id != ownNation.nation_id).forEach(t => md.fillTerritory(t, "red"));
-            territoriesById.values().filter(t => t.owner_nation_id == ownNation.nation_id).forEach(t => md.fillTerritory(t, "blue"));
+            territoriesById.values().filter(t => t.owner_nation_id != null && t.owner_nation_id != ownNation.nation_id).forEach(t => {
+                md.fillTerritory(t, "red");
+                let nationOrNull = getSelectedNationOrNull();
+                if (!nationOrNull) {
+                    return;
+                }
+                if (nationOrNull.nation_id == t.owner_nation_id) {
+                    md.fillTerritory(t, "black");
+                }
+            });
+            territoriesById.values().filter(t => t.owner_nation_id == ownNation.nation_id).forEach(t => {
+                md.fillTerritory(t, "blue");
+                let nationOrNull = getSelectedNationOrNull();
+                if (!nationOrNull) {
+                    return;
+                }
+                if (nationOrNull.nation_id == t.owner_nation_id) {
+                    md.fillTerritory(t, "black");
+                }
+            });
         }
 
         function mapExportedArray(exportedArray, keyFactory) {
@@ -131,6 +149,18 @@
             });
 
             return map1;
+        }
+
+        function getSelectedNationOrNull() {
+            if (!selectedTerritory) {
+                return null;
+            }
+
+            if (selectedTerritory.owner_nation_id && nationsById.has(selectedTerritory.owner_nation_id)) {
+                return nationsById.get(selectedTerritory.owner_nation_id);
+            }
+
+            return null;
         }
 
         function selectTerritory(tid) {
