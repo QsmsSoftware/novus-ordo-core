@@ -3,7 +3,8 @@
 namespace App\Models;
 
 use App\Utils\GuardsForAssertions;
-use Carbon\Carbon;
+use Carbon\CarbonImmutable;
+use DateTimeZone;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -38,12 +39,18 @@ class Turn extends Model
         return $this->number;
     }
 
-    private static function calculateUltimatum(): Carbon {
-        return Carbon::now()->endOfDay();
+    private static function calculateUltimatum(): CarbonImmutable {
+        $expiration = CarbonImmutable::now(config('novusordo.timezone_for_turn_expiration'))->endOfDay()->setTimezone('UTC');
+
+        if ($expiration->subMinutes(config('novusordo.minimum_delay_before_turn_expiration_minutes'))->isBefore(CarbonImmutable::now())) {
+            $expiration = $expiration->addDay();
+        }
+
+        return $expiration;
     }
 
     public function end(): void {
-        $this->ended_at = Carbon::now();
+        $this->ended_at = CarbonImmutable::now('UTC');
         $this->save();
     }
 
@@ -53,8 +60,12 @@ class Turn extends Model
         $this->save();
     }
 
+    public function getExpiration(): CarbonImmutable {
+        return CarbonImmutable::createFromTimeString($this->expires_at);
+    }
+
     public function hasExpired(): bool {
-        return Carbon::now()->greaterThan($this->expires_at);
+        return CarbonImmutable::now()->greaterThan($this->expires_at);
     }
 
     public function createNext(): Turn {

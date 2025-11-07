@@ -6,6 +6,7 @@ use App\Domain\GenerationData;
 use App\Domain\TerritoryConnectionData;
 use App\Utils\GuardsForAssertions;
 use App\Facades\RuntimeInfo;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -48,6 +49,7 @@ readonly class GameReadyStatusInfo {
         public int $turn_number,
         public array $ready_for_next_turn_nation_ids,
         public int $nation_count,
+        public CarbonImmutable $turn_expiration,
     )
     {
     
@@ -155,10 +157,12 @@ class Game extends Model
     public function exportReadyStatus(): GameReadyStatusInfo {
         Cache::lock($this->getCacheLockKeyForChangeTurn(), RuntimeInfo::maxExectutionTimeSeconds() * 0.8)
             ->block(RuntimeInfo::maxExectutionTimeSeconds() * 0.8, function () {});
+        $turn = $this->getCurrentTurn();
         return new GameReadyStatusInfo(
-            turn_number: $this->getCurrentTurn()->getNumber(),
+            turn_number: $turn->getNumber(),
             ready_for_next_turn_nation_ids: $this->nationsReadyForNextTurn()->pluck('id')->all(),
             nation_count: $this->nations()->count(),
+            turn_expiration: $turn->getExpiration(),
         );
     }
 
