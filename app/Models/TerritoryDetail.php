@@ -3,27 +3,15 @@
 namespace App\Models;
 
 use App\ModelTraits\ReplicatesForTurns;
+use App\ReadModels\TerritoryBasePublicInfo;
 use App\ReadModels\TerritoryInfo;
+use App\ReadModels\TerritoryTurnPublicInfo;
+use App\Services\StaticJavascriptResource;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Collection;
-
-readonly class OwnedTerritoryInfo {
-    public function __construct(
-        public int $territory_id,
-        public int $turn_number,
-        public int $x,
-        public int $y,
-        public string $terrain_type,
-        public float $usable_land_ratio,
-        public string $name,
-        public ?int $owner_nation_id,
-        public bool $has_sea_access,
-        public array $connected_territory_ids,
-        public array $stats,
-    ) {}
-}
+use Illuminate\Support\Facades\DB;
 
 class NeutralOwnership {}
 
@@ -81,41 +69,35 @@ class TerritoryDetail extends Model
         $this->save();
     }
 
-    public function export(): TerritoryInfo {
+    public function export(): TerritoryTurnPublicInfo {
         $ownerOrNull = $this->getOwnerOrNull();
         $territory = $this->getTerritory();
 
-        return new TerritoryInfo(
+        return new TerritoryTurnPublicInfo(
             territory_id: $territory->getId(),
             turn_number: $this->getTurn()->getNumber(),
-            x: $territory->getX(),
-            y: $territory->getY(),
-            terrain_type: $territory->getTerrainType()->name,
-            usable_land_ratio: $territory->getUsableLandRatio(),
-            name: $territory->getName(),
             owner_nation_id: $ownerOrNull?->getId(),
-            has_sea_access: $territory->hasSeaAccess(),
-            connected_territory_ids: $territory->connectedTerritories()->pluck('connected_territory_id')->all(),
-            stats: $territory->getStats(),
+            turn_stats: [],
         );
     }
 
-    public function exportForOwner(): OwnedTerritoryInfo {
-        $ownerOrNull = $this->getOwnerOrNull();
-        $territory = $this->getTerritory();
+    public static function exportAllTurnPublicInfo(Turn $turn): array {
+        $territories = DB::table('territory_details')
+            ->where('game_id', $turn->getGame()->getId())
+            ->where('turn_id', $turn->getId())
+            ->get()->all();
 
-        return new OwnedTerritoryInfo(
-            territory_id: $territory->getId(),
-            turn_number: $this->getTurn()->getNumber(),
-            x: $territory->getX(),
-            y: $territory->getY(),
-            terrain_type: $territory->getTerrainType()->name,
-            usable_land_ratio: $territory->getUsableLandRatio(),
-            name: $territory->getName(),
-            owner_nation_id: $ownerOrNull?->getId(),
-            has_sea_access: $territory->hasSeaAccess(),
-            connected_territory_ids: $territory->connectedTerritories()->pluck('connected_territory_id')->all(),
-            stats: $territory->getStats(),
+        return array_map(fn ($t) => TerritoryTurnPublicInfo::fromObject($t, [
+            'turn_number' => $turn->getNumber(),
+            'turn_stats' => []
+        ]), $territories);
+    }
+
+    public static function getAllTerritoriesTurnInfoClientResource(Turn $turn): StaticJavascriptResource {
+        return StaticJavascriptResource::permanentForTurn(
+            'territories-turn-js',
+            fn() => "let allTerritoriesTurnInfo = " . json_encode(TerritoryDetail::exportAllTurnPublicInfo($turn)) . ";",
+            $turn
         );
     }
 

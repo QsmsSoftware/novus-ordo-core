@@ -178,6 +178,20 @@ class Territory extends Model
             ->where('has_sea_access', true);
     }
 
+    public function exportBase(): TerritoryBasePublicInfo {
+        return new TerritoryBasePublicInfo(
+            territory_id: $this->getId(),
+            x: $this->getX(),
+            y: $this->getY(),
+            terrain_type: $this->getTerrainType()->name,
+            usable_land_ratio: $this->getUsableLandRatio(),
+            name: $this->getName(),
+            has_sea_access: $this->hasSeaAccess(),
+            connected_territory_ids: $this->connectedTerritories()->pluck('connected_territory_id')->all(),
+            stats: $this->getStats(),
+        );
+    }
+
     public static function exportAllBasePublicInfo(Game $game): array {
         $territories = DB::table('territories')
             ->where('game_id', $game->getId())
@@ -206,31 +220,11 @@ class Territory extends Model
         ]), $territories);
     }
 
-    public static function exportAllTurnPublicInfo(Turn $turn): array {
-        $territories = DB::table('territory_details')
-            ->where('game_id', $turn->getGame()->getId())
-            ->where('turn_id', $turn->getId())
-            ->get()->all();
-
-        return array_map(fn ($t) => TerritoryTurnPublicInfo::fromObject($t, [
-            'turn_number' => $turn->getNumber(),
-            'turn_stats' => []
-        ]), $territories);
-    }
-
     public static function getAllTerritoriesBaseInfoClientResource(Game $game): StaticJavascriptResource {
         return StaticJavascriptResource::permanentForGame(
             'territories-base-js',
             fn() => "let allTerritoriesBaseInfo = " . json_encode(Territory::exportAllBasePublicInfo($game)) . ";",
             $game
-        );
-    }
-
-    public static function getAllTerritoriesTurnInfoClientResource(Turn $turn): StaticJavascriptResource {
-        return StaticJavascriptResource::permanentForTurn(
-            'territories-turn-js',
-            fn() => "let allTerritoriesTurnInfo = " . json_encode(Territory::exportAllTurnPublicInfo($turn)) . ";",
-            $turn
         );
     }
 

@@ -10,6 +10,7 @@ use App\Models\Nation;
 use App\Models\NewNation;
 use App\Models\NotEnoughFreeTerritories;
 use App\Models\Territory;
+use App\Models\TerritoryDetail;
 use App\Models\Turn;
 use App\Models\User;
 use App\Models\UserCredentials;
@@ -198,7 +199,7 @@ class UiController extends Controller
                 'static_js_services' => $staticServices->getStaticJsServices(),
                 'static_js_dev_services' => StaticJavascriptResource::permanent('devservices', fn () => $servicesGenerator->generateClientService('DevServices', 'dev.ajax')),
                 'static_js_territories_base_info' => Territory::getAllTerritoriesBaseInfoClientResource($game),
-                'static_js_territories_turn_info' => Territory::getAllTerritoriesTurnInfoClientResource($turn),
+                'static_js_territories_turn_info' => TerritoryDetail::getAllTerritoriesTurnInfoClientResource($turn),
                 'victory_ranking' => $game->getVictoryProgression()->values(),
                 'budget' => $nation->getDetail()->exportBudget(),
                 'budget_items' => ['production' => new Asset('Production'), 'reserves' => new Asset('Reserves'), 'upkeep' => new Liability('Upkeep'), 'expenses' => new Liability('Expenses'), 'available_production' => new Asset('Available Production')],

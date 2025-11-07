@@ -96,9 +96,12 @@ Route::get('/territories/turn-infos', [TerritoryController::class, 'allTerritori
     ->name('ajax.get-all-territories-turn-info');
 Route::get('/territories/suitable-as-home-ids', [TerritoryController::class, 'allTerritoriesSuitableAsHomeIds'])
     ->name('ajax.get-all-territories-suitable-as-home-ids');
-Route::get('/territories/{territoryId}', [TerritoryController::class, 'info'])
+Route::get('/territories/{territoryId}/base-info', [TerritoryController::class, 'info'])
     ->whereNumber('territoryId')
-    ->name('ajax.get-territory');
+    ->name('ajax.get-territory-base-info');
+Route::get('/territories/{territoryId}/turn-info', [TerritoryController::class, 'turnInfo'])
+    ->whereNumber('territoryId')
+    ->name('ajax.get-territory-turn-info');
 
 //Division routes.
 Route::middleware('auth')->group(function () {

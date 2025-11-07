@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Facades\RawJsonResponse;
 use App\Models\Game;
 use App\Models\Territory;
+use App\Models\TerritoryDetail;
 use App\Models\Turn;
 use App\Services\NationContext;
 use App\Services\PublicGameContext;
@@ -51,7 +52,7 @@ class TerritoryController extends Controller
     }
 
     public function allTerritoriesTurnInfo(PublicGameContext $context) :JsonResponse {
-        $territories = Territory::exportAllTurnPublicInfo($context->getGame()->getCurrentTurn());
+        $territories = TerritoryDetail::exportAllTurnPublicInfo($context->getGame()->getCurrentTurn());
 
         return response()->json($territories);
     }
@@ -63,7 +64,14 @@ class TerritoryController extends Controller
         return response()->json($territories);
     }
 
-    public function info(PublicGameContext $context, Request $request, int $territoryId) :JsonResponse {
+    public function info(PublicGameContext $context, int $territoryId) :JsonResponse {
+        $game = $context->getGame();
+        $territory = Territory::asOrNotFound($game->territories()->find($territoryId), "No territory with ID $territoryId in the current game.");
+
+        return response()->json($territory->exportBase());
+    }
+
+    public function turnInfo(PublicGameContext $context, Request $request, int $territoryId) :JsonResponse {
         $validated = $request->validate([
             'turn_number' => 'nullable|integer',
         ]);
@@ -81,7 +89,7 @@ class TerritoryController extends Controller
             $turn = $turnOrNull;
         }
         else {
-            $turn = Turn::getCurrentForGame($game);
+            $turn = $game->getCurrentTurn();
         }
 
         return response()->json($territory->getDetail($turn)->export());
