@@ -217,6 +217,7 @@ class Game extends Model
                 }
 
                 $nextTurn = $currentTurn->createNext();
+                $currentTurn->end();
 
                 // Upkeep.
                 $this->nations()->get()->each(fn (Nation $n) => $n->onNextTurn($currentTurn, $nextTurn));
@@ -258,7 +259,7 @@ class Game extends Model
             $lock->block(RuntimeInfo::maxExectutionTimeSeconds() * 0.8, function () {});
         }
 
-        return $this->getCurrentTurn();
+        return Turn::getCurrentForGame($this);
     }
 
     public function rollbackLastTurn(): void {
