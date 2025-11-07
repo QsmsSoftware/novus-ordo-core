@@ -13,7 +13,7 @@ class CommissionServer extends Command
      *
      * @var string
      */
-    protected $signature = 'commission-server {--admin-user=}';
+    protected $signature = 'app:commission-server {--admin-user=}';
 
     /**
      * The console command description.
@@ -25,25 +25,29 @@ class CommissionServer extends Command
     /**
      * Execute the console command.
      */
-    public function handle(): int
+    public function handle()
     {
-        $resultMigrate = Artisan::call('migrate');
-        if ($resultMigrate != Command::SUCCESS) {
-            return $resultMigrate;
-        }
-
         $adminUser = $this->option('admin-user');
         if (empty($adminUser)) {
-            echo "Error: --admin-user=ADMIN_USER_NAME must be specified." . PHP_EOL;
-            return Command::FAILURE;
+           $this->fail("Error: --admin-user=ADMIN_USER_NAME must be specified.");
         }
-        $resultProvisionAdmin = Artisan::call('provision-admin', ["userName" => $adminUser]);
+
+        $resultMigrate = Artisan::call('migrate');
+        $message = Artisan::output();
+        if ($resultMigrate != Command::SUCCESS) {
+            echo $message;
+            $this->fail("An error happened when attempted to migrate DB.");
+        }
+        
+        $resultProvisionAdmin = Artisan::call('app:provision-admin', ["userName" => $adminUser]);
+        $message = Artisan::output();
         if ($resultProvisionAdmin != Command::SUCCESS) {
-            return $resultProvisionAdmin;
+            echo $message;
+            $this->fail("An error happened when attempted to provision admin '$adminUser'.");
         }
+
+        echo $message;
 
         Game::createNew();
-
-        return Command::SUCCESS;
     }
 }

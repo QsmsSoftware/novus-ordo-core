@@ -14,7 +14,7 @@ class PurgeStaticAssetsCache extends Command
      *
      * @var string
      */
-    protected $signature = 'purge-static-assets-cache';
+    protected $signature = 'app:purge-static-assets-cache';
 
     /**
      * The console command description.

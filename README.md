@@ -61,7 +61,7 @@ php artisan migrate
 #### Commission the new server
 This will create an admin user with a random password and start a new game (you should ideally customize the admin user's name):
 ```bash
-php artisan commission-server --admin-user=admin
+php artisan app:commission-server --admin-user=admin
 ```
 
 #### Start the development server 
@@ -72,5 +72,5 @@ php artisan serve --host=192.168.0.2 # If you need to change the port, add e. g.
 ### Provision a new admin user
 If you ever lose the admin user's password, you can provision a new administrator from the command line:
 ```bash
-php artisan provision-admin admin2
+php artisan app:provision-admin admin2
 ```

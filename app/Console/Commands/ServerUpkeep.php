@@ -13,7 +13,7 @@ class ServerUpkeep extends Command
      *
      * @var string
      */
-    protected $signature = 'server-upkeep';
+    protected $signature = 'app:server-upkeep';
 
     /**
      * The console command description.
