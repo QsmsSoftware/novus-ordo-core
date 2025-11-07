@@ -276,6 +276,7 @@ class Game extends Model
 
             $currentTurn = Turn::getCurrentForGame($this);
 
+            $currentTurn->reset();
             $currentTurn->deployments()->rawUpdate([ Deployment::FIELD_HAS_BEEN_DEPLOYED => false]);
             $currentTurn->orders()->rawUpdate([ Order::FIELD_HAS_BEEN_EXECUTED => false]);
 
