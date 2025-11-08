@@ -111,7 +111,7 @@ class StaticJavascriptResource {
         if (!isset($filename))  {
             $renderedCode = ($this->codeGenerator)();
             $hash = $this->hashValue($renderedCode);
-            $filename = public_path("var/$identifier-$hash.js");
+            $filename = public_path("var/static/$identifier-$hash.js");
             if (file_exists($filename)) {
                 // Content was stored in static file but cache entry was missing.
                 Cache::set("static_js_file:$identifier-", $filename);
@@ -127,7 +127,7 @@ class StaticJavascriptResource {
     public function renderAsRelativeUri(): string {
         $filename = $this->render();
 
-        return "/var/" . basename($filename);
+        return "/var/static/" . basename($filename);
     }
 
     public function renderAsJsonResponse(): JsonResponse {
@@ -145,6 +145,6 @@ class StaticJavascriptResource {
     public function renderAsTag(): string {
         $filename = $this->render();
 
-        return '<script src="' . "/var/" . basename($filename) . '"></script>';
+        return '<script src="' . "/var/static/" . basename($filename) . '"></script>';
     }
 }

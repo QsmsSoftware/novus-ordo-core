@@ -30,7 +30,7 @@ class PurgeStaticAssetsCache extends Command
     {
         Cache::lock("purging_static_js", RuntimeInfo::maxExectutionTimeSeconds() * 0.8)
             ->block(RuntimeInfo::maxExectutionTimeSeconds() * 0.8, function () {
-                $cachedFiles = glob(public_path("var/*.js"));
+                $cachedFiles = glob(public_path("var/static/*.js"));
                 array_walk($cachedFiles, fn ($filename) => unlink($filename));
                 StaticJavascriptResource::expireAll();
             });
