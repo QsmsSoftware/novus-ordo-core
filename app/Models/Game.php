@@ -50,6 +50,7 @@ readonly class GameReadyStatusInfo {
         public array $ready_for_next_turn_nation_ids,
         public int $nation_count,
         public CarbonImmutable $turn_expiration,
+        public bool $is_game_ready,
     )
     {
     
@@ -88,12 +89,23 @@ class Game extends Model
         return $this->hasMany(Territory::class);
     }
 
+    public function turns(): HasMany {
+        return $this->hasMany(Turn::class);
+    }
+
     public function currentTurn(): HasOne {
-        return $this->hasOne(Turn::class)->latestOfMany(Turn::FIELD_TURN_NUMBER);
+        return $this->hasOne(Turn::class)
+            ->whereNotNull(Turn::FIELD_TURN_ACTIVATED_AT)
+            ->latestOfMany();
     }
 
     public function getCurrentTurn(): Turn {
         return $this->currentTurn;
+    }
+
+    private function lastTurn(): HasOne {
+        return $this->hasOne(Turn::class)
+            ->latestOfMany();
     }
 
     public function freeSuitableTerritoriesInTurn(?Turn $turnOrNull = null): HasMany {
@@ -163,6 +175,7 @@ class Game extends Model
             ready_for_next_turn_nation_ids: $this->nationsReadyForNextTurn()->pluck('id')->all(),
             nation_count: $this->nations()->count(),
             turn_expiration: $turn->getExpiration(),
+            is_game_ready: !$this->getCurrentTurn()->hasEnded(),
         );
     }
 
@@ -220,8 +233,9 @@ class Game extends Model
                     return;
                 }
 
-                $nextTurn = $currentTurn->createNext();
                 $currentTurn->end();
+
+                $nextTurn = $currentTurn->createNext();
 
                 // Upkeep.
                 $this->nations()->get()->each(fn (Nation $n) => $n->onNextTurn($currentTurn, $nextTurn));
@@ -254,6 +268,8 @@ class Game extends Model
                 $this->updateVictoryStatus();
 
                 $this->save();
+
+                $nextTurn->activate();
 
                 Nation::resetAllReadyForNextTurnStatuses($this);
             });
@@ -387,7 +403,7 @@ class Game extends Model
         $game->victory_status = VictoryStatus::HasNotBeenWon;
         $game->save();
 
-        Turn::createFirst($game);
+        $turn = Turn::createFirst($game);
 
         $mapData = GenerationData::getMapData();
 
@@ -402,6 +418,8 @@ class Game extends Model
             $territory = Territory::notNull($territoriesByCoords[$territoryData->x][$territoryData->y]);
             collect($territoryData->connections)->map(fn (TerritoryConnectionData $c) => $territory->connectedTerritories()->attach($territoriesByCoords[$c->x][$c->y], ['game_id' => $game->getId(), 'is_connected_by_land' => $c->isConnectedByLand]));
         }
+
+        $turn->activate();
 
         return $game;
     }

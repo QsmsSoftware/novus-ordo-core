@@ -58,6 +58,7 @@
         var readyStatus = @json($ready_status);
         var forcingNextTurn = false;
         var refreshReadyStatusInterval = null;
+        var updatingTimeRemainingInterval = null;
         let runningInDevelopment = @json(EnsureWhenRunningInDevelopmentOnly::isRunningInDevelopmentEnvironment());
         let readyForNextTurnButtonEnabled = @json(config('novusordo.show_ready_for_next_turn_button'));
         var mapDisplay;
@@ -208,6 +209,15 @@
 
         function updateMainTabs() {
             $("#main-tabs").html(Object.keys(MainTabs).map(tab => renderActionLink(MainTabs[tab], `selectMainTab('${tab}')`, tab == selectedMainTab)).join(" "));
+        }
+
+        function renderTime(time_s) {
+            const hours = Math.floor(time_s / (1000 * 60 * 60));
+            const minutes = Math.floor((time_s % (1000 * 60 * 60)) / (1000 * 60));
+            //const seconds = Math.floor((time_s % (1000 * 60)) / 1000);
+
+            //return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
         }
 
         function formatValue(value, unit) {
@@ -437,6 +447,9 @@
         }
 
         function sendDisbandOrdersToSelectedDivisions() {
+            if (!readyStatus.is_game_ready) {
+                return;
+            }
             let selectedDivisions = getAllSelectedDivisionsInTerritory();
             services.sendDisbandOrders({orders: selectedDivisions.map(d => ({ division_id: d.division_id }))})
                 .then(data => patchOrders(data))
@@ -446,6 +459,9 @@
         }
 
         function sendMoveOrderToSelectedDivisions(tid) {
+            if (!readyStatus.is_game_ready) {
+                return;
+            }
             setMapMode(MapMode.Default);
             let selectedDivisions = getAllSelectedDivisionsInTerritory();
             services.sendMoveOrders({orders: selectedDivisions.map(d => ({ division_id: d.division_id, destination_territory_id: tid }))})
@@ -456,6 +472,9 @@
         }
 
         function cancelOrder(did) {
+            if (!readyStatus.is_game_ready) {
+                return;
+            }
             if (currentMapMode == MapMode.SelectDestinationTerritory) {
                 return;
             }
@@ -535,6 +554,10 @@
         }
 
         function confirmAllPendingDeployment() {
+            if (!readyStatus.is_game_ready) {
+                return;
+            }
+
             $("#deployments-detail").html("<p>Waiting for the server to respond...</p>");
             let pendingDeploymentsByTerritoryId = Map.groupBy(pendingDeployments, tid => tid);
             pendingDeployments.length = 0;
@@ -560,6 +583,10 @@
         }
 
         function cancelDeployment(deploymentId) {
+            if (!readyStatus.is_game_ready) {
+                return;
+            }
+
             services.cancelDeployments({deployment_ids: [deploymentId]})
                 .then(() => {
                     deploymentsById.delete(deploymentId);
@@ -687,7 +714,7 @@
             services.readyForNextTurn({ turn_number: ownNation.turn_number })
                 .then(data => {
                     readyStatus = data;
-                    if (readyStatus.turn_number != ownNation.turn_number) {
+                    if (nextTurnHasArrived()) {
                         window.location.reload();
                     }
                     else {
@@ -701,13 +728,61 @@
             refreshReadyStatusInterval = setInterval(() => {
                 services.getGameReadyStatus()
                     .then(data => readyStatus = data)
-                    .then(updateReadyStatus);
+                    .then(() => {
+                        if (nextTurnHasArrived()) {
+                            window.location.reload();
+                        }
+                        else {
+                            updateReadyStatus();
+                        }
+                    });
             }, 1000);
         }
 
         function stopCheckingForNextTurn() {
             if (refreshReadyStatusInterval) {
                 clearInterval(refreshReadyStatusInterval);
+            }
+        }
+
+        function nextTurnHasArrived() {
+            return readyStatus.turn_number != ownNation.turn_number;
+        }
+
+        function turnHasExpired() {
+            const expirationDate = new Date(readyStatus.turn_expiration);
+            const currentDate = new Date();
+
+            return expirationDate < currentDate;
+        }
+
+        function updateTimeRemaining() {
+            const expirationDate = new Date(readyStatus.turn_expiration);
+            const currentDate = new Date();
+
+            if (turnHasExpired()) {
+                $("#time-remaining").html("Turn expired, upkeep will start soon!");
+            }
+            else {
+                const remaining_ms = expirationDate.getTime() - currentDate.getTime();
+                $("#time-remaining").html(`The turn will end in ${renderTime(remaining_ms)}`);
+            }
+        }
+
+        function startUpdatingTimeRemaining() {
+            updateTimeRemaining();
+            updatingTimeRemainingInterval = setInterval(() => {
+                if (turnHasExpired()) {
+                    stopUpdatingTimeRemaining();
+                    startCheckingForNextTurn();
+                }
+                updateTimeRemaining();
+            }, 30000);
+        }
+
+        function stopUpdatingTimeRemaining() {
+            if (updatingTimeRemainingInterval) {
+                clearInterval(updatingTimeRemainingInterval);
             }
         }
 
@@ -760,6 +835,7 @@
                     document.getElementById("force-next-turn-button").disabled = !(!forcingNextTurn && event.shiftKey);
                 });
             }
+            startUpdatingTimeRemaining();
         });
     </script>
     <body>
@@ -778,6 +854,7 @@
                 <div id="ready-for-next-turn-status">
                 </div>
             @endif
+            <span id='time-remaining'></span>
             <x-dev-mode />
         </div>
         <span id="main-tabs"></span>

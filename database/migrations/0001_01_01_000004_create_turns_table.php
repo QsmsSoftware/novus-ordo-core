@@ -16,6 +16,7 @@ return new class extends Migration
             $table->timestamps();
             $table->integer('number');
             $table->foreignId('game_id')->constrained('games')->onDelete('cascade');
+            $table->timestamp('activated_at')->nullable();
             $table->timestamp('ended_at')->nullable();
             $table->timestamp('expires_at')->nullable();
         });

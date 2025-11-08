@@ -14,6 +14,7 @@ class Turn extends Model
     use GuardsForAssertions;
 
     public const string FIELD_TURN_NUMBER = 'number';
+    public const string FIELD_TURN_ACTIVATED_AT = 'activated_at';
 
     public function game(): BelongsTo {
         return $this->belongsTo(Game::class);
@@ -49,6 +50,11 @@ class Turn extends Model
         return $expiration;
     }
 
+    public function activate(): void {
+        $this->activated_at = CarbonImmutable::now('UTC');
+        $this->save();
+    }
+
     public function end(): void {
         $this->ended_at = CarbonImmutable::now('UTC');
         $this->save();
@@ -56,6 +62,7 @@ class Turn extends Model
 
     public function reset(): void {
         $this->ended_at = null;
+        $this->activated_at = CarbonImmutable::now('UTC');
         $this->expires_at = Turn::calculateUltimatum();
         $this->save();
     }
@@ -68,10 +75,16 @@ class Turn extends Model
         return CarbonImmutable::now()->greaterThan($this->expires_at);
     }
 
+    public function hasEnded(): bool {
+        return !is_null($this->ended_at);
+    }
+
     public function createNext(): Turn {
         $next = $this->replicate();
         $next->number++;
         $next->expires_at = Turn::calculateUltimatum();
+        $next->activated_at = null;
+        $next->ended_at = null;
         $next->save();
 
         return $next;
