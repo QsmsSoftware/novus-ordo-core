@@ -1,0 +1,38 @@
+[
+    {
+        "file": "flag_black.png",
+        "title": "Solid black flag",
+        "description": "A black flag, perfect for pirates and anarchists!",
+        "attribution": ""
+    },
+    {
+        "file": "flag_blue.png",
+        "title": "Solid blue flag",
+        "description": "A blue flag.",
+        "attribution": ""
+    },
+    {
+        "file": "flag_green.png",
+        "title": "Solid green flag",
+        "description": "A green flag.",
+        "attribution": ""
+    },
+    {
+        "file": "flag_purple.png",
+        "title": "Solid purple flag",
+        "description": "A purple flag.",
+        "attribution": ""
+    },
+    {
+        "file": "flag_red.png",
+        "title": "Solid red flag",
+        "description": "A red flag.",
+        "attribution": ""
+    },
+    {
+        "file": "flag_yellow.png",
+        "title": "Solid yellow flag",
+        "description": "A yellow flag.",
+        "attribution": ""
+    }
+]

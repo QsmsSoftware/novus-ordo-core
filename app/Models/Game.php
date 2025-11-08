@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Domain\AssetType;
 use App\Domain\GenerationData;
 use App\Domain\TerritoryConnectionData;
 use App\Utils\GuardsForAssertions;
@@ -143,6 +144,12 @@ class Game extends Model
                 ->where('turn_id', $turn->getId())
                 ->where(DivisionDetail::FIELD_IS_ACTIVE, true)
             );
+    }
+
+    public function staticAssetsOfType(AssetType $type): HasMany {
+        return $this->hasMany(GameSharedStaticAsset::class)
+            ->where('game_id', $this->getId())
+            ->where(GameSharedStaticAsset::FIELD_ASSET_TYPE, $type->value);
     }
 
     public function deployments(): HasMany {
@@ -418,6 +425,8 @@ class Game extends Model
             $territory = Territory::notNull($territoriesByCoords[$territoryData->x][$territoryData->y]);
             collect($territoryData->connections)->map(fn (TerritoryConnectionData $c) => $territory->connectedTerritories()->attach($territoriesByCoords[$c->x][$c->y], ['game_id' => $game->getId(), 'is_connected_by_land' => $c->isConnectedByLand]));
         }
+
+        GameSharedStaticAsset::inventory($game);
 
         $turn->activate();
 
