@@ -49,7 +49,7 @@ readonly class GameReadyStatusInfo {
         public int $turn_number,
         public array $ready_for_next_turn_nation_ids,
         public int $nation_count,
-        public CarbonImmutable $turn_expiration,
+        public ?CarbonImmutable $turn_expiration,
         public bool $is_game_ready,
     )
     {
@@ -174,7 +174,7 @@ class Game extends Model
             turn_number: $turn->getNumber(),
             ready_for_next_turn_nation_ids: $this->nationsReadyForNextTurn()->pluck('id')->all(),
             nation_count: $this->nations()->count(),
-            turn_expiration: $turn->getExpiration(),
+            turn_expiration: $turn->getExpirationOrNull(),
             is_game_ready: !$this->getCurrentTurn()->hasEnded(),
         );
     }

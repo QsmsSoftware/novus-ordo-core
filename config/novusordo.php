@@ -43,9 +43,26 @@ return [
     |--------------------------------------------------------------------------
     |
     | If the end of the day is less than that, the expiration time will be set
-    | to the end of the next day.
+    | to the end of the next day. This should be set to a value smaller than
+    | the time limit for turn, see also:
+    | NOVUSORDO_TURN_TIME_LIMIT_MINUTES
     |
     */
 
     'minimum_delay_before_turn_expiration_minutes' => env('NOVUSORDO_MINIMUM_DELAY_BEFORE_TURN_EXPIRATION_MINUTES', 0),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Time limit in minutes for turns.
+    |--------------------------------------------------------------------------
+    |
+    | If 0, turns won't have a time limit. The expiration time is calculated
+    | the start of the day, so e. g. setting this to 720 (12 hours) will .
+    | To ensure payers have a minimum of time to do their turn, see:
+    | NOVUSORDO_MINIMUM_DELAY_BEFORE_TURN_EXPIRATION_MINUTES
+    | Default value is 1440, one day.
+    |
+    */
+
+    'turn_time_limit_minutes' => env('NOVUSORDO_TURN_TIME_LIMIT_MINUTES', 1440),
 ];

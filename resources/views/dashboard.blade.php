@@ -796,6 +796,9 @@
         }
 
         function turnHasExpired() {
+            if (!readyStatus.turn_expiration) {
+                return false;
+            }
             const expirationDate = new Date(readyStatus.turn_expiration);
             const currentDate = new Date();
 
@@ -803,6 +806,9 @@
         }
 
         function updateTimeRemaining() {
+            if (!readyStatus.turn_expiration) {
+                $("#time-remaining").html("");
+            }
             const expirationDate = new Date(readyStatus.turn_expiration);
             const currentDate = new Date();
 
@@ -817,6 +823,9 @@
 
         function startUpdatingTimeRemaining() {
             updateTimeRemaining();
+            if (!readyStatus.turn_expiration) {
+                $("#time-remaining").html("");
+            }
             updatingTimeRemainingInterval = setInterval(() => {
                 if (turnHasExpired()) {
                     stopUpdatingTimeRemaining();

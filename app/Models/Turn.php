@@ -40,14 +40,19 @@ class Turn extends Model
         return $this->number;
     }
 
-    private static function calculateUltimatum(): CarbonImmutable {
-        $expiration = CarbonImmutable::now(config('novusordo.timezone_for_turn_expiration'))->endOfDay()->setTimezone('UTC');
-
-        if ($expiration->subMinutes(config('novusordo.minimum_delay_before_turn_expiration_minutes'))->isBefore(CarbonImmutable::now())) {
-            $expiration = $expiration->addDay();
+    private static function calculateUltimatum(int $timeLimitMinutes): CarbonImmutable {
+        $now = CarbonImmutable::now(config('novusordo.timezone_for_turn_expiration'));
+        $startOfDay = $now->startOfDay();
+        $minutesSinceStartOfDay = intval($startOfDay->diffInMinutes($now));
+        $minutesToNextExpiration = ceil($minutesSinceStartOfDay / $timeLimitMinutes) * $timeLimitMinutes;
+        $nextExpiration = $startOfDay->addMinutes($minutesToNextExpiration)->subSecond();
+        
+        $minimumDelaiMinutes = config('novusordo.minimum_delay_before_turn_expiration_minutes');
+        if ($nextExpiration->subMinutes($minimumDelaiMinutes)->isBefore($now)) {
+            $nextExpiration = $nextExpiration->addMinutes(ceil($minimumDelaiMinutes / $timeLimitMinutes) * $timeLimitMinutes);
         }
 
-        return $expiration;
+        return $nextExpiration->setTimezone('UTC');
     }
 
     public function activate(): void {
@@ -63,12 +68,13 @@ class Turn extends Model
     public function reset(): void {
         $this->ended_at = null;
         $this->activated_at = CarbonImmutable::now('UTC');
-        $this->expires_at = Turn::calculateUltimatum();
+        $timeLimitMinutes = intval(config('novusordo.turn_time_limit_minutes'));
+        $this->expires_at = $timeLimitMinutes > 0 ? Turn::calculateUltimatum($timeLimitMinutes) : null;
         $this->save();
     }
 
-    public function getExpiration(): CarbonImmutable {
-        return CarbonImmutable::createFromTimeString($this->expires_at);
+    public function getExpirationOrNull(): ?CarbonImmutable {
+        return is_null($this->expires_at) ? null : CarbonImmutable::createFromTimeString($this->expires_at);
     }
 
     public function hasExpired(): bool {
@@ -82,7 +88,8 @@ class Turn extends Model
     public function createNext(): Turn {
         $next = $this->replicate();
         $next->number++;
-        $next->expires_at = Turn::calculateUltimatum();
+        $timeLimitMinutes = intval(config('novusordo.turn_time_limit_minutes'));
+        $next->expires_at = $timeLimitMinutes > 0 ? Turn::calculateUltimatum($timeLimitMinutes) : null;
         $next->activated_at = null;
         $next->ended_at = null;
         $next->save();
@@ -94,7 +101,8 @@ class Turn extends Model
         $turn = new Turn;
         $turn->game_id = $game->getId();
         $turn->number = 1;
-        $turn->expires_at = Turn::calculateUltimatum();
+        $timeLimitMinutes = intval(config('novusordo.turn_time_limit_minutes'));
+        $turn->expires_at = $timeLimitMinutes > 0 ? Turn::calculateUltimatum($timeLimitMinutes) : null;
         $turn->save();
 
         return $turn;
