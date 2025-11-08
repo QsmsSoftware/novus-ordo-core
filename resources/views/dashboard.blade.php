@@ -7,7 +7,6 @@
         <meta charset="utf-8">
         <title>{{ config('app.name', 'Laravel') }}</title>
         <script src="{{ asset('js/jquery-3.7.1.min.js') }}"></script>
-        <script src="{{ asset('js/js.cookie-3.0.1.min.js') }}"></script>
     </head>
     <style>
         .selected-action-link {
@@ -176,22 +175,28 @@
             return !isNaN(parsedValue) && String(parsedValue) === String(strValue).trim() ? parsedValue : null;
         }
 
+        function notEmptyStringOrNull(value) {
+            if (typeof value !== 'string') {
+                return null;
+            }
+
+            return value == "" ? null : value;
+        }
+
         function storeSelectedDetailsTabToStorage(detailsTab) {
-            Cookies.set(StorageKey.SelectedDetailsTab, detailsTab);
+            sessionStorage.setItem(StorageKey.SelectedDetailsTab, detailsTab);
         }
 
         function getSelectedDetailsTabFromStorage() {
-            let storedValue = Cookies.get(StorageKey.SelectedDetailsTab);
-
-            return storedValue === "" ? null : storedValue;
+            return notEmptyStringOrNull(sessionStorage.getItem(StorageKey.SelectedDetailsTab));
         }
 
         function storeSelectedTerritoryIdToStorage(tid) {
-            Cookies.set(StorageKey.SelectedTerritoryId, tid.toString());
+            sessionStorage.setItem(StorageKey.SelectedTerritoryId, tid);
         }
 
         function getSelectedTerritoryIdFromStorage() {
-            return parseIntOrNull(Cookies.get(StorageKey.SelectedTerritoryId));
+            return parseIntOrNull(sessionStorage.getItem(StorageKey.SelectedTerritoryId));
         }
 
         function selectTerritory(tid) {
@@ -207,13 +212,11 @@
         }
 
         function storeSelectedMainTabToStorage(tab) {
-            Cookies.set(StorageKey.SelectedMainTab, tab ? tab : "");
+            sessionStorage.setItem(StorageKey.SelectedMainTab, tab ? tab : "");
         }
 
         function getSelectedMainTabFromStorage() {
-            let storedValue = Cookies.get(StorageKey.SelectedMainTab);
-
-            return storedValue === "" ? null : storedValue;
+            return notEmptyStringOrNull(sessionStorage.getItem(StorageKey.SelectedMainTab));
         }
 
         function selectMainTab(tab) {
