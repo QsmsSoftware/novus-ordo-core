@@ -7,6 +7,7 @@
         <meta charset="utf-8">
         <title>{{ config('app.name', 'Laravel') }}</title>
         <script src="{{ asset('js/jquery-3.7.1.min.js') }}"></script>
+        <script src="{{ asset('js/js.cookie-3.0.1.min.js') }}"></script>
     </head>
     <style>
         .selected-action-link {
@@ -81,6 +82,12 @@
         };
         
         var pendingDeployments = [];
+
+        const StorageKey = {
+            SelectedTerritoryId: 'selectedTerritoryId',
+            SelectedMainTab: 'selectedMainTab',
+            SelectedDetailsTab: 'selectedDetailsTab',
+        };
 
         function defaultMapLayer(ctx, md) {
             territoriesById.values().filter(t => t.owner_nation_id != null && t.owner_nation_id != ownNation.nation_id).forEach(t => {
@@ -164,9 +171,33 @@
             return null;
         }
 
+        function parseIntOrNull(strValue) {
+            let parsedValue = parseInt(strValue);
+            return !isNaN(parsedValue) && String(parsedValue) === String(strValue).trim() ? parsedValue : null;
+        }
+
+        function storeSelectedDetailsTabToStorage(detailsTab) {
+            Cookies.set(StorageKey.SelectedDetailsTab, detailsTab);
+        }
+
+        function getSelectedDetailsTabFromStorage() {
+            let storedValue = Cookies.get(StorageKey.SelectedDetailsTab);
+
+            return storedValue === "" ? null : storedValue;
+        }
+
+        function storeSelectedTerritoryIdToStorage(tid) {
+            Cookies.set(StorageKey.SelectedTerritoryId, tid.toString());
+        }
+
+        function getSelectedTerritoryIdFromStorage() {
+            return parseIntOrNull(Cookies.get(StorageKey.SelectedTerritoryId));
+        }
+
         function selectTerritory(tid) {
             let territory = territoriesById.get(tid);
             selectedTerritory = territory;
+            storeSelectedTerritoryIdToStorage(tid);
             updateTerritoryInfo();
             updateOwnerPane();
             updateDivisionsPane();
@@ -175,8 +206,19 @@
             selectDetailsPane(selectedDetailsTab ? selectedDetailsTab : 'info');
         }
 
+        function storeSelectedMainTabToStorage(tab) {
+            Cookies.set(StorageKey.SelectedMainTab, tab ? tab : "");
+        }
+
+        function getSelectedMainTabFromStorage() {
+            let storedValue = Cookies.get(StorageKey.SelectedMainTab);
+
+            return storedValue === "" ? null : storedValue;
+        }
+
         function selectMainTab(tab) {
             selectedMainTab = selectedMainTab == tab ? null : tab;
+            storeSelectedMainTabToStorage(selectedMainTab);
             updateMainTabs();
 
             stopDeploying();
@@ -507,6 +549,7 @@
 
         function selectDetailsPane(pane) {
             selectedDetailsTab = pane;
+            storeSelectedDetailsTabToStorage(selectedDetailsTab);
             updateDetailsTabs();
             selectMainTab(null);
             let detailsPanes = $("#details-panes > div");
@@ -805,6 +848,9 @@
         }
 
         window.addEventListener("load", function() {
+            let selectedTerritoryIdFromStorage = getSelectedTerritoryIdFromStorage();
+            let selectedMainTabFromStorage = getSelectedMainTabFromStorage();
+            let selectedDetailsTabFromStorage = getSelectedDetailsTabFromStorage();
             mergeObjects(ownNation, nationsById.get(ownNation.nation_id), { stats: (o1, o2) => o1.stats = [...o1.stats, ...o2.stats] });
             mapDisplay = new MapDisplay("map-display", territoriesById, md => {
                 md.territoryLabeler = t => `${t.name} (${nationsById.has(t.owner_nation_id) ? nationsById.get(t.owner_nation_id).usual_name : "neutral"})`;
@@ -836,6 +882,15 @@
                 });
             }
             startUpdatingTimeRemaining();
+            if(selectedDetailsTabFromStorage) {
+                selectedDetailsTab = selectedDetailsTabFromStorage;
+            }
+            if (selectedTerritoryIdFromStorage) {
+                selectTerritory(selectedTerritoryIdFromStorage);
+            }
+            if (selectedMainTabFromStorage) {
+                selectMainTab(selectedMainTabFromStorage);
+            }
         });
     </script>
     <body>
