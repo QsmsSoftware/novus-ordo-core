@@ -334,8 +334,8 @@
                 var nation = nationsById.get(selectedTerritory.owner_nation_id);
                 var html = "";
                 html += `<h1><b>${nation.usual_name}</b></h1>`;
+                html += renderNationFlag(nation);
                 html += renderDemography(nation.stats);
-                html += renderNationFlag(nation)
                 $("#owner-details").html(html);
             }
             else {
