@@ -121,20 +121,22 @@ class MapDisplay {
         this.#metadataByTerritoryId.get(territoryId).clickable = clickable;
     }
 
-    fillTerritory(territory, fillStyle, text) {
+    fillTerritory(territory, fillStyle) {
         let ctx = this.#canvas.getContext("2d");
         let previousFillStyle = ctx.fillStyle;
         let previousGlobalAlpha = ctx.globalAlpha;
         ctx.fillStyle = fillStyle;
         ctx.globalAlpha = 0.5;
         ctx.fillRect(territory.x * {{ $map_tile_width_px }}, territory.y * {{ $map_tile_height_px }}, {{ $map_tile_width_px }}, {{ $map_tile_height_px }});
-        if (text) {
-            ctx.fillStyle = "white";
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(text, (territory.x + 0.5) * {{ $map_tile_width_px }}, (territory.y + 0.5) * {{ $map_tile_height_px }});
-        }
         ctx.fillStyle = previousFillStyle;
+        ctx.globalAlpha = previousGlobalAlpha;
+    }
+
+    fillTerritoryWithImage(territory, img) {
+        let ctx = this.#canvas.getContext("2d");
+        let previousGlobalAlpha = ctx.globalAlpha;
+        ctx.globalAlpha = 0.5;
+        ctx.drawImage(img, territory.x * {{ $map_tile_width_px }}, territory.y * {{ $map_tile_height_px }}, {{ $map_tile_width_px }}, {{ $map_tile_height_px }});
         ctx.globalAlpha = previousGlobalAlpha;
     }
 

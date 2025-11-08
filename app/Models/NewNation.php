@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Domain\AssetType;
 use App\Domain\NationSetupStatus;
 use App\Facades\Metacache;
 use App\Utils\GuardsForAssertions;
@@ -77,7 +78,12 @@ class NewNation extends Model
             $homeTerritories->each(fn (Territory $territory) => $territory->getDetail()->assignOwner($nation));
 
             $nation->nation_setup_status = NationSetupStatus::FinishedSetup;
-            NationDetail::create($nation);
+
+            $flag = $nation->getGame()->staticAssetsOfType(AssetType::Flag)
+                ->where(GameSharedStaticAsset::whereAvailable())
+                ->inRandomOrder()->first();
+
+            NationDetail::create($nation, "Empire of {$nation->getInternalName()}", $flag);
             $nation->save();
 
             Metacache::expireAllforTurn($nation->getGame()->getCurrentTurn());

@@ -67,7 +67,7 @@ class Nation extends Model
     public function getId(): int {
         return $this->getKey();
     }
-    public function getUsualName(): string {
+    public function getInternalName(): string {
         return $this->usual_name;
     }
 

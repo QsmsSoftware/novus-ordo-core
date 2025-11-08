@@ -91,9 +91,9 @@ class Battle extends Model
 
         $defenderOrNull = $territory->getDetail()->getOwnerOrNull();
         $defenderIsNeutral = is_null($defenderOrNull);
-        $defenderDescription = $defenderIsNeutral ? "neutral territory" : "{$defenderOrNull->getUsualName()} on territory";
+        $defenderDescription = $defenderIsNeutral ? "neutral territory" : "{$defenderOrNull->getDetail()->getUsualName()} on territory";
         
-        $log .= "$numberOfAttackers divisions of {$attacker->getUsualName()} attacks {$defenderDescription} {$territory->getName()} (ID {$territory->getId()}).\n";
+        $log .= "$numberOfAttackers divisions of {$attacker->getDetail()->getUsualName()} attacks {$defenderDescription} {$territory->getName()} (ID {$territory->getId()}).\n";
         
         if ($defenderIsNeutral) {
             $numberOfDefenders = random_int(Battle::MIN_NEUTRAL_DIVISIONS, Battle::MAX_NEUTRAL_DIVISIONS);

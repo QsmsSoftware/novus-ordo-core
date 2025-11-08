@@ -5,6 +5,9 @@ namespace App\Models;
 use App\Domain\AssetType;
 use App\Utils\GuardsForAssertions;
 use App\Utils\MapsArrayToInstance;
+use Carbon\CarbonImmutable;
+use Closure;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 readonly class SharedStaticAssetMetadata {
@@ -29,23 +32,62 @@ class GameSharedStaticAsset extends Model
 
     public const string FIELD_ASSET_TYPE = 'type';
 
-    private static function readMeta(string $pathToMeta): array|false {
-        if (!file_exists($pathToMeta)) {
-            return false;
+    public function getType(): AssetType {
+        return AssetType::from($this->type);
+    }
+
+    public function getSrc(): string {
+        return $this->src;
+    }
+
+    public function updateWithMetadata(SharedStaticAssetMetadata $metadata): void {
+        $this->title = $metadata->title;
+        $this->description = $metadata->description;
+        $this->attribution = $metadata->attribution;
+        $this->save();
+    }
+
+    public function leaseTo(Nation $nation): void {
+        $this->lessee_nation_id = $nation->getId();
+        $this->save();
+    }
+
+    public static function whereAvailable(): Closure {
+        return fn ($builder) => $builder
+            ->whereNull('lessee_nation_id')
+            ->where(function ($query) {
+                 $query->whereNull('held_until')
+                    ->orWhere('held_until', '<', CarbonImmutable::now('UTC'));
+             });
+    }
+
+    private static function readMeta(string $pathToAssets): array|FailedToReadMetaJson {
+        $pathToMeta = join(DIRECTORY_SEPARATOR, [$pathToAssets, 'meta.json']);
+        
+        if (!file_exists(public_path($pathToMeta))) {
+            return new FailedToReadMetaJson;
         }
 
-        $metaData = json_decode(file_get_contents($pathToMeta), true);
+        $metaDatas = json_decode(file_get_contents(public_path($pathToMeta)), true);
 
-        return is_array($metaData) ? $metaData : new FailedToReadMetaJson;
+        if (!is_array($metaDatas)) {
+            return new FailedToReadMetaJson;
+        }
+
+        foreach ($metaDatas as &$metaData) {
+            $metaData['file'] = join(DIRECTORY_SEPARATOR, [$pathToAssets, $metaData['file']]);
+        }
+
+        return $metaDatas;
     }
 
     public static function inventory(Game $game): void {
         $flagMetas = [];
-        $metas = GameSharedStaticAsset::readMeta(public_path('res/bundled/flags/meta.json'));
+        $metas = GameSharedStaticAsset::readMeta('res/bundled/flags');
         if (is_array($metas)) {
             $flagMetas = array_merge($flagMetas, $metas);
         }
-        $metas = GameSharedStaticAsset::readMeta(public_path('res/local/flags/meta.json'));
+        $metas = GameSharedStaticAsset::readMeta('res/local/flags');
         if (is_array($metas)) {
             $flagMetas = array_merge($flagMetas, $metas);
         }
@@ -70,13 +112,6 @@ class GameSharedStaticAsset extends Model
                 $asset->updateWithMetadata($metadata);
             }
         }
-    }
-
-    public function updateWithMetadata(SharedStaticAssetMetadata $metadata): void {
-        $this->title = $metadata->title;
-        $this->description = $metadata->description;
-        $this->attribution = $metadata->attribution;
-        $this->save();
     }
 
     public static function create(

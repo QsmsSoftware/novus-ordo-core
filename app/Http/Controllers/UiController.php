@@ -208,7 +208,7 @@ class UiController extends Controller
                      ->map(fn (Battle $b) => $b->exportForParticipant()),
             ]),
             VictoryStatus::HasBeenWon => view('gameover', [
-                'winner' => Nation::notNull($game->getWinnerOrNull())->getUsualName(),
+                'winner' => Nation::notNull($game->getWinnerOrNull())->getDetail()->getUsualName(),
                 'victory_progresses' => $game->getVictoryProgression(),
                 'nationsById' => $nationsById,
             ])

@@ -88,9 +88,14 @@
             SelectedDetailsTab: 'selectedDetailsTab',
         };
 
-        function defaultMapLayer(ctx, md) {
-            territoriesById.values().filter(t => t.owner_nation_id != null && t.owner_nation_id != ownNation.nation_id).forEach(t => {
-                md.fillTerritory(t, "red");
+        function ownNationHighlightMapLayer(ctx, md) {
+            territoriesById.values().filter(t => t.owner_nation_id == ownNation.nation_id).forEach(t => {
+                md.fillTerritory(t, "black");
+            });
+        }
+
+        function nationHighlightMapLayer(ctx, md) {
+            territoriesById.values().filter(t => t.owner_nation_id != null).forEach(t => {
                 let nationOrNull = getSelectedNationOrNull();
                 if (!nationOrNull) {
                     return;
@@ -99,14 +104,27 @@
                     md.fillTerritory(t, "black");
                 }
             });
+        }
+
+        function relationsMapLayer(ctx, md) {
+            territoriesById.values().filter(t => t.owner_nation_id != null && t.owner_nation_id != ownNation.nation_id).forEach(t => {
+                md.fillTerritory(t, "red");
+            });
             territoriesById.values().filter(t => t.owner_nation_id == ownNation.nation_id).forEach(t => {
                 md.fillTerritory(t, "blue");
-                let nationOrNull = getSelectedNationOrNull();
-                if (!nationOrNull) {
-                    return;
-                }
-                if (nationOrNull.nation_id == t.owner_nation_id) {
-                    md.fillTerritory(t, "black");
+            });
+        }
+
+        function getNationFlagImgOrNull(nid) {
+            return document.getElementById(`img_flag_${nid}`);
+        }
+
+        function politicalMapLayer(ctx, md) {
+            territoriesById.values().filter(t => t.owner_nation_id != null).forEach(t => {
+                flagOrNull = getNationFlagImgOrNull(t.owner_nation_id);
+
+                if (flagOrNull) {
+                    md.fillTerritoryWithImage(t, flagOrNull);
                 }
             });
         }
@@ -282,6 +300,20 @@
                 + '</table></div>';
         }
 
+        
+
+        function renderNationFlag(nation) {
+            let flag = getNationFlagImgOrNull(nation.nation_id);
+
+            if (flag) {
+                return '<div><h2>Flag</h2>'
+                    + `<img src="${flag.src}" title="Flag of the ${nation.formal_name}" alt="Flag of the ${nation.formal_name}" width="300" height="200">`
+                    + '</div>';
+            }
+            
+            return '<div>This nation has no official flag yet.<div>';
+        }
+
         function updateTerritoryInfo() {
             $("#territory-info").html(
                 `<p><h1>${selectedTerritory.name}</h1><br>`
@@ -303,6 +335,7 @@
                 var html = "";
                 html += `<h1><b>${nation.usual_name}</b></h1>`;
                 html += renderDemography(nation.stats);
+                html += renderNationFlag(nation)
                 $("#owner-details").html(html);
             }
             else {
@@ -673,7 +706,7 @@
                     mapDisplay.setAllClickable(true);
                     mapDisplay.onClick = selectTerritory;
                     mapDisplay.onContextMenu = undefined;
-                    mapDisplay.setLayers([defaultMapLayer]);
+                    mapDisplay.setLayers([politicalMapLayer, nationHighlightMapLayer]);
                     mapDisplay.setTopLayers([(ctx, md) => {
                         if (selectedTerritory) {
                             md.fillTerritory(selectedTerritory, "black");
@@ -693,7 +726,7 @@
                     mapDisplay.onContextMenu = (tid) => {
                         removeDeployment(tid);
                     }
-                    mapDisplay.setLayers([defaultMapLayer]);
+                    mapDisplay.setLayers([politicalMapLayer, ownNationHighlightMapLayer]);
                     mapDisplay.setTopLayers([(ctx, md) => {
                         currentDeploymentsByTerritoryId = Map.groupBy(deploymentsById.values(), d => d.territory_id);
                         pendingDeploymentsByTerritoryId = Map.groupBy(pendingDeployments, tid => tid);
@@ -724,9 +757,9 @@
                     territoriesById.values().forEach(t => mapDisplay.setClickable(t.territory_id, legalDestinations.some(dest => dest.territory_id == t.territory_id)));
                     mapDisplay.onClick = sendMoveOrderToSelectedDivisions;
                     mapDisplay.onContextMenu = undefined;
-                    mapDisplay.setLayers([defaultMapLayer, (ctx, md) => {
+                    mapDisplay.setLayers([politicalMapLayer, (ctx, md) => {
                         legalDestinations
-                            .forEach(t => t.owner_nation_id == ownNation.nation_id ? md.fillTerritory(t, "blue") : md.fillTerritory(t, "red"));
+                            .forEach(t => t.owner_nation_id == ownNation.nation_id ? md.fillTerritory(t, "black") : md.fillTerritory(t, "red"));
                     }]);
                     mapDisplay.setTopLayers([]);
                     break;
@@ -867,12 +900,13 @@
             mapDisplay = new MapDisplay("map-display", territoriesById, md => {
                 md.territoryLabeler = t => `${t.name} (${nationsById.has(t.owner_nation_id) ? nationsById.get(t.owner_nation_id).usual_name : "neutral"})`;
                 md.addInternationalBorders = true;
-                md.setLayers([defaultMapLayer]);
+                md.setLayers([relationsMapLayer]);
             });
             setMapMode(MapMode.Default);
             updateMainTabs();
             updateDetailsTabs();
             updateNationPane(ownNation, $('#own-nation-details'));
+            $('#own-nation-flag').html(renderNationFlag(ownNation));
             $('#own-nation-demographics').html(renderDemography(ownNation.stats));
             updateVictoryPane();
             updateBudgetPane();
@@ -907,7 +941,7 @@
     </script>
     <body>
         <div>
-        <b>{{ $context->getNation()->getUsualName() }}</b>, turn #{{ $context->getCurrentTurn()->getNumber() }}
+        <b>{{ $context->getNation()->getDetail()->getFormalName() }}</b>, turn #{{ $context->getCurrentTurn()->getNumber() }}
             <a href="{{route('logout')}}">logout</a>
             @if(EnsureWhenRunningInDevelopmentOnly::isRunningInDevelopmentEnvironment())
                 <div id="force-next-turn-section">
@@ -931,8 +965,11 @@
                 <div id="own-nation-details">
                     own nation
                 </div>
+                <div id="own-nation-flag">
+                    demographics
+                </div>
                 <div id="own-nation-demographics">
-                    budget
+                    demographics
                 </div>
                 <h3>Budget</h3>
                 <div id="budget-details">
@@ -974,6 +1011,13 @@
                     divisions
                 </div>
             </div>
+        </div>
+        <div hidden>
+            @foreach ($nations as $n)
+                @if (!is_null($n->flag_src))
+                <img src="{{asset($n->flag_src)}}" alt="Flag of {{$n->usual_name}}" id="img_flag_{{$n->nation_id}}">
+                @endif
+            @endforeach
         </div>
     </body>
 </html>

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Domain\AssetType;
 use App\Domain\StatUnit;
 use App\Facades\Metacache;
 use App\ModelTraits\ReplicatesForTurns;
@@ -13,6 +14,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Collection;
+use InvalidArgumentException;
 
 readonly class BudgetInfo 
 {
@@ -94,9 +96,23 @@ class NationDetail extends Model
         return new NationTurnPublicInfo(
             nation_id: $this->getNation()->getId(),
             turn_number: $this->getTurn()->getNumber(),
-            usual_name: $this->getNation()->getUsualName(),
+            usual_name: $this->getUsualName(),
+            formal_name: $this->getFormalName(),
+            flag_src: $this->getFlagSrcOrNull(),
             stats: [new DemographicStat('Total land area', Metacache::remember($this->getUsableLandKm2(...)), StatUnit::Km2->name)],
         );
+    }
+
+    public function getUsualName(): string {
+        return $this->usual_name;
+    }
+
+    public function getFormalName(): string {
+        return $this->formal_name;
+    }
+
+    public function getFlagSrcOrNull(): ?string {
+        return $this->flag_src;
     }
 
     public function getUsableLandKm2(): int {
@@ -179,14 +195,29 @@ class NationDetail extends Model
     }
 
     public static function create(
-        Nation $nation
+        Nation $nation,
+        ?string $formalName = null,
+        string|GameSharedStaticAsset|null $flagSrcOrAsset = null,
     ) :NationDetail {
-        $nation_details = new NationDetail();
+        if ($flagSrcOrAsset instanceof GameSharedStaticAsset && !$flagSrcOrAsset->getType() == AssetType::Flag) {
+            throw new InvalidArgumentException("flagSrcOrAsset: expecting Flag asset, got " . $flagSrcOrAsset->getType());
+        }
 
+        $nation_details = new NationDetail();
         $nation_details->game_id = $nation->getGame()->getId();
         $nation_details->nation_id = $nation->getId();
         $nation_details->turn_id = Turn::getCurrentForGame($nation->getGame())->getId();
         $nation_details->reserves = 0;
+        $nation_details->usual_name = $nation->getInternalName();
+        $nation_details->formal_name = is_null($formalName) ? $nation_details->usual_name : $formalName;
+        $nation_details->flag_src = match(true) {
+            is_string($flagSrcOrAsset) => $flagSrcOrAsset,
+            $flagSrcOrAsset instanceof GameSharedStaticAsset => $flagSrcOrAsset->getSrc(),
+            is_null($flagSrcOrAsset) => null,
+        };
+        if ($flagSrcOrAsset instanceof GameSharedStaticAsset) {
+            $flagSrcOrAsset->leaseTo($nation);
+        }
 
     	$nation_details->save();
 

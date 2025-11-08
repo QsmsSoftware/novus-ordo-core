@@ -152,6 +152,11 @@ class Game extends Model
             ->where(GameSharedStaticAsset::FIELD_ASSET_TYPE, $type->value);
     }
 
+    public function availableAssetsOfType(AssetType $type): HasMany {
+        return $this->staticAssetsOfType($type)
+            ->where(GameSharedStaticAsset::whereAvailable());
+    }
+
     public function deployments(): HasMany {
         return $this->hasMany(Deployment::class);
     }

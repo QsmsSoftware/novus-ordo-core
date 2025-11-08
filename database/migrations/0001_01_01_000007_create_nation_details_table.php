@@ -14,10 +14,13 @@ return new class extends Migration
         Schema::create('nation_details', function (Blueprint $table) {
             $table->id();
             $table->timestamps();
-            $table->foreignId('game_id')->constrained('games')->onDelete('cascade');
-            $table->foreignId('nation_id')->constrained('nations')->onDelete('cascade');
-            $table->foreignId('turn_id')->constrained('turns')->onDelete('cascade');
+            $table->foreignId('game_id')->constrained('games')->cascadeOnDelete();
+            $table->foreignId('nation_id')->constrained('nations')->cascadeOnDelete();
+            $table->foreignId('turn_id')->constrained('turns')->cascadeOnDelete();
             $table->integer('reserves');
+            $table->string('usual_name', 100);
+            $table->text('formal_name');
+            $table->text('flag_src')->nullable();
         });
     }
 

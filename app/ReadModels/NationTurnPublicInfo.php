@@ -7,6 +7,8 @@ readonly class NationTurnPublicInfo {
         public int $nation_id,
         public int $turn_number,
         public string $usual_name,
+        public string $formal_name,
+        public ?string $flag_src,
         public array $stats,
     ) {}
 }
