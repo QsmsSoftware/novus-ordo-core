@@ -27,6 +27,17 @@ class AssetInfo extends Model
         $this->license = $license;
         $this->license_uri = $license_uri;
         $this->save();
+
+        AssetInfo::where('original_src', $this->src)
+            ->whereNot('id', $this->id)
+            ->get()
+            ->each(fn (AssetInfo $asset) => $asset->updateAsset(
+                title: $this->title,
+                description: $this->description,
+                attribution: $this->attribution,
+                license: $this->license,
+                license_uri: $this->license_uri,
+            ));
     }
 
     public function exportInfo(): AssetPublicInfo {
@@ -38,6 +49,17 @@ class AssetInfo extends Model
             license: $this->license,
             license_uri: $this->license_uri,
         );
+    }
+
+    public function createFrom(
+        string $newSrc,
+    ): AssetInfo {
+        $asset = $this->replicate();
+        $asset->src = $newSrc;
+        $asset->original_src = $this->src;
+        $asset->save();
+        
+        return $asset;
     }
 
     public static function getBySrcOrNull(string $src): ?AssetInfo {
@@ -54,6 +76,7 @@ class AssetInfo extends Model
     ): AssetInfo {
         $asset = new AssetInfo();
         $asset->src = $src;
+        $asset->original_src = $src;
         $asset->title = $title;
         $asset->description = $description;
         $asset->attribution = $attribution;
