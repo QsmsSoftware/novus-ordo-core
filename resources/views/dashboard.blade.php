@@ -18,6 +18,9 @@
         .ready-nation {
             color: green;
         }
+        .flag {
+            outline: 1px solid black;
+        }
     </style>
     {!! $static_js_services->renderAsTag() !!}
     {!! $static_js_territories_base_info->renderAsTag() !!}
@@ -307,7 +310,7 @@
 
             if (flag) {
                 return '<div><h2>Flag</h2>'
-                    + `<img src="${flag.src}" title="Flag of the ${nation.formal_name}" alt="Flag of the ${nation.formal_name}" width="300" height="200">`
+                    + `<img class="flag" src="${flag.src}" title="Flag of the ${nation.formal_name}" alt="Flag of the ${nation.formal_name}" width="300" height="200">`
                     + '</div>';
             }
             
@@ -316,14 +319,13 @@
 
         function updateTerritoryInfo() {
             $("#territory-info").html(
-                `<p><h1>${selectedTerritory.name}</h1><br>`
+                `<h1>${selectedTerritory.name}</h1>`
                 + (selectedTerritory.terrain_type == TerrainType.Water
                     ? "Sea"
                     : (selectedTerritory.has_sea_access ? "Coastal" : "No sea access")
                 )
                 + (selectedTerritory.connected_territory_ids.length > 0 ? '. Land access to ' + selectedTerritory.connected_territory_ids.map(ctid => territoriesById.get(ctid)).map(t => renderActionLink(t.name, `selectTerritory(${t.territory_id})`)).join(', ') : '')
-                + '</p>'
-                + (selectedTerritory.owner_nation_id != null ? `<p>Owned by ${nationsById.get(selectedTerritory.owner_nation_id).usual_name}</p>` : '')
+                + `<span id="territory-info-owner">` + (selectedTerritory.owner_nation_id != null ? `<p>Owned by ${nationsById.get(selectedTerritory.owner_nation_id).usual_name}</p>` : '') + "</span>"
             );
 
             $("#info-details").html(renderDemography(selectedTerritory.stats));
@@ -333,7 +335,8 @@
             if (selectedTerritory.owner_nation_id) {
                 var nation = nationsById.get(selectedTerritory.owner_nation_id);
                 var html = "";
-                html += `<h1><b>${nation.usual_name}</b></h1>`;
+                html += `<h1>${nation.formal_name}</h1>`;
+                html += `<p>Usual name: ${nation.usual_name}<p>`;
                 html += renderNationFlag(nation);
                 html += renderDemography(nation.stats);
                 $("#owner-details").html(html);
@@ -345,7 +348,10 @@
 
         function updateNationPane(nation, component) {
             if (nation !== undefined) {
-                component.html(`<h1><b>${nation.usual_name}</b></h1>`);
+                component.html(
+                    `<h1>${nation.formal_name}</h1>`
+                    + `<p>Usual name: ${nation.usual_name}<p>`
+                );
             }
             else {
                 throw new Error("Unreacheable.");
@@ -591,6 +597,12 @@
             let detailsPanes = $("#details-panes > div");
             detailsPanes.hide();
             $(`#${pane}-details`).show();
+            if (selectedDetailsTab == 'owner') {
+                $("#territory-info-owner").hide();
+            }
+            else {
+                $("#territory-info-owner").show();
+            }
         }
 
         function updateDetailsTabs() {
@@ -1015,7 +1027,7 @@
         <div hidden>
             @foreach ($nations as $n)
                 @if (!is_null($n->flag_src))
-                <img src="{{asset($n->flag_src)}}" alt="Flag of {{$n->usual_name}}" id="img_flag_{{$n->nation_id}}">
+                <img src="{{asset($n->flag_src)}}" id="img_flag_{{$n->nation_id}}">
                 @endif
             @endforeach
         </div>
