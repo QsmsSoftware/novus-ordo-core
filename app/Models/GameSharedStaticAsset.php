@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Domain\AssetType;
+use App\ReadModels\AssetPublicInfo;
 use App\Utils\GuardsForAssertions;
 use App\Utils\MapsArrayToInstance;
 use Carbon\CarbonImmutable;
@@ -50,6 +51,19 @@ class GameSharedStaticAsset extends Model
     public function leaseTo(Nation $nation): void {
         $this->lessee_nation_id = $nation->getId();
         $this->save();
+    }
+
+    public function exportInfo(): AssetPublicInfo {
+        return new AssetPublicInfo(
+            uri: $this->getSrc(),
+            title: $this->title,
+            description: $this->description,
+            attribution: $this->attribution,
+        );
+    }
+
+    public static function getAssetByUriOrNull(string $uri): ?GameSharedStaticAsset {
+        return GameSharedStaticAsset::where('src', $uri)->first();
     }
 
     public static function whereAvailable(): Closure {

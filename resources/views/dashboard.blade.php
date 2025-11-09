@@ -91,6 +91,16 @@
             SelectedDetailsTab: 'selectedDetailsTab',
         };
 
+        let siteBaseUri = document.baseURI.substring(0, document.baseURI.indexOf('/dashboard'));
+
+        function getRelativeUri(uri) {
+            if (uri.startsWith(siteBaseUri)) {
+                return uri.substring(siteBaseUri.length + 1);
+            }
+
+            return uri;
+        }
+
         function ownNationHighlightMapLayer(ctx, md) {
             territoriesById.values().filter(t => t.owner_nation_id == ownNation.nation_id).forEach(t => {
                 md.fillTerritory(t, "black");
@@ -303,7 +313,27 @@
                 + '</table></div>';
         }
 
-        
+        function showAssetInfo(uri) {
+            let popover = document.getElementById('asset-info');
+            services.getAssetInfo(encodeURIComponent(encodeURIComponent(uri)))
+                .then((assetInfo)=> {
+                    popover.innerHTML =
+                        '<p><b>' + (assetInfo.title ? assetInfo.title : '(Untitled)') + '</b>'
+                        + (assetInfo.attribution ? `<br>Attribution:${assetInfo.attribution}` : '')
+                        + '</p>'
+                        + (assetInfo.description ? `<p>Description:<br>${assetInfo.description}</p>` : '');
+
+                    popover.togglePopover();
+                })
+                .catch(() => {
+                    popover.innerHTML =
+                        '<p><b>User provided content</b></p>';
+
+                    popover.togglePopover();
+                });
+
+            
+        }
 
         function renderNationFlag(nation) {
             let flag = getNationFlagImgOrNull(nation.nation_id);
@@ -311,6 +341,7 @@
             if (flag) {
                 return '<div><h2>Flag</h2>'
                     + `<img class="flag" src="${flag.src}" title="Flag of the ${nation.formal_name}" alt="Flag of the ${nation.formal_name}" width="300" height="200">`
+                    + ` <a href="javascript:void(0)" title="About this picture" onclick="showAssetInfo('${getRelativeUri(flag.src)}', 'popover_target_flag_${nation.nation_id}')">i</a>`
                     + '</div>';
             }
             
@@ -1030,6 +1061,9 @@
                 <img src="{{asset($n->flag_src)}}" id="img_flag_{{$n->nation_id}}">
                 @endif
             @endforeach
+        </div>
+        <div id="asset-info" popover>
+            This is the content of the popover.
         </div>
     </body>
 </html>

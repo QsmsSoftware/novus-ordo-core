@@ -1,6 +1,7 @@
 <?php
 
 use App\Facades\Metacache;
+use App\Http\Controllers\AssetController;
 use App\Http\Controllers\DeploymentController;
 use App\Http\Controllers\DevController;
 use App\Http\Controllers\DivisionController;
@@ -16,7 +17,7 @@ use App\Services\NationContext;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Route;
 
-// Laravel default index.
+// Default index.
 Route::get('/', function () {
     return redirect()->route('dashboard');
 });
@@ -60,12 +61,12 @@ Route::middleware('auth')->group(function () {
         ->name('ajax.get-user-nation-setup-status');
 });
 
-//Game routes
+// Game routes
 Route::get('/game', [GameController::class, 'info']);
 Route::get('/game/ready-status', [GameController::class, 'readyStatus'])
     ->name('ajax.get-game-ready-status');
 
-//Nation routes.
+// Nation routes.
 Route::middleware('auth')->group(function () {
     Route::get('/nation', [NationController::class, 'ownNationInfo'])
         ->name('ajax.get-nation-info');
@@ -83,7 +84,7 @@ Route::middleware('auth')->group(function () {
 Route::get('/nations/{nationId}', [NationController::class, 'info'])
     ->whereNumber('nationId');
 
-//Territory routes.
+// Territory routes.
 Route::middleware('auth')->group(function () {
     Route::get('/nation/territories', [TerritoryController::class, 'allOwnedTerritories'])
         ->name('ajax.get-nation-territories');
@@ -103,7 +104,7 @@ Route::get('/territories/{territoryId}/turn-info', [TerritoryController::class, 
     ->whereNumber('territoryId')
     ->name('ajax.get-territory-turn-info');
 
-//Division routes.
+// Division routes.
 Route::middleware('auth')->group(function () {
     Route::get('/nation/divisions', [DivisionController::class, 'allOwnedDivisions'])
         ->name('ajax.get-nation-divisions');
@@ -136,7 +137,11 @@ Route::middleware('auth')->group(function () {
     });
 });
 
-//UI
+// Asset routes.
+Route::get('assets/{encodedUri}', [AssetController::class, 'assetInfo'])
+    ->name('ajax.get-asset-info');
+
+// UI
 Route::middleware('auth')->group(function () {
     Route::get('/dashboard', [UiController::class, 'dashboard'])
         ->name('dashboard');
