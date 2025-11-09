@@ -319,7 +319,8 @@
                 .then((assetInfo)=> {
                     popover.innerHTML =
                         '<p><b>' + (assetInfo.title ? assetInfo.title : '(Untitled)') + '</b>'
-                        + (assetInfo.attribution ? `<br>Attribution:${assetInfo.attribution}` : '')
+                        + (assetInfo.attribution ? `<br>Attribution: ${assetInfo.attribution}` : '')
+                        + (assetInfo.license ? `<br>License: ${assetInfo.license_uri ? `<a href="${assetInfo.license_uri}" target="_blank" rel="noopener noreferrer">${assetInfo.license}</a>` : assetInfo.license}` : '')
                         + '</p>'
                         + (assetInfo.description ? `<p>Description:<br>${assetInfo.description}</p>` : '');
 
@@ -327,7 +328,7 @@
                 })
                 .catch(() => {
                     popover.innerHTML =
-                        '<p><b>User provided content</b></p>';
+                        '<p><b>Content with no attribution information.</b></p>';
 
                     popover.togglePopover();
                 });

@@ -146,14 +146,14 @@ class Game extends Model
             );
     }
 
-    public function staticAssetsOfType(AssetType $type): HasMany {
+    public function sharedAssetsOfType(AssetType $type): HasMany {
         return $this->hasMany(GameSharedStaticAsset::class)
             ->where('game_id', $this->getId())
             ->where(GameSharedStaticAsset::FIELD_ASSET_TYPE, $type->value);
     }
 
-    public function availableAssetsOfType(AssetType $type): HasMany {
-        return $this->staticAssetsOfType($type)
+    public function availableSharedAssetsOfType(AssetType $type): HasMany {
+        return $this->sharedAssetsOfType($type)
             ->where(GameSharedStaticAsset::whereAvailable());
     }
 

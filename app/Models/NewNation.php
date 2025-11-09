@@ -79,8 +79,7 @@ class NewNation extends Model
 
             $nation->nation_setup_status = NationSetupStatus::FinishedSetup;
 
-            $flag = $nation->getGame()->staticAssetsOfType(AssetType::Flag)
-                ->where(GameSharedStaticAsset::whereAvailable())
+            $flag = $nation->getGame()->availableSharedAssetsOfType(AssetType::Flag)
                 ->inRandomOrder()->first();
 
             NationDetail::create($nation, "Empire of {$nation->getInternalName()}", $flag);

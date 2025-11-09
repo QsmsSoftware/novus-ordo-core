@@ -17,9 +17,6 @@ return new class extends Migration
             $table->foreignId('game_id')->constrained('games')->cascadeOnDelete();
             $table->text('src');
             $table->integer('type');
-            $table->mediumText('title');
-            $table->mediumText('description');
-            $table->mediumText('attribution');
             $table->foreignId('lessee_nation_id')->nullable()->constrained('nations')->nullOnDelete();
             $table->timestamp('leased_at')->nullable();
             $table->foreignId('holder_nation_id')->nullable()->constrained('nations')->nullOnDelete();

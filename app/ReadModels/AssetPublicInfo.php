@@ -8,6 +8,8 @@ readonly class AssetPublicInfo {
         public ?string $title,
         public ?string $description,
         public ?string $attribution,
+        public ?string $license,
+        public ?string $license_uri,
     )
     {
         

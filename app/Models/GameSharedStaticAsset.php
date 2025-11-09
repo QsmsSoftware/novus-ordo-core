@@ -3,12 +3,10 @@
 namespace App\Models;
 
 use App\Domain\AssetType;
-use App\ReadModels\AssetPublicInfo;
 use App\Utils\GuardsForAssertions;
 use App\Utils\MapsArrayToInstance;
 use Carbon\CarbonImmutable;
 use Closure;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 readonly class SharedStaticAssetMetadata {
@@ -19,6 +17,8 @@ readonly class SharedStaticAssetMetadata {
         public ?string $title,
         public ?string $description,
         public ?string $attribution,
+        public ?string $license,
+        public ?string $license_uri,
     )
     {
         
@@ -41,28 +41,12 @@ class GameSharedStaticAsset extends Model
         return $this->src;
     }
 
-    public function updateWithMetadata(SharedStaticAssetMetadata $metadata): void {
-        $this->title = $metadata->title;
-        $this->description = $metadata->description;
-        $this->attribution = $metadata->attribution;
-        $this->save();
-    }
-
     public function leaseTo(Nation $nation): void {
         $this->lessee_nation_id = $nation->getId();
         $this->save();
     }
 
-    public function exportInfo(): AssetPublicInfo {
-        return new AssetPublicInfo(
-            uri: $this->getSrc(),
-            title: $this->title,
-            description: $this->description,
-            attribution: $this->attribution,
-        );
-    }
-
-    public static function getAssetByUriOrNull(string $uri): ?GameSharedStaticAsset {
+    public static function getBySrcOrNull(string $uri): ?GameSharedStaticAsset {
         return GameSharedStaticAsset::where('src', $uri)->first();
     }
 
@@ -95,8 +79,20 @@ class GameSharedStaticAsset extends Model
         return $metaDatas;
     }
 
+    private static function readDirectory(string $pathToAssets, $reFilter): array {
+        $fileMetas = [];
+        foreach(array_filter(glob(public_path($pathToAssets) . "/*"), fn ($f) => preg_match($reFilter, $f)) as $filePath) {
+            $file = join(DIRECTORY_SEPARATOR, [$pathToAssets, basename($filePath)]);
+            
+            $fileMetas[] = ["file" => $file];
+        }
+        
+        return $fileMetas;
+    }
+
     public static function inventory(Game $game): void {
         $flagMetas = [];
+
         $metas = GameSharedStaticAsset::readMeta('res/bundled/flags');
         if (is_array($metas)) {
             $flagMetas = array_merge($flagMetas, $metas);
@@ -106,24 +102,57 @@ class GameSharedStaticAsset extends Model
             $flagMetas = array_merge($flagMetas, $metas);
         }
 
+        $flagMetas = collect($flagMetas)->mapWithKeys(fn ($m) => [$m['file'] => $m]);
+
+        $reFlagImageFormats = '/\.(png|jpg|jpeg|gif)$/';
+        foreach(GameSharedStaticAsset::readDirectory("res/bundled/flags", $reFlagImageFormats) as $meta) {
+            if (!$flagMetas->has($meta['file'])) {
+                $flagMetas->put($meta['file'], $meta);
+            }
+        }
+        foreach(GameSharedStaticAsset::readDirectory("res/local/flags", $reFlagImageFormats) as $meta) {
+            if (!$flagMetas->has($meta['file'])) {
+                $flagMetas->put($meta['file'], $meta);
+            }
+        }
+
         foreach($flagMetas as $meta) {
             $metadata = SharedStaticAssetMetadata::fromArray($meta);
 
-            $assetOrNull = $game->staticAssetsOfType(AssetType::Flag)
+            $sharedAssetOrNull = $game->sharedAssetsOfType(AssetType::Flag)
                 ->where('src', $metadata->file)
                 ->first();
 
-            if (is_null($assetOrNull)) {
+            if (is_null($sharedAssetOrNull)) {
                 GameSharedStaticAsset::create(
                     game: $game,
                     metadata: $metadata,
                     type: AssetType::Flag,
                 );
             }
-            else {
-                $asset = GameSharedStaticAsset::notNull($assetOrNull);
 
-                $asset->updateWithMetadata($metadata);
+            $assetOrNull = AssetInfo::getBySrcOrNull($metadata->file);
+
+            if (is_null($assetOrNull)) {
+                AssetInfo::create(
+                    src: $metadata->file,
+                    title: $metadata->title,
+                    description: $metadata->description,
+                    attribution: $metadata->attribution,
+                    license: $metadata->license,
+                    license_uri: $metadata->license_uri,
+                );
+            }
+            else {
+                $asset = AssetInfo::notNull($assetOrNull);
+
+                $asset->updateAsset(
+                    title: $metadata->title,
+                    description: $metadata->description,
+                    attribution: $metadata->attribution,
+                    license: $metadata->license,
+                    license_uri: $metadata->license_uri,
+                );
             }
         }
     }
@@ -137,9 +166,6 @@ class GameSharedStaticAsset extends Model
         $asset->game_id = $game->getId();
         $asset->src = $metadata->file;
         $asset->type = $type->value;
-        $asset->title = $metadata->title;
-        $asset->description = $metadata->description;
-        $asset->attribution = $metadata->attribution;
         $asset->save();
         
         return $asset;
