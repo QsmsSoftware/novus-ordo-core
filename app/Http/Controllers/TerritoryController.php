@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Facades\RawJsonResponse;
 use App\Models\Game;
 use App\Models\Territory;
 use App\Models\TerritoryDetail;
@@ -14,7 +13,6 @@ use App\Utils\HttpStatusCode;
 use App\Utils\MapsArrayToInstance;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 
 readonly class TerritoryForTurnParams {
     use MapsArrayToInstance;
@@ -32,11 +30,36 @@ class TerritoryController extends Controller
             $game
         );
     }
+
     public function allTerritoriesSuitableAsHomeIds(PublicGameContext $context) :JsonResponse {
         $game = $context->getGame();
         $territories = $game->freeSuitableTerritoriesInTurn()->pluck('id')->all();
 
         return response()->json($territories);
+    }
+
+    public function allTerritories(PublicGameContext $context) :JsonResponse {
+        $game = $context->getGame();
+
+        $baseInfo = collect(json_decode($this->getAllTerritoriesBaseInfoResource($game)->renderAsCode()))
+            ->mapWithKeys(fn ($t) => [$t->territory_id => $t]);
+
+        $territories = array_map(fn ($t) => TerritoryController::merge($baseInfo->get($t->territory_id), $t), TerritoryDetail::exportAllTurnPublicInfo($game->getCurrentTurn()));
+
+        return response()->json($territories);
+    }
+
+    private static function merge(object $territory, object $supplemental): object {
+        foreach ($supplemental as $k => $v) {
+            if (isset($territory->$k) && is_array($territory->$k)) {
+                $territory->$k = array_merge($territory->$k, $v);
+            }
+            else {
+                $territory->$k = $v;
+            }
+        }
+
+        return $territory;
     }
 
     public function allTerritoriesBaseInfo(PublicGameContext $context) :JsonResponse {

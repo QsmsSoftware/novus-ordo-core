@@ -89,6 +89,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/nation/territories', [TerritoryController::class, 'allOwnedTerritories'])
         ->name('ajax.get-nation-territories');
 });
+Route::get('/territories', [TerritoryController::class, 'allTerritories'])
+    ->name('ajax.get-all-territories');
 Route::get('/territories/base-infos', [TerritoryController::class, 'allTerritoriesBaseInfo'])
     ->name('ajax.get-all-territories-base-info');
 Route::get('/territories/base-infos/ref', [TerritoryController::class, 'allTerritoriesBaseInfoStaticLink'])

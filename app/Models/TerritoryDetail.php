@@ -3,8 +3,6 @@
 namespace App\Models;
 
 use App\ModelTraits\ReplicatesForTurns;
-use App\ReadModels\TerritoryBasePublicInfo;
-use App\ReadModels\TerritoryInfo;
 use App\ReadModels\TerritoryTurnPublicInfo;
 use App\Services\StaticJavascriptResource;
 use Illuminate\Database\Eloquent\Builder;
@@ -77,7 +75,7 @@ class TerritoryDetail extends Model
             territory_id: $territory->getId(),
             turn_number: $this->getTurn()->getNumber(),
             owner_nation_id: $ownerOrNull?->getId(),
-            turn_stats: [],
+            stats: [],
         );
     }
 
@@ -89,7 +87,7 @@ class TerritoryDetail extends Model
 
         return array_map(fn ($t) => TerritoryTurnPublicInfo::fromObject($t, [
             'turn_number' => $turn->getNumber(),
-            'turn_stats' => []
+            'stats' => []
         ]), $territories);
     }
 

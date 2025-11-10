@@ -46,10 +46,7 @@
         let budgetItems = mapExportedObject(@json($budget_items));
         let territoriesById = mergeMappedObjects(
             mapExportedArray(allTerritoriesBaseInfo, t => t.territory_id),
-            mapExportedArray(allTerritoriesTurnInfo, t => t.territory_id),
-            {
-                turn_stats: (t, t2) => t.stats = [...t.stats, ...t2.turn_stats],
-            }
+            mapExportedArray(allTerritoriesTurnInfo, t => t.territory_id)
         );
         let nationsById = mapExportedArray(@json($nations), n => n.nation_id);
         let allBattleLogs = @json($battle_logs);
@@ -164,6 +161,9 @@
             Object.keys(o2).forEach(attr => {
                 if (customMappings[attr] !== undefined) {
                     customMappings[attr](o1, o2);
+                }
+                else if (Array.isArray(o1[attr]) && Array.isArray(o2[attr])) {
+                    o1[attr] = [...o1[attr], ...o2[attr]];
                 }
                 else {
                     o1[attr] = o2[attr];
