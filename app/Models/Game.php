@@ -334,7 +334,7 @@ class Game extends Model
     }
 
     public function getRequiredTerritoriesForVictory(): int {
-        return floor(Game::REQUIRED_OWNERSHIP_RATIO_FOR_VICTORY * $this->territories()->count()) + 1;
+        return floor(Game::REQUIRED_OWNERSHIP_RATIO_FOR_VICTORY * $this->territories()->where(Territory::whereIsControllable())->count()) + 1;
     }
 
     public function getVictoryProgression(): Collection {
