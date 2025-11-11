@@ -568,7 +568,7 @@
             }
             let selectedDivisions = getAllSelectedDivisionsInTerritory();
             services.sendDisbandOrders({orders: selectedDivisions.map(d => ({ division_id: d.division_id }))})
-                .then(data => patchOrders(data))
+                .then(response => patchOrders(response.data))
                 .catch(error => {
                     $("#error_messages").html(`<li style="color: crimson">${JSON.stringify(error.responseJSON)}}</li>`);
                 });
@@ -581,7 +581,7 @@
             setMapMode(MapMode.Default);
             let selectedDivisions = getAllSelectedDivisionsInTerritory();
             services.sendMoveOrders({orders: selectedDivisions.map(d => ({ division_id: d.division_id, destination_territory_id: tid }))})
-                .then(data => patchOrders(data))
+                .then(response => patchOrders(response.data))
                 .catch(error => {
                     $("#error_messages").html(`<li style="color: crimson">${JSON.stringify(error.responseJSON)}}</li>`);
                 });
@@ -691,7 +691,7 @@
                 callChain = callChain
                     .then(() => {
                         return services.deployInTerritory(tid, { division_type: DivisionType.Infantry, number_of_divisions: group.length })
-                            .then(deployments => deployments.forEach(d => deploymentsById.set(d.deployment_id, d)))
+                            .then(response => response.data.forEach(d => deploymentsById.set(d.deployment_id, d)))
                             .then(updateTerritoryDeployments);
                     })
             });

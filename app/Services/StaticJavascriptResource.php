@@ -130,12 +130,6 @@ class StaticJavascriptResource {
         return "/var/static/" . basename($filename);
     }
 
-    public function renderAsJsonResponse(): JsonResponse {
-        $filename = $this->render();
-
-        return new JsonResponse(file_get_contents($filename), json: true);
-    }
-
     public function renderAsCode(): string {
         $filename = $this->render();
 

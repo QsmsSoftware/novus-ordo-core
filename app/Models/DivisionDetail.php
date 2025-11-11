@@ -4,25 +4,13 @@ namespace App\Models;
 
 use App\Domain\OrderType;
 use App\ModelTraits\ReplicatesForTurns;
+use App\ReadModels\OwnedDivisionInfo;
 use Closure;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Exists;
-
-readonly class OwnedDivisionInfo {
-    public function __construct(
-        public int $division_id,
-        public int $nation_id,
-        public int $territory_id,
-        public string $division_type,
-        public ?object $order,
-    )
-    {
-        
-    }
-}
 
 class DivisionDetail extends Model
 {

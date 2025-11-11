@@ -6,33 +6,14 @@ use App\Domain\OrderType;
 use App\Models\Division;
 use App\Models\Territory;
 use App\Models\Turn;
+use App\ReadModels\DisbandOrderInfo;
+use App\ReadModels\MoveOrderInfo;
 use App\Utils\GuardsForAssertions;
 use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
-
-readonly class MoveOrderInfo {
-    public function __construct(
-        public int $division_id,
-        public string $order_type,
-        public int $destination_territory_id,
-    )
-    {
-        
-    }
-}
-
-readonly class DisbandOrderInfo {
-    public function __construct(
-        public int $division_id,
-        public string $order_type,
-    )
-    {
-        
-    }
-}
 
 class Order extends Model
 {

@@ -85,10 +85,6 @@ Route::get('/nations/{nationId}', [NationController::class, 'info'])
     ->whereNumber('nationId');
 
 // Territory routes.
-Route::middleware('auth')->group(function () {
-    Route::get('/nation/territories', [TerritoryController::class, 'allOwnedTerritories'])
-        ->name('ajax.get-nation-territories');
-});
 Route::get('/territories', [TerritoryController::class, 'allTerritories'])
     ->name('ajax.get-all-territories');
 Route::get('/territories/base-infos', [TerritoryController::class, 'allTerritoriesBaseInfo'])

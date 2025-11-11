@@ -17,11 +17,13 @@ use App\Models\UserCredentials;
 use App\Models\UserCredentialsRejected;
 use App\Models\UserLogedIn;
 use App\Models\VictoryStatus;
+use App\ReadModels\GameReadyStatusInfo;
 use App\Services\JavascriptClientServicesGenerator;
 use App\Services\JavascriptStaticServicesGenerator;
 use App\Services\LoggedInGameContext;
 use App\Services\NationContext;
 use App\Services\StaticJavascriptResource;
+use App\Utils\Annotations\Summary;
 use App\Utils\MapsValidatedDataToFormRequest;
 use App\Utils\MapsValidatorToInstance;
 use Illuminate\Foundation\Http\FormRequest;
@@ -232,6 +234,8 @@ class UiController extends Controller
         };
     }
 
+    #[Summary('Notify the server that the current nation\'s owner  is ready to current end turn and move to next turn. If this triggers the end of the turn, this query will wait for the upkeep to be complete. It returns a GameReadyStatusInfo so the client can immediately check if the turn had ended.')]
+    #[Response(GameReadyStatusInfo::class)]
     public function readyForNextTurn(NationContext $context, ReadyForNextTurnRequest $request): JsonResponse {
         $game = $context->getGame();
         $turn = Turn::getForGameByNumberOrNull($game, $request->turn_number);

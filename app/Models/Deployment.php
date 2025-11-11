@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Domain\DivisionType;
 use App\Domain\OrderType;
+use App\ReadModels\DeploymentInfo;
 use App\Utils\GuardsForAssertions;
 use Closure;
 use Illuminate\Database\Eloquent\Model;
@@ -12,14 +13,6 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Exists;
 use LogicException;
-
-readonly class DeploymentInfo {
-    public function __construct(
-        public int $deployment_id,
-        public int $nation_id,
-        public int $territory_id,
-    ) {}
-}
 
 class Deployment extends Model
 {

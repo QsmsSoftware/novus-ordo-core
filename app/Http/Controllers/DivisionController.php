@@ -2,183 +2,63 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\CancelOrdersRequest;
+use App\Http\Requests\SendDisbandOrdersRequest;
+use App\Http\Requests\SendMoveOrdersRequest;
+use App\Http\Requests\SentDisbandOrder;
+use App\Http\Requests\SentMoveOrder;
 use App\Models\Division;
-use App\Models\DivisionDetail;
 use App\Models\Order;
-use App\Models\Territory;
+use App\ReadModels\DisbandOrderInfo;
+use App\ReadModels\OwnedDivisionInfo;
 use App\Services\NationContext;
+use App\Utils\Annotations\Payload;
+use App\Utils\Annotations\Response;
+use App\Utils\Annotations\Summary;
 use App\Utils\HttpStatusCode;
-use App\Utils\MapsArrayToInstance;
-use App\Utils\MapsValidatedDataToFormRequest;
-use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\MessageBag;
-
-readonly class SentDisbandOrder {
-    use MapsArrayToInstance;
-    public function __construct(
-        public int $division_id,
-    )
-    {
-        
-    }
-}
-
-readonly class SentMoveOrder {
-    use MapsArrayToInstance;
-    public function __construct(
-        public int $division_id,
-        public string $destination_territory_id,
-    )
-    {
-        
-    }
-}
-
-class SendDisbandOrdersRequest extends FormRequest {
-    public readonly array $disbandOrders;
-
-    public function passedValidation(): void {
-        $orders = $this->validated('orders');
-
-        $this->disbandOrders = array_map(fn (array $data) => SentDisbandOrder::fromArray($data), $orders);
-    }
-
-    public function __construct(
-        private readonly NationContext $context
-    )
-    {
-        
-    }
-
-    public function rules(): array
-    {
-        return [
-            'orders' => 'required|array|min:1',
-            'orders.*.division_id' => [
-                'required',
-                'integer',
-                DivisionDetail::createRuleValidActiveDivision($this->context->getNation()),
-            ],
-        ];
-    }
-}
-
-class SendMoveOrdersRequest extends FormRequest {
-    public readonly array $moveOrders;
-
-    public function passedValidation(): void {
-        $orders = $this->validated('orders');
-
-        $this->moveOrders = array_map(fn (array $data) => SentMoveOrder::fromArray($data), $orders);
-    }
-
-    public function __construct(
-        private readonly NationContext $context
-    )
-    {
-        
-    }
-
-    public function rules(): array
-    {
-        return [
-            'orders' => 'required|array|min:1',
-            'orders.*.division_id' => [
-                'required',
-                'integer',
-                DivisionDetail::createRuleValidActiveDivision($this->context->getNation()),
-            ],
-            'orders.*.destination_territory_id' => [
-                'required',
-                'integer',
-                Territory::createRuleExistsInGame($this->context->getGame()),
-            ],
-        ];
-    }
-}
-
-class CancelOrdersRequest extends FormRequest {
-    use MapsValidatedDataToFormRequest;
-
-    public readonly array $division_ids;
-
-    public function __construct(
-        private readonly NationContext $context
-    )
-    {
-        
-    }
-
-    public function rules(): array
-    {
-        return [
-            'division_ids' => 'required|array|min:1',
-            'division_ids.*' => [
-                'required',
-                'integer',
-                DivisionDetail::createRuleValidActiveDivision($this->context->getNation())
-            ]
-        ];
-    }
-}
+use App\Utils\Annotations\ResponseCollection;
 
 class DivisionController extends Controller
 {
+    #[Summary('Send disband orders.')]
+    #[Payload(SendDisbandOrdersRequest::class)]
+    #[ResponseCollection('data', DisbandOrderInfo::class, 'List of disband orders sent.')]
     public function sendDisbandOrders(SendDisbandOrdersRequest $request, NationContext $context): JsonResponse {
         $nation = $context->getNation();
 
         $sentOrders = [];
 
-        foreach($request->disbandOrders as $order) {
+        foreach($request->getDisbandOrders() as $order) {
+            assert($order instanceof SentDisbandOrder);
             $division = $nation->getDetail()->getActiveDivisionWithId($order->division_id);
             $sentOrders[] = $division->sendDisbandOrder();
         };
 
-        return response()->json(array_map(fn (Order $o) => $o->exportForOwner(), $sentOrders), HttpStatusCode::Created);
+        return response()->json(['data' => array_map(fn (Order $o) => $o->exportForOwner(), $sentOrders)], HttpStatusCode::Created);
     }
 
+    #[Summary('Send move/attack orders.')]
+    #[Payload(SendMoveOrdersRequest::class)]
+    #[ResponseCollection('data', DisbandOrderInfo::class, 'List of move/attack orders sent.')]
     public function sendMoveOrders(SendMoveOrdersRequest $request, NationContext $context): JsonResponse {
         $nation = $context->getNation();
-        
-        $validatedOrders = [];
-
-        $errors = new MessageBag();
-
-        for($i = 0; $i < count($request->moveOrders); $i++) {
-            $moveOrder = $request->moveOrders[$i];
-            assert($moveOrder instanceof SentMoveOrder);
-
-            $division = $nation->getDetail()->getActiveDivisionWithId($moveOrder->division_id);
-            if ($division->getDetail()->accessibleTerritories()->pluck('id')->contains($moveOrder->destination_territory_id)) {
-                $validatedOrders[] = $moveOrder;
-            }
-            else {
-                $errors->add("orders.$i.destination_territory_id", "Division ID {$division->getId()} can't reach Territory ID {$moveOrder->destination_territory_id}.");
-            }
-        }
-
-        if ($errors->any()) {
-            return response()->json(
-                [
-                    'message' => 'Validation failed',
-                    'errors' => $errors
-                ],
-                HttpStatusCode::UnprocessableContent
-            );
-        }
 
         $sentOrders = [];
 
-        foreach($validatedOrders as $validatedOrder) {
-            $division = $nation->getDetail()->getActiveDivisionWithId($validatedOrder->division_id);
-            $destination = $nation->getGame()->getTerritoryWithId($validatedOrder->destination_territory_id);
+        foreach($request->getMoveOrders() as $order) {
+            assert($order instanceof SentMoveOrder);
+            $division = $nation->getDetail()->getActiveDivisionWithId($order->division_id);
+            $destination = $nation->getGame()->getTerritoryWithId($order->destination_territory_id);
             $sentOrders[] = $division->sendMoveOrder($destination);
         };
         
-        return response()->json(array_map(fn (Order $o) => $o->exportForOwner(), $sentOrders), HttpStatusCode::Created);
+        return response()->json(['data' => array_map(fn (Order $o) => $o->exportForOwner(), $sentOrders)], HttpStatusCode::Created);
     }
 
+    #[Summary('Cancel orders.')]
+    #[Payload(CancelOrdersRequest::class)]
+    #[Response('HTTP status code 204 NoContent on success.')]
     public function cancelOrders(CancelOrdersRequest $request, NationContext $context): JsonResponse {
         $nation = $context->getNation();
 
@@ -190,14 +70,18 @@ class DivisionController extends Controller
         return response()->json(null, HttpStatusCode::NoContent);
     }
     
+    #[Summary('Get all the current nation\'s divisions.')]
+    #[ResponseCollection("data", OwnedDivisionInfo::class, "Base information on all territories.")]
     public function allOwnedDivisions(NationContext $context): JsonResponse {
         $nation = $context->getNation();
 
         $divisions = $nation->getDetail()->activeDivisions()->get()->map(fn (Division $d) => $d->getDetail()->exportForOwner())->all();
 
-        return response()->json($divisions);
+        return response()->json(['data' => $divisions]);
     }
 
+    #[Summary('Get one of the current nation\'s divisions.')]
+    #[Response(OwnedDivisionInfo::class)]
     public function ownedDivision(NationContext $context, int $divisionId): JsonResponse {
         $nation = $context->getNation();
 

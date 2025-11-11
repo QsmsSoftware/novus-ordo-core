@@ -6,6 +6,7 @@ use App\Domain\AssetType;
 use App\Domain\StatUnit;
 use App\Facades\Metacache;
 use App\ModelTraits\ReplicatesForTurns;
+use App\ReadModels\BudgetInfo;
 use App\ReadModels\DemographicStat;
 use App\ReadModels\NationTurnOwnerInfo;
 use App\ReadModels\NationTurnPublicInfo;
@@ -15,20 +16,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Collection;
 use InvalidArgumentException;
-
-readonly class BudgetInfo 
-{
-    public function __construct(
-        public int $nation_id,
-        public int $turn_number,
-        public int $production,
-        public int $reserves,
-        public int $upkeep,
-        public int $expenses,
-        public int $available_production,
-        public int $max_remaining_deployments,
-    ) {}
-}
 
 class NationDetail extends Model
 {

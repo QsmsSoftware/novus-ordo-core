@@ -7,6 +7,8 @@ use App\Domain\GenerationData;
 use App\Domain\TerritoryConnectionData;
 use App\Utils\GuardsForAssertions;
 use App\Facades\RuntimeInfo;
+use App\ReadModels\GameInfo;
+use App\ReadModels\GameReadyStatusInfo;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -43,26 +45,6 @@ readonly class VictoryProgress {
         $this->progress = min($this->numberOfTerritories / $this->numberOfTerritoriesRequired, 1);
         $this->isVictorious = $this->numberOfTerritories >= $this->numberOfTerritoriesRequired;
     }
-}
-
-readonly class GameReadyStatusInfo {
-    public function __construct(
-        public int $turn_number,
-        public array $ready_for_next_turn_nation_ids,
-        public int $nation_count,
-        public ?CarbonImmutable $turn_expiration,
-        public bool $is_game_ready,
-    )
-    {
-    
-    }
-}
-
-readonly class GameInfo {
-    public function __construct(
-        public int $game_id,
-        public int $turn_number,
-    ) {}
 }
 
 class Game extends Model

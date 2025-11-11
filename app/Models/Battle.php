@@ -2,25 +2,11 @@
 
 namespace App\Models;
 
+use App\ReadModels\ParticipantBattleLog;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Collection;
 use LogicException;
-
-readonly class ParticipantBattleLog {
-    public function __construct(
-        public int $battle_id,
-        public int $turn_number,
-        public int $territory_id,
-        public int $attacker_nation_id,
-        public ?int $defender_nation_id,
-        public ?int $winner_nation_id,
-        public string $text,
-    )
-    {
-        
-    }
-}
 
 class Battle extends Model
 {

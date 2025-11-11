@@ -4,27 +4,13 @@ namespace App\Models;
 
 use App\Domain\NationSetupStatus;
 use App\Domain\Password;
+use App\ReadModels\UserNationSetupStatusOwnerInfo;
+use App\ReadModels\UserOwnerInfo;
 use App\Utils\GuardsForAssertions;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Auth;
-
-readonly class UserOwnerInfo {
-    public bool $is_logged_in_game;
-    public function __construct(
-        public string $user_name,
-    ) {}
-}
-
-readonly class UserNationSetupStatusOwnerInfo {
-    public bool $is_logged_in_game;
-    public function __construct(
-        public ?int $game_id,
-        public ?int $nation_id,
-        public string $nation_setup_status,
-    ) {}
-}
 
 readonly class UserCredentialsRejected {}
 readonly class UserLogedIn {}

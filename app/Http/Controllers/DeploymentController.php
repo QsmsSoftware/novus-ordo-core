@@ -3,68 +3,25 @@
 namespace App\Http\Controllers;
 
 use App\Domain\DivisionType;
+use App\Http\Requests\CancelDeploymentsRequest;
+use App\Http\Requests\DeployInTerritoryRequest;
 use App\Models\Deployment;
 use App\Models\Territory;
+use App\ReadModels\DeploymentInfo;
 use App\Services\NationContext;
+use App\Utils\Annotations\Payload;
+use App\Utils\Annotations\Response;
+use App\Utils\Annotations\ResponseCollection;
+use App\Utils\Annotations\Summary;
 use App\Utils\HttpStatusCode;
 use App\Utils\MapsValidatedDataToFormRequest;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\JsonResponse;
 
-class DeployInTerritoryRequest extends FormRequest {
-    use MapsValidatedDataToFormRequest;
-
-    public readonly string $division_type;
-    public readonly int $number_of_divisions;
-
-    public function __construct(
-        private readonly NationContext $context
-    )
-    {
-        
-    }
-
-    public function rules(): array
-    {
-        return [
-            'division_type' => [
-                'required',
-                'string',
-                DivisionType::createValidationByName()
-            ],
-            'number_of_divisions' => 'required|int|min:1',
-        ];
-    }
-}
-
-class CancelDeploymentsRequest extends FormRequest {
-    use MapsValidatedDataToFormRequest;
-
-    public readonly array $deployment_ids;
-
-    public function __construct(
-        private readonly NationContext $context
-    )
-    {
-        
-    }
-
-    public function rules(): array
-    {
-        return [
-            'deployment_ids' => 'required|array|min:1',
-            'deployment_ids.*' => [
-                'required',
-                'integer',
-                Deployment::createRuleValidDeployment($this->context->getNation())
-            ],
-        ];
-    }
-}
-
 class DeploymentController extends Controller
 {
-    // Maybe change for a standard RFC 6902 PATCH delete operation? https://datatracker.ietf.org/doc/html/rfc6902#section-4.2
+    #[Summary('Cancels deployments.')]
+    #[Payload(CancelDeploymentsRequest::class)]
     public function cancelDeployments(CancelDeploymentsRequest $cancelRequest, NationContext $context): JsonResponse {
         $nation = $context->getNation();
 
@@ -72,25 +29,31 @@ class DeploymentController extends Controller
         
         $foundDeployments->each(fn (Deployment $d) => $d->cancel());
         
-        return response()->json();
+        return response()->json(null, HttpStatusCode::NoContent);
     }
     
-    public function allDeployments(NationContext $context) :JsonResponse {
-        return response()->json($context->getNation()->getDetail()->deployments()->get()->map(fn (Deployment $d) => $d->export()));
+    #[Summary('Returns all deployments for the current nation.')]
+    #[ResponseCollection('data', DeploymentInfo::class, 'A list of all the current nation\'s deployments.')]
+    public function allDeployments(NationContext $context): JsonResponse {
+        return response()->json(['data' => $context->getNation()->getDetail()->deployments()->get()->map(fn (Deployment $d) => $d->export())]);
     }
 
+    #[Summary('Returns all deployments for the current nation in the specified territory.')]
+    #[ResponseCollection('data', DeploymentInfo::class, 'A list of all the current nation\'s deployments in the territory.')]
     public function allDeploymentsInOwnedTerritory(NationContext $context, int $territoryId): JsonResponse {
         $nation = $context->getNation();
         $territory = Territory::asOrNotFound($nation->getDetail()->territories()->find($territoryId), "Current nation doesn't own territory: $territoryId");
 
-        return response()->json($nation->getDetail()->deploymentsInTerritory($territory)->get()->map(fn (Deployment $d) => $d->export()));
+        return response()->json(['data' => $nation->getDetail()->deploymentsInTerritory($territory)->get()->map(fn (Deployment $d) => $d->export())]);
     }
 
+    #[Summary('Deploys divisions and returns the deployments.')]
+    #[ResponseCollection('data', DeploymentInfo::class, 'A list of all the new deployments.')]
     public function deployInOwnedTerritory(DeployInTerritoryRequest $request, NationContext $context, int $territoryId): JsonResponse {
         $nation = $context->getNation();
         $territory = Territory::asOrNotFound($nation->getDetail()->territories()->find($territoryId), "Current nation doesn't own territory: $territoryId");
         
         $deployments = array_map(fn (Deployment $d) => $d->export(), $nation->deploy($territory, DivisionType::fromName($request->division_type), $request->number_of_divisions));
-        return response()->json($deployments, HttpStatusCode::Created);
+        return response()->json(['data' => $deployments], HttpStatusCode::Created);
     }
 }

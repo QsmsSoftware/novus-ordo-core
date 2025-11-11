@@ -3,73 +3,31 @@
 namespace App\Http\Controllers;
 
 use App\Domain\NationSetupStatus;
+use App\Http\Requests\NewNationRequest;
+use App\Http\Requests\SelectTerritoriesRequest;
 use App\Models\Battle;
-use App\Models\Game;
 use App\Models\Nation;
 use App\Models\NewNation;
-use App\Models\Territory;
+use App\ReadModels\BudgetInfo;
+use App\ReadModels\NationTurnOwnerInfo;
+use App\ReadModels\NationTurnPublicInfo;
+use App\ReadModels\ParticipantBattleLog;
 use App\Services\LoggedInGameContext;
 use App\Services\NationContext;
 use App\Services\NationSetupContext;
 use App\Services\PublicGameContext;
+use App\Utils\Annotations\Payload;
+use App\Utils\Annotations\Response;
+use App\Utils\Annotations\ResponseElement;
+use App\Utils\Annotations\Summary;
 use App\Utils\HttpStatusCode;
-use App\Utils\MapsValidatedDataToFormRequest;
-use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\JsonResponse;
-
-class NewNationRequest extends FormRequest {
-    use MapsValidatedDataToFormRequest;
-
-    public readonly string $usual_name;
-
-    public function __construct(
-        private readonly LoggedInGameContext $context
-    )
-    {
-        
-    }
-
-    public function rules(): array
-    {
-        return [
-            'usual_name' => [
-                'required',
-                'string',
-                'min:2',
-                NewNation::createRuleNoNationWithSameNameInGame($this->context->getGame())
-            ],
-        ];
-    }
-}
-
-class SelectTerritoriesRequest extends FormRequest {
-    use MapsValidatedDataToFormRequest;
-
-    public readonly array $territory_ids;
-
-    public function __construct(
-        private readonly NationSetupContext $context
-    )
-    {
-        
-    }
-
-    public function rules(): array
-    {
-        return [
-            'territory_ids' => [
-                'required',
-                'array',
-                'min:' . Game::NUMBER_OF_STARTING_TERRITORIES,
-                'max:' . Game::NUMBER_OF_STARTING_TERRITORIES,
-                Territory::createValidationSuitableHomeTerritory($this->context->getGame())
-            ],
-        ];
-    }
-}
 
 class NationController extends Controller
 {
+    #[Summary('Create a nation for the current user in the current game.')]
+    #[Payload(NewNationRequest::class)]
+    #[ResponseElement('nation_id', 'int', 'Nation ID of the new nation.')]
     public function createNation(NewNationRequest $request, LoggedInGameContext $context): JsonResponse {
         $game = $context->getGame();
         $user = $context->getUser();
@@ -78,6 +36,9 @@ class NationController extends Controller
         return response()->json(["nation_id" => $createResult->getId()], HttpStatusCode::Created);
     }
 
+    #[Summary('Completes nation setup by submitting home territories selection.')]
+    #[Payload(SelectTerritoriesRequest::class)]
+    #[Response('HTTP status code 204 NoContent on success.')]
     public function selectHomeTerritories(SelectTerritoriesRequest $request, NationSetupContext $context): JsonResponse {
         if ($context->getUser()->getNationSetupStatus($context->getGame()) != NationSetupStatus::HomeTerritoriesSelection) {
             abort(HttpStatusCode::BadRequest, "User's nation setup status is not " . NationSetupStatus::HomeTerritoriesSelection->name);
@@ -86,21 +47,27 @@ class NationController extends Controller
 
         $newNation->finishSetup(...$request->territory_ids);
 
-        return response()->json();
+        return response()->json(null, HttpStatusCode::NoContent);
     }
 
+    #[Summary('Returns privileged information destined to the nation\'s owner.')]
+    #[Response(NationTurnOwnerInfo::class)]
     public function ownNationInfo(NationContext $context): JsonResponse {
         $nation = $context->getNation();
 
         return response()->json($nation->getDetail()->exportForOwner());
     }
 
+    #[Summary('Returns budget information destined to the nation\'s owner.')]
+    #[Response(BudgetInfo::class)]
     public function budgetInfo(NationContext $context): JsonResponse {
         $nation = $context->getNation();
 
         return response()->json($nation->getDetail()->exportBudget());
     }
 
+    #[Summary('Returns all of last turn\'s battle logs where the current nation was a participant.')]
+    #[Response(ParticipantBattleLog::class)]
     public function lastTurnBattleLogs(NationContext $context): JsonResponse {
         $nation = $context->getNation();
 
@@ -110,6 +77,8 @@ class NationController extends Controller
         );
     }
 
+    #[Summary('Return public information on a nation.')]
+    #[Response(NationTurnPublicInfo::class)]
     public function info(PublicGameContext $context, int $nationId): JsonResponse {
         $nationOrNull = $context->getGame()->getNationWithIdOrNull($nationId);
         if ($nationOrNull === null) {
