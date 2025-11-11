@@ -12,8 +12,6 @@ class CancelDeploymentsRequest extends FormRequest {
 
     public readonly array $deployment_ids;
 
-    public readonly ?string $testnullable;
-
     public function __construct(
         private readonly NationContext $context
     )
