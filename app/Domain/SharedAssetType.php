@@ -1,6 +1,6 @@
 <?php
 namespace App\Domain;
 
-enum AssetType :int {
+enum SharedAssetType :int {
     case Flag = 0;
 }

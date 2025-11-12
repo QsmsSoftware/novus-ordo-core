@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-use App\Domain\AssetType;
+use App\Domain\SharedAssetType;
 use App\Domain\GenerationData;
 use App\Domain\TerritoryConnectionData;
 use App\Utils\GuardsForAssertions;
@@ -128,13 +128,13 @@ class Game extends Model
             );
     }
 
-    public function sharedAssetsOfType(AssetType $type): HasMany {
+    public function sharedAssetsOfType(SharedAssetType $type): HasMany {
         return $this->hasMany(GameSharedStaticAsset::class)
             ->where('game_id', $this->getId())
             ->where(GameSharedStaticAsset::FIELD_ASSET_TYPE, $type->value);
     }
 
-    public function availableSharedAssetsOfType(AssetType $type): HasMany {
+    public function availableSharedAssetsOfType(SharedAssetType $type): HasMany {
         return $this->sharedAssetsOfType($type)
             ->where(GameSharedStaticAsset::whereAvailable());
     }

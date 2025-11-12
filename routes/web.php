@@ -1,6 +1,5 @@
 <?php
 
-use App\Facades\Metacache;
 use App\Http\Controllers\AssetController;
 use App\Http\Controllers\DeploymentController;
 use App\Http\Controllers\DevController;
@@ -13,8 +12,6 @@ use App\Http\Controllers\UserController;
 use App\Http\Middleware\EnsureGameIsNotUpkeeping;
 use App\Http\Middleware\EnsureWhenRunningInDevelopmentOnly;
 use App\Models\User;
-use App\Services\NationContext;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Route;
 
 // Default index.

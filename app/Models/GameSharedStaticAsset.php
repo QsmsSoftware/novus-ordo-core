@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-use App\Domain\AssetType;
+use App\Domain\SharedAssetType;
 use App\Utils\GuardsForAssertions;
 use App\Utils\MapsArrayToInstance;
 use Carbon\CarbonImmutable;
@@ -33,8 +33,8 @@ class GameSharedStaticAsset extends Model
 
     public const string FIELD_ASSET_TYPE = 'type';
 
-    public function getType(): AssetType {
-        return AssetType::from($this->type);
+    public function getType(): SharedAssetType {
+        return SharedAssetType::from($this->type);
     }
 
     public function getSrc(): string {
@@ -119,7 +119,7 @@ class GameSharedStaticAsset extends Model
         foreach($flagMetas as $meta) {
             $metadata = SharedStaticAssetMetadata::fromArray($meta);
 
-            $sharedAssetOrNull = $game->sharedAssetsOfType(AssetType::Flag)
+            $sharedAssetOrNull = $game->sharedAssetsOfType(SharedAssetType::Flag)
                 ->where('src', $metadata->file)
                 ->first();
 
@@ -127,7 +127,7 @@ class GameSharedStaticAsset extends Model
                 GameSharedStaticAsset::create(
                     game: $game,
                     metadata: $metadata,
-                    type: AssetType::Flag,
+                    type: SharedAssetType::Flag,
                 );
             }
 
@@ -160,7 +160,7 @@ class GameSharedStaticAsset extends Model
     public static function create(
         Game $game,
         SharedStaticAssetMetadata $metadata,
-        AssetType $type,
+        SharedAssetType $type,
     ): GameSharedStaticAsset {
         $asset = new GameSharedStaticAsset();
         $asset->game_id = $game->getId();

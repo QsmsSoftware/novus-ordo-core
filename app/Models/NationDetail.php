@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-use App\Domain\AssetType;
+use App\Domain\SharedAssetType;
 use App\Domain\StatUnit;
 use App\Facades\Metacache;
 use App\ModelTraits\ReplicatesForTurns;
@@ -186,7 +186,7 @@ class NationDetail extends Model
         ?string $formalName = null,
         string|GameSharedStaticAsset|null $flagSrcOrAsset = null,
     ) :NationDetail {
-        if ($flagSrcOrAsset instanceof GameSharedStaticAsset && !$flagSrcOrAsset->getType() == AssetType::Flag) {
+        if ($flagSrcOrAsset instanceof GameSharedStaticAsset && !$flagSrcOrAsset->getType() == SharedAssetType::Flag) {
             throw new InvalidArgumentException("flagSrcOrAsset: expecting Flag asset, got " . $flagSrcOrAsset->getType());
         }
 

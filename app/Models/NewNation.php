@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-use App\Domain\AssetType;
+use App\Domain\SharedAssetType;
 use App\Domain\NationSetupStatus;
 use App\Facades\Metacache;
 use App\Utils\GuardsForAssertions;
@@ -79,7 +79,7 @@ class NewNation extends Model
 
             $nation->nation_setup_status = NationSetupStatus::FinishedSetup;
 
-            $flag = $nation->getGame()->availableSharedAssetsOfType(AssetType::Flag)
+            $flag = $nation->getGame()->availableSharedAssetsOfType(SharedAssetType::Flag)
                 ->inRandomOrder()->first();
 
             NationDetail::create($nation, "Empire of {$nation->getInternalName()}", $flag);

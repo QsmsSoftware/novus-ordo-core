@@ -140,6 +140,7 @@ class JavascriptClientServicesGenerator {
         /**
          * @typedef {number} Int
          * @typedef {number} Float
+         * @typedef {string} CarbonImmutable
          */
         class $clientServiceClassName {
             #_baseUri;
@@ -180,12 +181,14 @@ class JavascriptClientServicesGenerator {
         if (!is_null($controllerMethod)) {
             $queryParams = collect($controllerMethod->getAttributes(QueryParameter::class))
                 ->map(fn (ReflectionAttribute $a) => $a->newInstance())
-                ->map(fn (QueryParameter $p) => "@param " . JavascriptClientServicesGenerator::mapPhpTypeStringToJsDoc($p->type) . " {$p->name} - {$p->description}")
+                ->map(fn (QueryParameter $p) => "  {$p->name}: " . JavascriptClientServicesGenerator::mapPhpTypeStringToTs($p->type) . ", // {$p->description}")
                 ->all();
             if (count($queryParams) > 0) {
                 $documentationLines[] = "";
                 $documentationLines[] = "Query Parameters:";
+                $documentationLines[] = "@param {{";
                 $documentationLines = array_merge($documentationLines, $queryParams);
+                $documentationLines[] = "}} data - Query Parameters";
                 $documentationLines[] = "";
             }
         
@@ -294,9 +297,9 @@ class JavascriptClientServicesGenerator {
             'float'   => 'Float',
             'string'  => 'string',
             'bool'    => 'boolean',
-            'array'   => 'Array<any>',
+            'array'   => 'any[]',
             'object'  => 'Object',
-            'mixed'   => '*',
+            'mixed'   => 'any',
         ];
 
         return ($isNullable ? "?" : "") . ($map[$typeAsString] ?? $typeAsString);
@@ -377,7 +380,7 @@ class JavascriptClientServicesGenerator {
 
                 $documentationLines[] = "  {$p->getName()}: " . JavascriptClientServicesGenerator::mapPhpTypeToTs($p->getType()) . ",";
         });
-        $documentationLines[] = "}} body - POST body data";
+        $documentationLines[] = "}} data - POST body data";
 
         return $documentationLines;
     }
