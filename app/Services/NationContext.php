@@ -4,14 +4,14 @@ namespace App\Services;
 use App\Models\Game;
 use App\Models\Nation;
 use App\Models\Turn;
-use App\Models\User;
+use App\Utils\Annotations\Context;
 use App\Utils\HttpStatusCode;
 use Illuminate\Support\Facades\Auth;
 
+#[Context('An authenticated user with a nation.')]
 class NationContext {
     private readonly Game $game;
     private readonly Turn $currenTurn;
-    //private readonly User $user;
     private readonly Nation $nation;
     public function __construct()
     {

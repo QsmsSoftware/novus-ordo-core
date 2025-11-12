@@ -2,9 +2,11 @@
 namespace App\Services;
 
 use App\Models\User;
+use App\Utils\Annotations\Context;
 use App\Utils\HttpStatusCode;
 use Illuminate\Support\Facades\Auth;
 
+#[Context('An authenticated user.')]
 class LoggedUserContext {
     private readonly User $user;
     public function __construct()

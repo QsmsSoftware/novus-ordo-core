@@ -1,6 +1,7 @@
 <?php
 namespace App\Services;
 
+use App\Utils\Annotations\Context;
 use App\Utils\Annotations\Payload;
 use App\Utils\Annotations\QueryParameter;
 use App\Utils\Annotations\Response;
@@ -19,6 +20,8 @@ use ReflectionEnumBackedCase;
 use ReflectionMethod;
 use ReflectionParameter;
 use ReflectionProperty;
+use ReflectionType;
+use ReflectionUnionType;
 
 class JavascriptClientServicesGenerator {
     public function generateClientEnum(string $enumClassName, bool $caseNamesAsValues = false) {
@@ -95,11 +98,13 @@ class JavascriptClientServicesGenerator {
                 $paramList = join(", ", [...$uriParamList, "data = {}"]);
                 $documentationLines = array_merge(
                     JavascriptClientServicesGenerator::getDocumentationForSummary($controllerMethod),
+                    ["", "@route $routeSignature", "@async"],
+                    JavascriptClientServicesGenerator::getDocumentationForContext($controllerMethod),
                     JavascriptClientServicesGenerator::getDocumentationForRouteParameters($uriParamList, $controllerMethod, $routeSignature),
-                    JavascriptClientServicesGenerator::getDocumentationForQueryParamsResponseAndSchema($controllerMethod),
+                    JavascriptClientServicesGenerator::getDocumentationForQueryParamsResponseAndSchema($controllerMethod, $routeSignature),
                 );
                 
-                $documentation = empty($documentationLines) ? "" : PHP_EOL . join(PHP_EOL, $documentationLines);
+                $documentation = empty($documentationLines) ? "" : PHP_EOL . collect($documentationLines)->map(fn (string $l) => "     * " . $l)->join(PHP_EOL);
                 
                 $escapedUri = htmlentities(preg_replace("/\\{([^{}]+)\\}/", "\${\\1}", $route->uri()));
 
@@ -120,7 +125,8 @@ class JavascriptClientServicesGenerator {
                 };
 
                 $routeFunctions[] = <<<HEREDOC
-                    // $routeSignature$documentation
+                    /**$documentation
+                     */
                     $normalizedMethodName($paramList) {
                     $ajaxCallCode
                     }
@@ -131,6 +137,10 @@ class JavascriptClientServicesGenerator {
         $routeFunctionsCode = join(PHP_EOL, $routeFunctions);
 
         $serviceClassCode = <<<HEREDOC
+        /**
+         * @typedef {number} Int
+         * @typedef {number} Float
+         */
         class $clientServiceClassName {
             #_baseUri;
             #_csrfToken;
@@ -147,28 +157,49 @@ class JavascriptClientServicesGenerator {
         return $serviceClassCode;
     }
 
-    private static function getDocumentationForQueryParamsResponseAndSchema(ReflectionMethod $controllerMethod): array {
+    private static function getDocumentationForContext(?ReflectionMethod $controllerMethod): array {
+        $documentationLines = [];
+        if (!is_null($controllerMethod)) {
+            $contextParameterOrNull = array_find($controllerMethod->getParameters(), fn (ReflectionParameter $p) => class_exists(strval($p->getType())) && (new ReflectionClass(strval($p->getType())))->getAttributes(Context::class) > 0);
+            if (!is_null($contextParameterOrNull)) {
+                $contextClass = new ReflectionClass(strval($contextParameterOrNull->getType()));
+                $contextOrEmpty = $contextClass->getAttributes(Context::class);
+                $contextOrNull = array_pop($contextOrEmpty);
+                if (!is_null($contextOrNull)) {
+                    $context = Context::notNull($contextOrNull->newInstance());
+                    $documentationLines[] = "@context {" . JavascriptClientServicesGenerator::getClassBaseName($contextParameterOrNull->getType()) . "} - {$context->description}";
+                }
+            }
+        }
+
+        return $documentationLines;
+    }
+
+    private static function getDocumentationForQueryParamsResponseAndSchema(?ReflectionMethod $controllerMethod, string $routeSignature): array {
         $documentationLines = [];
         if (!is_null($controllerMethod)) {
             $queryParams = collect($controllerMethod->getAttributes(QueryParameter::class))
                 ->map(fn (ReflectionAttribute $a) => $a->newInstance())
-                ->map(fn (QueryParameter $p) => "    //  {$p->name}: {$p->type} {$p->description}")
+                ->map(fn (QueryParameter $p) => "@param " . JavascriptClientServicesGenerator::mapPhpTypeStringToJsDoc($p->type) . " {$p->name} - {$p->description}")
                 ->all();
             if (count($queryParams) > 0) {
-                $documentationLines[] = "    // Query parameters:";
+                $documentationLines[] = "";
+                $documentationLines[] = "Query Parameters:";
                 $documentationLines = array_merge($documentationLines, $queryParams);
+                $documentationLines[] = "";
             }
         
             $payloadOrEmpty = $controllerMethod->getAttributes(Payload::class);
             $payloadOrNull = array_pop($payloadOrEmpty);
             if (!is_null($payloadOrNull)) {
                 $payload = Payload::notNull($payloadOrNull->newInstance());
-                $documentationLines[] = "    // Post data:";
+                $documentationLines[] = "";
+                $documentationLines[] = "POST Body:";
                 if (class_exists($payload->classNameOrDescription)) {
-                    $documentationLines = array_merge($documentationLines, JavascriptClientServicesGenerator::describeSchemaAsJsObject(new ReflectionClass($payload->classNameOrDescription)));
+                    $documentationLines = array_merge($documentationLines, JavascriptClientServicesGenerator::describePostDataAsJsDocParams(new ReflectionClass($payload->classNameOrDescription)));
                 }
                 else {
-                    $documentationLines[] = "    //    {$payload->classNameOrDescription}";
+                    $documentationLines[] = "@param {object} - {$payload->classNameOrDescription}";
                 }
             }
         
@@ -179,7 +210,7 @@ class JavascriptClientServicesGenerator {
                     if (class_exists($e->type)) {
                         $schemas[$e->type] = $e->type;
                     }
-                    return "    //    {$e->member}: " . JavascriptClientServicesGenerator::getClassBaseName($e->type) . ", // {$e->description}";
+                    return "  {$e->member}: " . JavascriptClientServicesGenerator::mapPhpTypeStringToTs($e->type) . ", // {$e->description}";
                 });
             $responseElements = $responseElements->merge(collect($controllerMethod->getAttributes(ResponseCollection::class))
                 ->map(fn (ReflectionAttribute $a) => $a->newInstance())
@@ -187,33 +218,37 @@ class JavascriptClientServicesGenerator {
                     if (class_exists($c->type)) {
                         $schemas[$c->type] = $c->type;
                     }
-                    return "    //    {$c->member}: " . JavascriptClientServicesGenerator::getClassBaseName($c->type) . "[], // {$c->description}";
+                    return "  {$c->member}: " . JavascriptClientServicesGenerator::mapPhpTypeStringToTs($c->type) . "[], // {$c->description}";
                 })
             );
             if (count($responseElements) > 0) {
-                $documentationLines[] = "    // Response:";
-                $documentationLines[] = "    //  {";
+                $documentationLines[] = "@returns {Promise<{";
                 $documentationLines = array_merge($documentationLines, $responseElements->all());
-                $documentationLines[] = "    //  }";
+                $documentationLines[] = "}>}";
             }
             if (count($schemas) > 0) {
-                $documentationLines[] = "    // Schemas:";
+                $documentationLines[] = "";
                 collect($schemas)
                     ->each(function (string $schema) use (&$documentationLines) {
-                        $documentationLines = array_merge($documentationLines, JavascriptClientServicesGenerator::describeSchemaAsTsClass(new ReflectionClass($schema)));
+                        $documentationLines = array_merge($documentationLines, JavascriptClientServicesGenerator::describeSchemaAsJsDocTypedef(new ReflectionClass($schema)));
                     });
             }
         
             $responseOrEmpty = $controllerMethod->getAttributes(Response::class);
             $responseOrNull = array_pop($responseOrEmpty);
             if (!is_null($responseOrNull)) {
-                $documentationLines[] = "    // Response:";
                 $response = Response::notNull($responseOrNull->newInstance());
+                if (count($responseElements) > 0) {
+                    throw new LogicException("A Response '{$response->classNameOrDescription}' has been documented for route [$routeSignature] there was also ResponseElement or ResponseCollection specified. These attributes are exclusive.");
+                }
+                $documentationLines[] = "";
                 if (class_exists($response->classNameOrDescription)) {
-                    $documentationLines = array_merge($documentationLines, JavascriptClientServicesGenerator::describeSchemaAsTsClass(new ReflectionClass($response->classNameOrDescription)));
+                    $documentationLines[] = "@returns {Promise<" . JavascriptClientServicesGenerator::getClassBaseName($response->classNameOrDescription) . ">}";
+                    $documentationLines[] = "";
+                    $documentationLines = array_merge($documentationLines, JavascriptClientServicesGenerator::describeSchemaAsJsDocTypedef(new ReflectionClass($response->classNameOrDescription)));
                 }
                 else {
-                    $documentationLines[] = "    //  {$response->classNameOrDescription}";
+                    $documentationLines[] = "@returns {Promise} - {$response->classNameOrDescription}";
                 }
             }
         }
@@ -221,14 +256,14 @@ class JavascriptClientServicesGenerator {
         return $documentationLines;
     }
 
-    private static function getDocumentationForSummary(ReflectionMethod $controllerMethod): array {
+    private static function getDocumentationForSummary(?ReflectionMethod $controllerMethod): array {
         $documentationLines = [];
         if (!is_null($controllerMethod)) {
             $summaryOrEmpty = $controllerMethod->getAttributes(Summary::class);
             $summaryOrNull = array_pop($summaryOrEmpty);
             if (!is_null($summaryOrNull)) {
                 $summary = Summary::notNull($summaryOrNull->newInstance());
-                $documentationLines[] = "    // {$summary->value}";
+                $documentationLines[] = $summary->value;
             }
         }
 
@@ -239,14 +274,55 @@ class JavascriptClientServicesGenerator {
         return "$method {$route->uri()} ({$route->getName()})";
     }
 
-    private static function getDocumentationForRouteParameters(array $routeParamList, ReflectionMethod $controllerMethod, string $routeSignature): array {
+    private static function mapPhpTypeStringToJsDoc(string $typeAsString):string {
+        return "{" . JavascriptClientServicesGenerator::mapPhpTypeStringToTs($typeAsString) . "}";
+    }
+
+    private static function mapPhpTypeStringToTs(string $typeAsString):string {
+        $isNullable = substr($typeAsString, 0, 1) === "?";
+
+        if ($isNullable) {
+            $typeAsString = substr($typeAsString, 1);
+        }
+
+        if (class_exists($typeAsString)) {
+            return ($isNullable ? "?" : "") . JavascriptClientServicesGenerator::getClassBaseName($typeAsString);
+        }
+
+        $map = [
+            'int'     => 'Int',
+            'float'   => 'Float',
+            'string'  => 'string',
+            'bool'    => 'boolean',
+            'array'   => 'Array<any>',
+            'object'  => 'Object',
+            'mixed'   => '*',
+        ];
+
+        return ($isNullable ? "?" : "") . ($map[$typeAsString] ?? $typeAsString);
+    }
+
+    private static function mapPhpTypeToJsDoc(ReflectionType $type): string {
+        $typeAsString = strval($type);
+
+        return JavascriptClientServicesGenerator::mapPhpTypeStringToJsDoc($typeAsString);
+    }
+
+    private static function mapPhpTypeToTs(ReflectionType $type): string {
+        $typeAsString = strval($type);
+        
+        return JavascriptClientServicesGenerator::mapPhpTypeStringToTs($typeAsString);
+    }
+
+    private static function getDocumentationForRouteParameters(array $routeParamList, ?ReflectionMethod $controllerMethod, string $routeSignature): array {
         $documentationLines = [];
         if (count($routeParamList) > 0) {
-            $documentationLines[] = "    // Route parameters:";
+            $documentationLines[] = "";
+            $documentationLines[] = "URI Parameters:";
             if (!is_null($controllerMethod)) {
                 $paramTypes = collect($controllerMethod->getParameters())
                     ->mapWithKeys(fn (ReflectionParameter $p) => [$p->getName() => $p->getType()]);
-                $documentedParams = collect($controllerMethod->getAttributes(RouteParameter::class))
+                $documentedParamDescriptions = collect($controllerMethod->getAttributes(RouteParameter::class))
                     ->map(fn (ReflectionAttribute $a) => $a->newInstance())
                     ->mapWithKeys(function (RouteParameter $p) use ($paramTypes, $controllerMethod, $routeSignature) {
                         if (!$paramTypes->has($p->name)) {
@@ -255,13 +331,13 @@ class JavascriptClientServicesGenerator {
                         return [$p->name => $p->description];
                     });
                 $documentationLines = array_merge($documentationLines, collect($routeParamList)
-                    ->map(fn (string $p) => "    //  $p: " . ($paramTypes->get($p, 'type_unknown')->getName() . ($documentedParams->has($p) ? " {$documentedParams->get($p)}" : "")))
+                    ->map(fn (string $p) => "@param " . JavascriptClientServicesGenerator::mapPhpTypeToJsDoc($paramTypes->get($p, 'type_unknown')) . " $p " . ($documentedParamDescriptions->has($p) ? " - {$documentedParamDescriptions->get($p)}" : ""))
                     ->all()
                 );
             }
             else {
                 $documentationLines = array_merge(collect($routeParamList)
-                    ->map(fn (string $p) => "    //  $p: type_unknown")
+                    ->map(fn (string $p) => "@param {Unknown} $p")
                     ->all()
                 );
             }
@@ -275,34 +351,33 @@ class JavascriptClientServicesGenerator {
         return end($parts);
     }
 
-    private static function describeSchemaAsTsClass(ReflectionClass $class): array {
+    private static function describeSchemaAsJsDocTypedef(ReflectionClass $class): array {
         $documentationLines = [];
-        $documentationLines[] = "    //  class " . $class->getShortName() . " {";
+        $documentationLines[] = "@typedef {Object} " . $class->getShortName();
         collect(Reflection::getPublicProperties($class->getName()))
             ->each(function (ReflectionProperty $p) use (&$documentationLines, $class) {
                 if ($p->getDeclaringClass()->getName() != $class->getName()) {
                     return;
                 }
 
-                $documentationLines[] = "    //    {$p->getName()}" . ($p->getType()->allowsNull() ? "?" : "") . ": {$p->getType()->getName()};";
+                $documentationLines[] = "@property " . JavascriptClientServicesGenerator::mapPhpTypeToJsDoc($p->getType()) . " {$p->getName()}";
         });
-        $documentationLines[] = "    //  }";
 
         return $documentationLines;
     }
 
-    private static function describeSchemaAsJsObject(ReflectionClass $class): array {
+    private static function describePostDataAsJsDocParams(ReflectionClass $class): array {
         $documentationLines = [];
-        $documentationLines[] = "    //  {";
+        $documentationLines[] = "@param {{";
         collect(Reflection::getPublicProperties($class->getName()))
             ->each(function (ReflectionProperty $p) use (&$documentationLines, $class) {
                 if ($p->getDeclaringClass()->getName() != $class->getName()) {
                     return;
                 }
-                
-                $documentationLines[] = "    //    {$p->getName()}: " . ($p->getType()->allowsNull() ? "?" : "") . "{$p->getType()->getName()},";
+
+                $documentationLines[] = "  {$p->getName()}: " . JavascriptClientServicesGenerator::mapPhpTypeToTs($p->getType()) . ",";
         });
-        $documentationLines[] = "    //  }";
+        $documentationLines[] = "}} body - POST body data";
 
         return $documentationLines;
     }

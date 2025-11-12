@@ -3,9 +3,11 @@ namespace App\Services;
 
 use App\Models\Game;
 use App\Models\User;
+use App\Utils\Annotations\Context;
 use App\Utils\HttpStatusCode;
 use Illuminate\Support\Facades\Auth;
 
+#[Context('An authenticated user that joined a game.')]
 class LoggedInGameContext {
     private readonly Game $game;
     private readonly User $user;

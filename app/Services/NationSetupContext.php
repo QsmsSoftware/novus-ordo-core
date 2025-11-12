@@ -4,9 +4,11 @@ namespace App\Services;
 use App\Models\Game;
 use App\Models\NewNation;
 use App\Models\User;
+use App\Utils\Annotations\Context;
 use App\Utils\HttpStatusCode;
 use Illuminate\Support\Facades\Auth;
 
+#[Context('An authenticated user with a nation to set up.')]
 class NationSetupContext {
     private readonly User $user;
     private readonly Game $game;
