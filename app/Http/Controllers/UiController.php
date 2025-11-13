@@ -204,7 +204,7 @@ class UiController extends Controller
                 'static_js_territories_turn_info' => TerritoryDetail::getAllTerritoriesTurnInfoClientResource($turn),
                 'victory_ranking' => $game->getVictoryProgression()->values(),
                 'budget' => $nation->getDetail()->exportBudget(),
-                'budget_items' => ['production' => new Asset('Production'), 'reserves' => new Asset('Reserves'), 'upkeep' => new Liability('Upkeep'), 'expenses' => new Liability('Expenses'), 'available_production' => new Asset('Available Production')],
+                'budget_items' => ['production' => new Asset('Production'), 'stockpiles' => new Asset('Reserves'), 'upkeep' => new Liability('Upkeep'), 'expenses' => new Liability('Expenses'), 'available_production' => new Asset('Available Production')],
                 'battle_logs' => $nation->getDetail()
                      ->getAllBattlesWhereParticipant()
                      ->map(fn (Battle $b) => $b->exportForParticipant()),

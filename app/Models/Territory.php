@@ -29,6 +29,8 @@ class Territory extends Model
 
     public const int TERRITORY_AREA_KM2 = 80_000;
 
+    public const string FIELD_TERRAIN_TYPE = 'terrain_type';
+
     public function game(): BelongsTo {
         return $this->belongsTo(Game::class);
     }

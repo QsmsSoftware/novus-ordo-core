@@ -2,14 +2,17 @@
 
 namespace App\Models;
 
+use App\Domain\ResourceType;
 use App\Domain\SharedAssetType;
 use App\Domain\StatUnit;
+use App\Domain\TerrainType;
 use App\Facades\Metacache;
 use App\ModelTraits\ReplicatesForTurns;
 use App\ReadModels\BudgetInfo;
 use App\ReadModels\DemographicStat;
 use App\ReadModels\NationTurnOwnerInfo;
 use App\ReadModels\NationTurnPublicInfo;
+use Closure;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -21,23 +24,23 @@ class NationDetail extends Model
 {
     use ReplicatesForTurns;
 
-    public function game() :BelongsTo {
+    public function game(): BelongsTo {
         return $this->belongsTo(Game::class);
     }
 
-    public function getGame() :Game {
+    public function getGame(): Game {
         return $this->game;
     }
 
-    public function nation() :BelongsTo {
+    public function nation(): BelongsTo {
         return $this->belongsTo(Nation::class);
     }
 
-    public function getNation() :Nation {
+    public function getNation(): Nation {
         return $this->nation;
     }
 
-    public function territories() :HasMany {
+    public function territories(): HasMany {
         $nation = $this->getNation();
 
         return $nation->getGame()->territories()
@@ -47,11 +50,11 @@ class NationDetail extends Model
             );
     }
 
-    public function getTerritoryById(int $territoryId) :Territory {
+    public function getTerritoryById(int $territoryId): Territory {
         return $this->territories()->find($territoryId);
     }
 
-    public function activeDivisions() :HasMany {
+    public function activeDivisions(): HasMany {
         return $this->getNation()->divisions()
             ->whereHas('details', fn (Builder $query) => $query
                 ->where('turn_id', $this->turn_id)
@@ -59,27 +62,39 @@ class NationDetail extends Model
             );
     }
 
-    public function getActiveDivisionWithId(int $divisionId) :Division {
+    public function getActiveDivisionWithId(int $divisionId): Division {
         return $this->activeDivisions()->find($divisionId);
     }
 
-    public function battlesWhereAttacker() :HasMany {
+    public function battlesWhereAttacker(): HasMany {
         return $this->getNation()
             ->battlesWhereAttacker()
             ->where('turn_id', $this->turn_id);
     }
 
-    public function battlesWhereDefender() :HasMany {
+    public function battlesWhereDefender(): HasMany {
         return $this->getNation()
             ->battlesWhereDefender()
             ->where('turn_id', $this->turn_id);
     }
 
-    public function getAllBattlesWhereParticipant() :Collection {
+    public function getAllBattlesWhereParticipant(): Collection {
         return $this->battlesWhereAttacker()->get()->concat($this->battlesWhereDefender()->get());
     }
 
-    public function export() :NationTurnPublicInfo {
+    public function stockpiles(): HasMany {
+        return $this
+            ->getNation()
+            ->hasMany(NationResourceStockpile::class)
+            ->where('nation_id', $this->getNation()->getId())
+            ->where('turn_id', $this->getTurn()->getId());
+    }
+
+    public function getStockpiles(): Collection {
+        return $this->stockpiles->mapWithKeys(fn (NationResourceStockpile $stockpile) => [$stockpile->getResourceType()->value => $stockpile]);
+    }
+
+    public function export(): NationTurnPublicInfo {
         return new NationTurnPublicInfo(
             nation_id: $this->getNation()->getId(),
             turn_number: $this->getTurn()->getNumber(),
@@ -106,7 +121,7 @@ class NationDetail extends Model
         return $this->territories()->get()->sum(fn (Territory $t) => $t->getUsableLandKm2());
     }
 
-    public function exportForOwner() :NationTurnOwnerInfo {
+    public function exportForOwner(): NationTurnOwnerInfo {
         return new NationTurnOwnerInfo(
             nation_id: $this->getNation()->getId(),
             turn_number: $this->getTurn()->getNumber(),
@@ -115,14 +130,14 @@ class NationDetail extends Model
         );
     }
 
-    public function deployments() :HasMany {
+    public function deployments(): HasMany {
         $turn = $this->getTurn();
 
         return $this->getNation()->deployments()
             ->where('turn_id', $turn->getId());
     }
 
-    public function deploymentsInTerritory(Territory $territory) :HasMany {
+    public function deploymentsInTerritory(Territory $territory): HasMany {
         $turn = $this->getTurn();
 
         return $this->getNation()->deployments()
@@ -130,62 +145,160 @@ class NationDetail extends Model
             ->where('territory_id', $territory->getId());
     }
 
-    public function getProduction() :int {
-        return $this->territories()->count();
+    public function getProduction(ResourceType $resourceType): float {
+        $territoryProductionsByTerrainResource = TerrainType::getResourceProduction();
+        $countByTerrain = $this->territories()
+            ->pluck(Territory::FIELD_TERRAIN_TYPE)
+            ->countBy();
+
+        assert($countByTerrain instanceof Collection);
+        
+        return $countByTerrain->reduceWithKeys(fn (float $sum, $count, $terrain) => $sum + $territoryProductionsByTerrainResource[$terrain][$resourceType->value] * $count, 0);
     }
 
-    public function getReserves() :int {
-        return $this->reserves;
+    public function getStockpiledQuantity(ResourceType $resourceType): float {
+        $stockpileOrNull = $this->stockpiles()->where('resource_type', $resourceType->value)->first();
+
+        if (is_null($stockpileOrNull)) {
+            // No reserve, first turn for this nation or newly introduced resource type.
+
+            return 0;
+        }
+
+        return NationResourceStockpile::notNull($stockpileOrNull)->getAvailableQuantity();
     }
 
-    public function getUpkeep() :int {
-        return $this->activeDivisions()
-            ->get()
-            ->sum(fn (Division $d) => $d->getDetail($this->getTurn())->getUpkeep());
+    public function getUpkeep(ResourceType $resourceType): float {
+        return match($resourceType) {
+            ResourceType::Capital => $this->activeDivisions()
+                ->get()
+                ->sum(fn (Division $d) => $d->getDetail($this->getTurn())->getUpkeep()),
+            ResourceType::RecruitmentPool => $this->activeDivisions()->count(),
+            ResourceType::Food => $this->territories()->count(),
+            default => 0,
+        };
     }
 
-    public function getExpenses() :int {
-        return $this->deployments()->count() * Deployment::DIVISION_COST;
+    public function getExpenses(ResourceType $resourceType): float {
+        return match($resourceType) {
+            ResourceType::Capital => $this->deployments()->count() * Deployment::DIVISION_COST,
+            default => 0,
+        };
     }
 
-    public function getAvailableProduction() :int {
-        return max(0, $this->getProduction() + $this->getReserves() - $this->getUpkeep() - $this->getExpenses());
+    public function getAvailableProduction(ResourceType $resourceType): float {
+        return max(0, $this->getStockpiledQuantity($resourceType) + $this->getBalance($resourceType));
     }
 
     public function getMaxSustainableUpkeepRemaining() {
-        return max(0, $this->getProduction() - $this->getUpkeep());
+        return max(0, $this->getProduction(ResourceType::Capital) - $this->getUpkeep(ResourceType::Capital));
     }
 
-    public function getMaxRemainingDeployments() :int {
+    public function getBalance(ResourceType $resourceType): float {
+        return $this->getProduction($resourceType) - $this->getUpkeep($resourceType) - $this->getExpenses($resourceType);
+    }
+
+    public function getMaxRemainingDeployments(): int {
         return min(
-            floor($this->getAvailableProduction() / Deployment::DIVISION_COST),
+            floor($this->getAvailableProduction(ResourceType::Capital) / Deployment::DIVISION_COST),
             floor($this->getMaxSustainableUpkeepRemaining() / DivisionDetail::UPKEEP_PER_DIVISION) - $this->deployments()->count()
         );
     }
 
-    public function exportBudget() :BudgetInfo {
+    public function exportAvailableProduction(): array {
+        $stockpiles = [];
+        foreach (ResourceType::cases() as $resourceType) {
+            $stockpiles[$resourceType->name] = $this->getAvailableProduction($resourceType);
+        }
+
+        return $stockpiles;
+    }
+
+    public function exportExpenses(): array {
+        $stockpiles = [];
+        foreach (ResourceType::cases() as $resourceType) {
+            $stockpiles[$resourceType->name] = $this->getExpenses($resourceType);
+        }
+
+        return $stockpiles;
+    }
+
+    public function exportUpkeep(): array {
+        $stockpiles = [];
+        foreach (ResourceType::cases() as $resourceType) {
+            $stockpiles[$resourceType->name] = $this->getUpkeep($resourceType);
+        }
+
+        return $stockpiles;
+    }
+
+    public function exportProduction(): array {
+        $stockpiles = [];
+        foreach (ResourceType::cases() as $resourceType) {
+            $stockpiles[$resourceType->name] = $this->getProduction($resourceType);
+        }
+
+        return $stockpiles;
+    }
+
+    public function exportStockpiles(): array {
+        $stockpiles = [];
+        foreach (ResourceType::cases() as $resourceType) {
+            $stockpiles[$resourceType->name] = $this->getStockpiledQuantity($resourceType);
+        }
+
+        return $stockpiles;
+    }
+
+    public function exportBudget(): BudgetInfo {
         return new BudgetInfo(
             nation_id: $this->getNation()->getId(),
             turn_number: $this->getTurn()->getId(),
-            production: $this->getProduction(),
-            reserves: $this->getReserves(),
-            upkeep: $this->getUpkeep(),
-            expenses: $this->getExpenses(),
-            available_production: $this->getAvailableProduction(),
+            production: $this->exportProduction(),
+            stockpiles: $this->exportStockpiles(),
+            upkeep: $this->exportUpkeep(),
+            expenses: $this->exportExpenses(),
+            available_production: $this->exportAvailableProduction(),
             max_remaining_deployments: $this->getMaxRemainingDeployments(),
         );
     }
 
-    public function onNextTurn(NationDetail $current) :void {
-        $this->reserves = $current->getAvailableProduction();
+    public function onNextTurn(NationDetail $current): void {
+        $nation = $this->getNation();
+        $turn = $this->getTurn();
+        $stockpiles = $current->getStockpiles();
+
+        foreach (ResourceType::cases() as $resourceType) {
+            $resourceInfo = ResourceType::getMeta($resourceType);
+
+            if (!$resourceInfo->canBeStocked) {
+                continue;
+            }
+
+            if ($stockpiles->has($resourceType->value)) {
+                $stockpile = $stockpiles->get($resourceType->value);
+                assert($stockpile instanceof NationResourceStockpile);
+                $newStockpile = $stockpile->replicateForTurn($turn);
+                $newStockpile->onNextTurn($current->getBalance($resourceType));
+            }
+            else {
+                $balance = max(0, $current->getBalance($resourceType));
+                $stockpile = NationResourceStockpile::create($nation, $turn, $resourceType, $balance);
+            }
+        }
+
         $this->save();
+    }
+
+    public static function whereUsualNameIgnoreCase(string $usualName): Closure {
+        return fn (Builder $builder) => $builder->whereRaw('LOWER(usual_name) = ?', strtolower($usualName));
     }
 
     public static function create(
         Nation $nation,
         ?string $formalName = null,
         string|GameSharedStaticAsset|null $flagSrcOrAsset = null,
-    ) :NationDetail {
+    ): NationDetail {
         if ($flagSrcOrAsset instanceof GameSharedStaticAsset && !$flagSrcOrAsset->getType() == SharedAssetType::Flag) {
             throw new InvalidArgumentException("flagSrcOrAsset: expecting Flag asset, got " . $flagSrcOrAsset->getType());
         }
@@ -194,7 +307,6 @@ class NationDetail extends Model
         $nation_details->game_id = $nation->getGame()->getId();
         $nation_details->nation_id = $nation->getId();
         $nation_details->turn_id = Turn::getCurrentForGame($nation->getGame())->getId();
-        $nation_details->reserves = 0;
         $nation_details->usual_name = $nation->getInternalName();
         $nation_details->formal_name = is_null($formalName) ? $nation_details->usual_name : $formalName;
         $nation_details->flag_src = match(true) {
@@ -207,6 +319,10 @@ class NationDetail extends Model
         }
 
     	$nation_details->save();
+
+        // foreach(ResourceType::cases() as $resourceType) {
+        //     NationResourceStockpile::create($nation, $resourceType, 0);
+        // }
 
         return $nation_details;
     }

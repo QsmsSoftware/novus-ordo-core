@@ -126,6 +126,11 @@ class NewNation extends Model
         return NewNation::withoutGlobalScopes()
             ->where('game_id', $game->getId())
             ->whereRaw('LOWER(' . Nation::FIELD_USUAL_NAME . ') = ?', strtolower($usualName))
+            ->exists()
+            ||
+            NationDetail::where('game_id', $game->getId())
+            ->where('turn_id', $game->getCurrentTurn()->getId())
+            ->where(NationDetail::whereUsualNameIgnoreCase($usualName))
             ->exists();
     }
 

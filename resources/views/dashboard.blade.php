@@ -396,8 +396,8 @@
                 + budgetItems.keys().toArray().map(key => {
                     let item = budgetItems.get(key);
                     return item.type == "Asset"
-                        ? `<tr><td>${item.description}</td><td><i>${budget[key]}</i></td></tr>`
-                        : `<tr><td>${item.description}</td><td><i style="color: crimson">${budget[key]}</i></td></tr>`;
+                        ? `<tr><td>${item.description}</td><td><i>${budget[key][ResourceType.Capital]}</i></td></tr>`
+                        : `<tr><td>${item.description}</td><td><i style="color: crimson">${budget[key][ResourceType.Capital]}</i></td></tr>`;
                 }).join("")
                 + '</table>'
             );
