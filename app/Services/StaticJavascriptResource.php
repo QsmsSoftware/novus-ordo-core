@@ -4,18 +4,28 @@ namespace App\Services;
 use App\Facades\RuntimeInfo;
 use App\Models\Game;
 use App\Models\Turn;
+use Carbon\CarbonImmutable;
 use Closure;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use RuntimeException;
 
+readonly class PurgeUnreferencedFilesResult {
+    public function __construct(
+        public int $numberOfFilesPurged,
+    ) {}
+}
+
 class StaticJavascriptResource {
+    private const ?int TTL_FOREVER = null;
+    private const int TTL_NON_PERMANENT_SECONDS = 72 * 60 * 60; // 72 hours, enough to keep current turn and previous one in cache.;
+
     private function __construct(
-        public readonly string $staticResourseName,
+        private readonly string $staticResourseName,
         private readonly Closure $codeGenerator,
         private readonly Closure $staticDifferentiators,
+        private readonly bool $permanent,
     )
     {
         
@@ -33,7 +43,8 @@ class StaticJavascriptResource {
         return new StaticJavascriptResource(
             $staticResourseName,
             $codeGenerator,
-            static fn () => [StaticJavascriptResource::hashValue(RuntimeInfo::readGitCommitHashOrNull()??"global")]
+            static fn () => [StaticJavascriptResource::hashValue(RuntimeInfo::readGitCommitHashOrNull()??"global")],
+            true
         );
     }
 
@@ -42,14 +53,16 @@ class StaticJavascriptResource {
             $staticResourseName,
             $codeGenerator,
             static fn () => ["game_{$game->getId()}"],
+            true
         );
     }
 
-    public static function permanentForTurn(string $staticResourseName, Closure $codeGenerator, Turn $turn): StaticJavascriptResource {
+    public static function forTurn(string $staticResourseName, Closure $codeGenerator, Turn $turn): StaticJavascriptResource {
         return new StaticJavascriptResource(
             $staticResourseName,
             $codeGenerator,
             static fn () => ["game_{$turn->getGame()->getId()}", "turn_{$turn->getId()}"],
+            false
         );
     }
 
@@ -89,7 +102,7 @@ class StaticJavascriptResource {
                 throw new RuntimeException("Rendered static Javascript file could not be written properly");
             }
             Cache::delete("static_js_file:$identifier-");
-            Cache::set("static_js_file:$identifier-", $filename);
+            Cache::set("static_js_file:$identifier-", $filename, $this->permanent ? StaticJavascriptResource::TTL_FOREVER : StaticJavascriptResource::TTL_NON_PERMANENT_SECONDS);
         });
 
         if (!$gotLock) {
@@ -114,7 +127,7 @@ class StaticJavascriptResource {
             $filename = public_path("var/static/$identifier-$hash.js");
             if (file_exists($filename)) {
                 // Content was stored in static file but cache entry was missing.
-                Cache::set("static_js_file:$identifier-", $filename);
+                Cache::set("static_js_file:$identifier-", $filename, $this->permanent ? StaticJavascriptResource::TTL_FOREVER : StaticJavascriptResource::TTL_NON_PERMANENT_SECONDS);
             }
             else {
                 $this->cacheAsFile($renderedCode, $filename);
@@ -140,5 +153,30 @@ class StaticJavascriptResource {
         $filename = $this->render();
 
         return '<script src="' . "/var/static/" . basename($filename) . '"></script>';
+    }
+
+    public static function purgeUnreferencedFiles(): PurgeUnreferencedFilesResult {
+        $files = glob(public_path("var/static/*.js"));
+
+        if ($files === false) {
+            throw new RuntimeException("Unable to read directory: " . public_path("var/static/*"));
+        }
+
+        $purgedCount = 0;
+
+        foreach($files as $fullName) {
+            $fileReferenced = DB::table('cache')
+                ->where('key', 'like', config('cache.prefix') . "static_js_file:%")
+                ->where('value', 'like', '%"' . $fullName . '"%')
+                ->where('expiration', '>', CarbonImmutable::now('UTC')->getTimestamp())
+                ->exists();
+            
+            if (!$fileReferenced) {
+                unlink($fullName);
+                $purgedCount++;
+            }
+        }
+
+        return new PurgeUnreferencedFilesResult($purgedCount);
     }
 }

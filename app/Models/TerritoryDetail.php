@@ -92,7 +92,7 @@ class TerritoryDetail extends Model
     }
 
     public static function getAllTerritoriesTurnInfoClientResource(Turn $turn): StaticJavascriptResource {
-        return StaticJavascriptResource::permanentForTurn(
+        return StaticJavascriptResource::forTurn(
             'territories-turn-js',
             fn() => "let allTerritoriesTurnInfo = " . json_encode(TerritoryDetail::exportAllTurnPublicInfo($turn)) . ";",
             $turn

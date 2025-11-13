@@ -320,10 +320,6 @@ class NationDetail extends Model
 
     	$nation_details->save();
 
-        // foreach(ResourceType::cases() as $resourceType) {
-        //     NationResourceStockpile::create($nation, $resourceType, 0);
-        // }
-
         return $nation_details;
     }
 }

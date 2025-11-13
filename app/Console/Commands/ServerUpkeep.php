@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\Game;
+use App\Services\StaticJavascriptResource;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
 
@@ -31,17 +32,26 @@ class ServerUpkeep extends Command
 
         assert($games instanceof Collection);
 
-        $games->each(function (Game $game) {
+        $wasAnExpiredGame = false;
+
+        $games->each(function (Game $game) use (&$wasAnExpiredGame) {
             $turn = $game->getCurrentTurn();
 
             if ($turn->hasExpired()) {
                 echo "Game {$game->getId()}, turn {$turn->getNumber()} has expired, moving to next turn." . PHP_EOL;
                 $newTurn = $game->tryNextTurn($turn);
-                echo "Game {$game->getId()}, is now on turn {$newTurn->getNumber()}." . PHP_EOL;
+                $this->info("Game {$game->getId()}, is now on turn {$newTurn->getNumber()}.");
+                $wasAnExpiredGame = true;
             }
             else {
                 echo "Game {$game->getId()}, turn {$turn->getNumber()} has not expired." . PHP_EOL;
             }
         });
+
+        if (!$wasAnExpiredGame) {
+            echo "Purging unreferenced cached static files." . PHP_EOL;
+            $purgeResult = StaticJavascriptResource::purgeUnreferencedFiles();
+            $this->info("Purge finished, {$purgeResult->numberOfFilesPurged} files removed.");
+        }
     }
 }
