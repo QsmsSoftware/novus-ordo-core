@@ -33,23 +33,23 @@ class ServerUpkeep extends Command
 
         assert($games instanceof Collection);
 
-        $wasAnExpiredGame = false;
+        $thereWasAnExpiredGame = false;
 
-        $games->each(function (Game $game) use (&$wasAnExpiredGame) {
+        $games->each(function (Game $game) use (&$thereWasAnExpiredGame) {
             $turn = $game->getCurrentTurn();
 
             if ($turn->hasExpired()) {
                 echo "Game {$game->getId()}, turn {$turn->getNumber()} has expired, moving to next turn." . PHP_EOL;
                 $newTurn = $game->tryNextTurn($turn);
                 $this->info("Game {$game->getId()}, is now on turn {$newTurn->getNumber()}.");
-                $wasAnExpiredGame = true;
+                $thereWasAnExpiredGame = true;
             }
             else {
                 echo "Game {$game->getId()}, turn {$turn->getNumber()} has not expired." . PHP_EOL;
             }
         });
 
-        if (!$wasAnExpiredGame) {
+        if (!$thereWasAnExpiredGame) {
             echo "Purging expired cache entries and unreferenced cached static files." . PHP_EOL;
             $results = Metacache::purgeExpiredData();
             $this->info("Purge finished, $results.");
