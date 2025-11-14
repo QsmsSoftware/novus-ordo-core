@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use ReflectionFunction;
+use stdClass;
 
 /**
  * Utility class that offers an unified interface to caches systems.
@@ -49,15 +50,18 @@ final class Metacache {
     public static function purgeExpiredData(): string {
         $results = [];
 
-        $expiredEntries = DB::table('cache')
+        $countExpired = DB::table('cache')
+            ->selectRaw('count(*) as count_expired, coalesce(max(expiration), 0) as max_expiration')
             ->where('expiration', '<=', CarbonImmutable::now('UTC')->getTimestamp())
-            ->pluck('key');
+            ->first();
+        
+        assert($countExpired instanceof stdClass);
         
         DB::table('cache')
-            ->whereIn('key', $expiredEntries)
+            ->where('expiration', '<=', $countExpired->max_expiration)
             ->delete();
 
-        $results[] = "{$expiredEntries->count()} expired entries deleted";
+        $results[] = "{$countExpired->count_expired} expired entries deleted";
 
         $purgeResult = StaticJavascriptResource::purgeUnreferencedFiles();
 
