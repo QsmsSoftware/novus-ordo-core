@@ -21,6 +21,19 @@
         .flag {
             outline: 1px solid black;
         }
+        .resource-bar {
+            display: flex;
+            width: 900px;
+        }
+        .resource-box {
+            flex: 1; /* Each column takes up an equal share of space */
+        }
+        .surplus-balance {
+            color: green;
+        }
+        .deficit-balance {
+            color: crimson;
+        }
     </style>
     {!! $static_js_services->renderAsTag() !!}
     {!! $static_js_territories_base_info->renderAsTag() !!}
@@ -52,6 +65,8 @@
         let allBattleLogs = @json($battle_logs);
         var deploymentsById = mapExportedArray(@json($deployments), d => d.deployment_id);
         var divisionsById = mapExportedArray(@json($divisions), d => d.division_id);
+        let resourceByType = mapExportedArray(allResourceTypes, rt => rt.resource_type);
+        let divisionByType = mapExportedArray(allDivisionTypes, dt => dt.division_type);
         var budget = @json($budget);
 
         let ownNation = @json($own_nation);
@@ -401,6 +416,20 @@
                 }).join("")
                 + '</table>'
             );
+
+            $('#resource-bar').html(Object.keys(budget.stockpiles).map(key => {
+                let balance = budget.balances[key];
+                var formattedBalance;
+                if (balance < 0) {
+                    formattedBalance = `<span class="deficit-balance">${balance.toFixed(2)}</span>`;
+                }
+                else {
+                    formattedBalance = `<span class="surplus-balance">+${balance.toFixed(2)}</span>`;
+                }
+                return '<div class="resource-box">'
+                    + `${budget.available_production[key].toFixed(2)} <img src="res/bundled/icons/resource_${key.toLowerCase()}.png" title="${resourceByType.get(key).description}&#10;&#10;Production: ${budget.production[key].toFixed(2)}&#10;Stockpile: ${budget.stockpiles[key].toFixed(2)}&#10;Upkeep: -${budget.upkeep[key].toFixed(2)}&#10;Expenses: -${budget.expenses[key].toFixed(2)}&#10;Available: ${budget.available_production[key].toFixed(2)}" width="32" height="32"> (${formattedBalance})`
+                    + '</div>'
+            }));
         }
 
         function updateVictoryPane() {
@@ -1003,6 +1032,17 @@
             <x-dev-mode />
         </div>
         <span id="main-tabs"></span>
+        <div class="resource-bar" id="resource-bar">
+            <div class="resource-box">
+                capital
+            </div>
+            <div class="resource-box">
+                food
+            </div>
+            <div class="resource-box">
+                etc.
+            </div>
+        </div>
         <x-map-display id="map-display" />
         <div id="main">
             <div id="nation-display">

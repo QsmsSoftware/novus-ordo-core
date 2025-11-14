@@ -182,6 +182,7 @@ class NationDetail extends Model
     public function getExpenses(ResourceType $resourceType): float {
         return match($resourceType) {
             ResourceType::Capital => $this->deployments()->count() * Deployment::DIVISION_COST,
+            ResourceType::RecruitmentPool => $this->deployments()->count(),
             default => 0,
         };
     }
@@ -205,7 +206,16 @@ class NationDetail extends Model
         );
     }
 
-    public function exportAvailableProduction(): array {
+    private function exportBalances(): array {
+        $stockpiles = [];
+        foreach (ResourceType::cases() as $resourceType) {
+            $stockpiles[$resourceType->name] = $this->getBalance($resourceType);
+        }
+
+        return $stockpiles;
+    }
+
+    private function exportAvailableProduction(): array {
         $stockpiles = [];
         foreach (ResourceType::cases() as $resourceType) {
             $stockpiles[$resourceType->name] = $this->getAvailableProduction($resourceType);
@@ -214,7 +224,7 @@ class NationDetail extends Model
         return $stockpiles;
     }
 
-    public function exportExpenses(): array {
+    private function exportExpenses(): array {
         $stockpiles = [];
         foreach (ResourceType::cases() as $resourceType) {
             $stockpiles[$resourceType->name] = $this->getExpenses($resourceType);
@@ -223,7 +233,7 @@ class NationDetail extends Model
         return $stockpiles;
     }
 
-    public function exportUpkeep(): array {
+    private function exportUpkeep(): array {
         $stockpiles = [];
         foreach (ResourceType::cases() as $resourceType) {
             $stockpiles[$resourceType->name] = $this->getUpkeep($resourceType);
@@ -232,7 +242,7 @@ class NationDetail extends Model
         return $stockpiles;
     }
 
-    public function exportProduction(): array {
+    private function exportProduction(): array {
         $stockpiles = [];
         foreach (ResourceType::cases() as $resourceType) {
             $stockpiles[$resourceType->name] = $this->getProduction($resourceType);
@@ -241,7 +251,7 @@ class NationDetail extends Model
         return $stockpiles;
     }
 
-    public function exportStockpiles(): array {
+    private function exportStockpiles(): array {
         $stockpiles = [];
         foreach (ResourceType::cases() as $resourceType) {
             $stockpiles[$resourceType->name] = $this->getStockpiledQuantity($resourceType);
@@ -259,6 +269,7 @@ class NationDetail extends Model
             upkeep: $this->exportUpkeep(),
             expenses: $this->exportExpenses(),
             available_production: $this->exportAvailableProduction(),
+            balances: $this->exportBalances(),
             max_remaining_deployments: $this->getMaxRemainingDeployments(),
         );
     }
