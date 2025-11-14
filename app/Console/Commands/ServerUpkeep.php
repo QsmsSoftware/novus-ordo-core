@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Facades\Metacache;
 use App\Models\Game;
 use App\Services\StaticJavascriptResource;
 use Illuminate\Console\Command;
@@ -49,9 +50,9 @@ class ServerUpkeep extends Command
         });
 
         if (!$wasAnExpiredGame) {
-            echo "Purging unreferenced cached static files." . PHP_EOL;
-            $purgeResult = StaticJavascriptResource::purgeUnreferencedFiles();
-            $this->info("Purge finished, {$purgeResult->numberOfFilesPurged} files removed.");
+            echo "Purging expired cache entries and unreferenced cached static files." . PHP_EOL;
+            $results = Metacache::purgeExpiredData();
+            $this->info("Purge finished, $results.");
         }
     }
 }

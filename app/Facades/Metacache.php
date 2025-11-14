@@ -10,6 +10,7 @@ use App\Models\TerritoryDetail;
 use App\Models\Turn;
 use App\Services\StaticJavascriptResource;
 use App\Utils\Check;
+use Carbon\CarbonImmutable;
 use Closure;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
@@ -43,6 +44,26 @@ final class Metacache {
         DB::table('cache')
             ->where('key', 'like', config('cache.prefix') . "-turn_{$turn->getId()}-%")
             ->delete();
+    }
+
+    public static function purgeExpiredData(): string {
+        $results = [];
+
+        $expiredEntries = DB::table('cache')
+            ->where('expiration', '<=', CarbonImmutable::now('UTC')->getTimestamp())
+            ->pluck('key');
+        
+        DB::table('cache')
+            ->whereIn('key', $expiredEntries)
+            ->delete();
+
+        $results[] = "{$expiredEntries->count()} expired entries deleted";
+
+        $purgeResult = StaticJavascriptResource::purgeUnreferencedFiles();
+
+        $results[] = "{$purgeResult->numberOfFilesPurged} unreferenced cached static files deleted";
+        
+        return join(", ", $results);
     }
 
     private static function deriveKey(array $values): string {
