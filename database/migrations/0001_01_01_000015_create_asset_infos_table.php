@@ -16,11 +16,12 @@ return new class extends Migration
             $table->timestamps();
             $table->text('src')->unique();
             $table->text('original_src');
+            $table->text('source');
             $table->mediumText('title')->nullable();
             $table->mediumText('description')->nullable();
             $table->mediumText('attribution')->nullable();
             $table->mediumText('license')->nullable();
-            $table->mediumText('license_uri')->nullable();
+            $table->text('license_uri')->nullable();
         });
     }
 

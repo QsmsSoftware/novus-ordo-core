@@ -15,6 +15,7 @@ readonly class SharedStaticAssetMetadata {
     public function __construct(
         public string $file,
         public ?string $title,
+        public ?string $source,
         public ?string $description,
         public ?string $attribution,
         public ?string $license,
@@ -90,36 +91,35 @@ class GameSharedStaticAsset extends Model
         return $fileMetas;
     }
 
-    public static function inventory(Game $game): void {
-        $flagMetas = [];
-
-        $metas = GameSharedStaticAsset::readMeta('res/bundled/flags');
-        if (is_array($metas)) {
-            $flagMetas = array_merge($flagMetas, $metas);
+    private static function inventoryAssetType(Game $game, SharedAssetType $sharedAssetType, string $reFileFilter): void {
+        $subDirName = strtolower($sharedAssetType->name) . 's';
+        $metas = [];
+        $dirMetas = GameSharedStaticAsset::readMeta('res/bundled/' . $subDirName);
+        if (is_array($dirMetas)) {
+            $metas = array_merge($metas, $dirMetas);
         }
-        $metas = GameSharedStaticAsset::readMeta('res/local/flags');
+        $dirMetas = GameSharedStaticAsset::readMeta('res/local/' . $subDirName);
         if (is_array($metas)) {
-            $flagMetas = array_merge($flagMetas, $metas);
+            $metas = array_merge($metas, $dirMetas);
         }
 
-        $flagMetas = collect($flagMetas)->mapWithKeys(fn ($m) => [$m['file'] => $m]);
+        $metas = collect($metas)->mapWithKeys(fn ($m) => [$m['file'] => $m]);
 
-        $reFlagImageFormats = '/\.(png|jpg|jpeg|gif)$/';
-        foreach(GameSharedStaticAsset::readDirectory("res/bundled/flags", $reFlagImageFormats) as $meta) {
-            if (!$flagMetas->has($meta['file'])) {
-                $flagMetas->put($meta['file'], $meta);
+        foreach(GameSharedStaticAsset::readDirectory('res/bundled/' . $subDirName, $reFileFilter) as $meta) {
+            if (!$metas->has($meta['file'])) {
+                $metas->put($meta['file'], $meta);
             }
         }
-        foreach(GameSharedStaticAsset::readDirectory("res/local/flags", $reFlagImageFormats) as $meta) {
-            if (!$flagMetas->has($meta['file'])) {
-                $flagMetas->put($meta['file'], $meta);
+        foreach(GameSharedStaticAsset::readDirectory('res/local/flags' . $subDirName, $reFileFilter) as $meta) {
+            if (!$metas->has($meta['file'])) {
+                $metas->put($meta['file'], $meta);
             }
         }
 
-        foreach($flagMetas as $meta) {
+        foreach($metas as $meta) {
             $metadata = SharedStaticAssetMetadata::fromArray($meta);
 
-            $sharedAssetOrNull = $game->sharedAssetsOfType(SharedAssetType::Flag)
+            $sharedAssetOrNull = $game->sharedAssetsOfType($sharedAssetType)
                 ->where('src', $metadata->file)
                 ->first();
 
@@ -127,7 +127,7 @@ class GameSharedStaticAsset extends Model
                 GameSharedStaticAsset::create(
                     game: $game,
                     metadata: $metadata,
-                    type: SharedAssetType::Flag,
+                    type: $sharedAssetType,
                 );
             }
 
@@ -137,6 +137,7 @@ class GameSharedStaticAsset extends Model
                 AssetInfo::create(
                     src: $metadata->file,
                     title: $metadata->title,
+                    source: $metadata->source,
                     description: $metadata->description,
                     attribution: $metadata->attribution,
                     license: $metadata->license,
@@ -148,6 +149,7 @@ class GameSharedStaticAsset extends Model
 
                 $asset->updateAsset(
                     title: $metadata->title,
+                    source: $metadata->source,
                     description: $metadata->description,
                     attribution: $metadata->attribution,
                     license: $metadata->license,
@@ -155,6 +157,75 @@ class GameSharedStaticAsset extends Model
                 );
             }
         }
+    }
+
+    public static function inventory(Game $game): void {
+        GameSharedStaticAsset::inventoryAssetType($game, SharedAssetType::Flag, '/\.(png|jpg|jpeg|gif)$/');
+        GameSharedStaticAsset::inventoryAssetType($game, SharedAssetType::Leader, '/\.(png|jpg|jpeg|gif)$/');
+        // $flagMetas = [];
+
+        // $metas = GameSharedStaticAsset::readMeta('res/bundled/flags');
+        // if (is_array($metas)) {
+        //     $flagMetas = array_merge($flagMetas, $metas);
+        // }
+        // $metas = GameSharedStaticAsset::readMeta('res/local/flags');
+        // if (is_array($metas)) {
+        //     $flagMetas = array_merge($flagMetas, $metas);
+        // }
+
+        // $flagMetas = collect($flagMetas)->mapWithKeys(fn ($m) => [$m['file'] => $m]);
+
+        // $reFlagImageFormats = '/\.(png|jpg|jpeg|gif)$/';
+        // foreach(GameSharedStaticAsset::readDirectory("res/bundled/flags", $reFlagImageFormats) as $meta) {
+        //     if (!$flagMetas->has($meta['file'])) {
+        //         $flagMetas->put($meta['file'], $meta);
+        //     }
+        // }
+        // foreach(GameSharedStaticAsset::readDirectory("res/local/flags", $reFlagImageFormats) as $meta) {
+        //     if (!$flagMetas->has($meta['file'])) {
+        //         $flagMetas->put($meta['file'], $meta);
+        //     }
+        // }
+
+        // foreach($flagMetas as $meta) {
+        //     $metadata = SharedStaticAssetMetadata::fromArray($meta);
+
+        //     $sharedAssetOrNull = $game->sharedAssetsOfType(SharedAssetType::Flag)
+        //         ->where('src', $metadata->file)
+        //         ->first();
+
+        //     if (is_null($sharedAssetOrNull)) {
+        //         GameSharedStaticAsset::create(
+        //             game: $game,
+        //             metadata: $metadata,
+        //             type: SharedAssetType::Flag,
+        //         );
+        //     }
+
+        //     $assetOrNull = AssetInfo::getBySrcOrNull($metadata->file);
+
+        //     if (is_null($assetOrNull)) {
+        //         AssetInfo::create(
+        //             src: $metadata->file,
+        //             title: $metadata->title,
+        //             description: $metadata->description,
+        //             attribution: $metadata->attribution,
+        //             license: $metadata->license,
+        //             license_uri: $metadata->license_uri,
+        //         );
+        //     }
+        //     else {
+        //         $asset = AssetInfo::notNull($assetOrNull);
+
+        //         $asset->updateAsset(
+        //             title: $metadata->title,
+        //             description: $metadata->description,
+        //             attribution: $metadata->attribution,
+        //             license: $metadata->license,
+        //             license_uri: $metadata->license_uri,
+        //         );
+        //     }
+        // }
     }
 
     public static function create(

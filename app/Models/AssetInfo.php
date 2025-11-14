@@ -16,12 +16,14 @@ class AssetInfo extends Model
 
     public function updateAsset(
         ?string $title,
+        ?string $source,
         ?string $description,
         ?string $attribution,
         ?string $license,
         ?string $license_uri,
     ): void {
         $this->title = $title;
+        $this->source = $source;
         $this->description = $description;
         $this->attribution = $attribution;
         $this->license = $license;
@@ -33,6 +35,7 @@ class AssetInfo extends Model
             ->get()
             ->each(fn (AssetInfo $asset) => $asset->updateAsset(
                 title: $this->title,
+                source: $this->source,
                 description: $this->description,
                 attribution: $this->attribution,
                 license: $this->license,
@@ -44,6 +47,7 @@ class AssetInfo extends Model
         return new AssetPublicInfo(
             uri: $this->getSrc(),
             title: $this->title,
+            source: $this->source,
             description: $this->description,
             attribution: $this->attribution,
             license: $this->license,
@@ -56,7 +60,7 @@ class AssetInfo extends Model
     ): AssetInfo {
         $asset = $this->replicate();
         $asset->src = $newSrc;
-        $asset->original_src = $this->src;
+        //$asset->original_src = $this->src;
         $asset->save();
         
         return $asset;
@@ -69,6 +73,7 @@ class AssetInfo extends Model
     public static function create(
         string $src,
         ?string $title,
+        ?string $source,
         ?string $description,
         ?string $attribution,
         ?string $license,
@@ -78,6 +83,7 @@ class AssetInfo extends Model
         $asset->src = $src;
         $asset->original_src = $src;
         $asset->title = $title;
+        $asset->source = $source;
         $asset->description = $description;
         $asset->attribution = $attribution;
         $asset->license = $license;
