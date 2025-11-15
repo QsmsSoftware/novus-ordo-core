@@ -17,7 +17,6 @@ return new class extends Migration
             $table->foreignId('game_id')->constrained('games')->cascadeOnDelete();
             $table->foreignId('nation_id')->constrained('nations')->cascadeOnDelete();
             $table->foreignId('turn_id')->constrained('turns')->cascadeOnDelete();
-            $table->integer('reserves');
             $table->string('usual_name', 100);
             $table->text('formal_name');
             $table->text('flag_src')->nullable();
