@@ -419,16 +419,13 @@
             );
 
             $('#resource-bar').html(Object.keys(budget.stockpiles).map(key => {
-                let balance = budget.balances[key];
-                var formattedBalance;
-                if (balance < 0) {
-                    formattedBalance = `<span class="deficit-balance">${balance.toFixed(2)}</span>`;
-                }
-                else {
-                    formattedBalance = `<span class="surplus-balance">+${balance.toFixed(2)}</span>`;
-                }
+                let resourceTypeInfo = resourceTypeInfoByType.get(key);
+                let balance = resourceTypeInfo.can_be_stocked ? budget.balances[key] : -budget.expenses[key];
+                var formattedBalance = balance < 0
+                        ? `(<span class="deficit-balance">${balance.toFixed(2)}</span>)`
+                        : `(<span class="surplus-balance">+${balance.toFixed(2)}</span>)`;
                 return '<div class="resource-box">'
-                    + `${budget.available_production[key].toFixed(2)} <img src="res/bundled/icons/resource_${key.toLowerCase()}.png" title="${resourceTypeInfoByType.get(key).description}&#10;&#10;Production: ${budget.production[key].toFixed(2)}&#10;Stockpile: ${budget.stockpiles[key].toFixed(2)}&#10;Upkeep: -${budget.upkeep[key].toFixed(2)}&#10;Expenses: -${budget.expenses[key].toFixed(2)}&#10;Available: ${budget.available_production[key].toFixed(2)}" width="32" height="32"> (${formattedBalance})`
+                    + `${budget.available_production[key].toFixed(2)} <img src="res/bundled/icons/resource_${key.toLowerCase()}.png" title="${resourceTypeInfo.description}&#10;&#10;Production: ${budget.production[key].toFixed(2)}&#10;Stockpile: ${budget.stockpiles[key].toFixed(2)}&#10;Upkeep: -${budget.upkeep[key].toFixed(2)}&#10;Expenses: -${budget.expenses[key].toFixed(2)}&#10;Available: ${budget.available_production[key].toFixed(2)}" width="32" height="32"> ${formattedBalance}`
                     + '</div>'
             }));
         }
