@@ -16,7 +16,7 @@ return new class extends Migration
             $table->timestamps();
             $table->text('src')->unique();
             $table->text('original_src');
-            $table->text('source');
+            $table->text('source')->nullable();
             $table->mediumText('title')->nullable();
             $table->mediumText('description')->nullable();
             $table->mediumText('attribution')->nullable();
