@@ -85,7 +85,9 @@ class Nation extends Model
             throw new LogicException("Parameter numberOfDivisions must be at least 1");
         }
 
-        if ($numberOfDivisions > $this->getDetail()->getMaxRemainingDeployments()) {
+
+
+        if ($numberOfDivisions > $this->getDetail()->getMaxRemainingDeployments($type)) {
             throw new LogicException("Parameter numberOfDivisions is greater than max remaining deployments.");
         }
 

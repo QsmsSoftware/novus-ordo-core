@@ -65,8 +65,8 @@
         let allBattleLogs = @json($battle_logs);
         var deploymentsById = mapExportedArray(@json($deployments), d => d.deployment_id);
         var divisionsById = mapExportedArray(@json($divisions), d => d.division_id);
-        let resourceByType = mapExportedArray(allResourceTypes, rt => rt.resource_type);
-        let divisionByType = mapExportedArray(allDivisionTypes, dt => dt.division_type);
+        let resourceTypeInfoByType = mapExportedArray(allResourceTypes, rt => rt.resource_type);
+        let divisionTypeInfoByType = mapExportedArray(allDivisionTypes, dt => dt.division_type);
         var budget = @json($budget);
 
         let ownNation = @json($own_nation);
@@ -95,6 +95,7 @@
             Deployments: 'deployments',
         };
         
+        var selectedDivisionType;
         var pendingDeployments = [];
 
         const StorageKey = {
@@ -286,7 +287,7 @@
                     break;
                 case 'Deployments':
                     $("#deployments-display").show();
-                    startDeploying();
+                    startDeploying(DivisionType.Infantry);
                     break;
                 case null:
                     if (selectedTerritory) {
@@ -427,7 +428,7 @@
                     formattedBalance = `<span class="surplus-balance">+${balance.toFixed(2)}</span>`;
                 }
                 return '<div class="resource-box">'
-                    + `${budget.available_production[key].toFixed(2)} <img src="res/bundled/icons/resource_${key.toLowerCase()}.png" title="${resourceByType.get(key).description}&#10;&#10;Production: ${budget.production[key].toFixed(2)}&#10;Stockpile: ${budget.stockpiles[key].toFixed(2)}&#10;Upkeep: -${budget.upkeep[key].toFixed(2)}&#10;Expenses: -${budget.expenses[key].toFixed(2)}&#10;Available: ${budget.available_production[key].toFixed(2)}" width="32" height="32"> (${formattedBalance})`
+                    + `${budget.available_production[key].toFixed(2)} <img src="res/bundled/icons/resource_${key.toLowerCase()}.png" title="${resourceTypeInfoByType.get(key).description}&#10;&#10;Production: ${budget.production[key].toFixed(2)}&#10;Stockpile: ${budget.stockpiles[key].toFixed(2)}&#10;Upkeep: -${budget.upkeep[key].toFixed(2)}&#10;Expenses: -${budget.expenses[key].toFixed(2)}&#10;Available: ${budget.available_production[key].toFixed(2)}" width="32" height="32"> (${formattedBalance})`
                     + '</div>'
             }));
         }
@@ -489,7 +490,7 @@
             if (deployments.length > 0) {
                 html += '<p>Will be deployed next turn:</p>'
                     + '<p>'
-                    + `<ul>${deployments.map(d => `<li><a href="javascript:void(0)" onclick="selectTerritory(${d.territory_id})">${territoriesById.get(d.territory_id).name}</a> - <a href="javascript:void(0)" onclick="cancelDeployment(${d.deployment_id})">cancel</a></li>`).join("")}</ul>`
+                    + `<ul>${deployments.map(d => `<li>${divisionTypeInfoByType.get(d.division_type).description} on <a href="javascript:void(0)" onclick="selectTerritory(${d.territory_id})">${territoriesById.get(d.territory_id).name}</a> - <a href="javascript:void(0)" onclick="cancelDeployment(${d.deployment_id})">cancel</a></li>`).join("")}</ul>`
                     + '</p>';
             }
             else {
@@ -499,16 +500,31 @@
             return html;
         }
 
+        function getRemainingDeployments(typeToDeploy) {
+            let availableResources = { ...budget.available_production };
+
+            pendingDeployments.forEach(d => {
+                deploymentDivisionType = divisionTypeInfoByType.get(d.divisionType);
+                Object.keys(deploymentDivisionType.deployment_costs).forEach(resource => availableResources[resource] -= deploymentDivisionType.deployment_costs[resource]);
+            });
+
+            divisionType = divisionTypeInfoByType.get(typeToDeploy);
+
+            return Object.keys(divisionType.deployment_costs).reduce((min, resource) => Math.min(Math.floor(availableResources[resource] / divisionType.deployment_costs[resource]), min), Number.MAX_SAFE_INTEGER);
+        }
+
         function updateDeploymentsPane() {
             var html = "";
-            let remainingDeployments = budget.max_remaining_deployments - pendingDeployments.length;
 
-            html += `<p>You can still deploy</a> ${remainingDeployments} divisions this turn.`;
+            html += '<p>You can still deploy (select the type of division you want to deploy):<br><ul>'
+            html += divisionTypeInfoByType.values().map(divisionTypeInfo => `<li>${getRemainingDeployments(divisionTypeInfo.division_type)}x ${renderActionLink(divisionTypeInfo.description, `startDeploying('${divisionTypeInfo.division_type}')`, divisionTypeInfo.division_type == selectedDivisionType)}</li>`).toArray().join("")
+            html += '</ul></p>';
+
 
             if (pendingDeployments.length > 0) {
                 html += '<p>Pending deployments (<a href="javascript:void(0)" onclick="confirmAllPendingDeployment()">confirm all</a> or <a href="javascript:void(0)" onclick="cancelAllPendingDeployment()">cancel all</a>): '
                     + '<p>'
-                    + `<ul>${pendingDeployments.map(tid => `<li><a href="javascript:void(0)" onclick="selectTerritory(${tid})">${territoriesById.get(tid).name}</a> - <a href="javascript:void(0)" onclick="removeDeployment(${tid})">cancel</a></li>`).join("")}</ul>`
+                    + `<ul>${pendingDeployments.map(d => `<li>${divisionTypeInfoByType.get(d.divisionType).description} on <a href="javascript:void(0)" onclick="selectTerritory(${d.territoryId})">${territoriesById.get(d.territoryId).name}</a> - <a href="javascript:void(0)" onclick="removeDeployment(${d.territoryId})">cancel</a></li>`).join("")}</ul>`
                     + '</p>';
             }
 
@@ -678,26 +694,27 @@
             setMapMode(MapMode.Default);
         }
 
-        function startDeploying() {
+        function startDeploying(divisionType) {
+            selectedDivisionType = divisionType;
+            updateDeploymentsPane();
             setMapMode(MapMode.DeployDivisions);
         }
 
         function addDeployment(tid) {
-            if (pendingDeployments.length >= budget.max_remaining_deployments) {
+            if (getRemainingDeployments(selectedDivisionType) < 1) {
                 return;
             }
 
-            pendingDeployments.push(tid);
+            pendingDeployments.push({ divisionType: selectedDivisionType, territoryId: tid });
             updateDeploymentsPane();
             mapDisplay.refresh();
         }
 
         function removeDeployment(tid) {
-            if (pendingDeployments.length < 1) {
-                return;
+            var index = pendingDeployments.findIndex(d => d.territoryId == tid && d.divisionType == selectedDivisionType);
+            if (index === -1) {
+                index = pendingDeployments.findIndex(d => d.territoryId == tid);
             }
-
-            const index = pendingDeployments.indexOf(tid);
             if (index !== -1) {
                 pendingDeployments.splice(index, 1); // Removes 1 element starting from the found index
             }
@@ -710,19 +727,22 @@
                 return;
             }
 
-            $("#deployments-detail").html("<p>Waiting for the server to respond...</p>");
-            let pendingDeploymentsByTerritoryId = Map.groupBy(pendingDeployments, tid => tid);
+            $("#deployments-display").html("<p>Waiting for the server to respond...</p>");
+            let pendingDeploymentsByTerritoryId = Map.groupBy(pendingDeployments, d => d.territoryId);
             pendingDeployments.length = 0;
             
             let callChain = Promise.resolve();
 
-            pendingDeploymentsByTerritoryId.forEach((group, tid) => {
-                callChain = callChain
-                    .then(() => {
-                        return services.deployInTerritory(tid, { division_type: DivisionType.Infantry, number_of_divisions: group.length })
-                            .then(response => response.data.forEach(d => deploymentsById.set(d.deployment_id, d)))
-                            .then(updateTerritoryDeployments);
-                    })
+            pendingDeploymentsByTerritoryId.forEach((deploymentsInTerritory, tid) => {
+                let pendingDeploymentsInTerritoryByDivisionType = Map.groupBy(deploymentsInTerritory, d => d.divisionType);
+                pendingDeploymentsInTerritoryByDivisionType.forEach((group, divisionType) => {
+                    callChain = callChain
+                        .then(() => {
+                            return services.deployInTerritory(tid, { division_type: divisionType, number_of_divisions: group.length })
+                                .then(response => response.data.forEach(d => deploymentsById.set(d.deployment_id, d)))
+                                .then(updateTerritoryDeployments);
+                        });
+                });
             });
 
             callChain
@@ -802,7 +822,7 @@
                     mapDisplay.setLayers([politicalMapLayer, ownNationHighlightMapLayer]);
                     mapDisplay.setTopLayers([(ctx, md) => {
                         currentDeploymentsByTerritoryId = Map.groupBy(deploymentsById.values(), d => d.territory_id);
-                        pendingDeploymentsByTerritoryId = Map.groupBy(pendingDeployments, tid => tid);
+                        pendingDeploymentsByTerritoryId = Map.groupBy(pendingDeployments, d => d.territoryId);
                         deployableTerritoryIds.forEach(tid => {
                             let numberOfCurrent = currentDeploymentsByTerritoryId.has(tid) ? currentDeploymentsByTerritoryId.get(tid).length : 0;
                             let numberOfPending = pendingDeploymentsByTerritoryId.has(tid) ? pendingDeploymentsByTerritoryId.get(tid).length : 0;

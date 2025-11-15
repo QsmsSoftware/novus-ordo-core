@@ -249,7 +249,7 @@ class Territory extends Model
         $territory->terrain_type = $territoryData->terrainType;
         $territory->usable_land_ratio = $territoryData->usableLandRatio;
         $territory->has_sea_access = $territoryData->hasSeaAccess;
-        $territory->name = $territoryData->terrainType->description; //TerrainType::getDescription($territoryData->terrainType);
+        $territory->name = TerrainType::getMeta($territoryData->terrainType)->description;
         $territory->save(); // Generates ID
         $territory->name = $territory->name . " #{$territory->id}";
         $territory->save();

@@ -13,6 +13,5 @@ readonly class BudgetInfo
         public array $expenses,
         public array $available_production,
         public array $balances,
-        public int $max_remaining_deployments,
     ) {}
 }

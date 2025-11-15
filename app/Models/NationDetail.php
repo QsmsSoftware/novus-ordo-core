@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Domain\DivisionType;
 use App\Domain\ResourceType;
 use App\Domain\SharedAssetType;
 use App\Domain\StatUnit;
@@ -191,19 +192,20 @@ class NationDetail extends Model
         return max(0, $this->getStockpiledQuantity($resourceType) + $this->getBalance($resourceType));
     }
 
-    public function getMaxSustainableUpkeepRemaining() {
-        return max(0, $this->getProduction(ResourceType::Capital) - $this->getUpkeep(ResourceType::Capital));
-    }
-
     public function getBalance(ResourceType $resourceType): float {
         return $this->getProduction($resourceType) - $this->getUpkeep($resourceType) - $this->getExpenses($resourceType);
     }
 
-    public function getMaxRemainingDeployments(): int {
-        return min(
-            floor($this->getAvailableProduction(ResourceType::Capital) / Deployment::DIVISION_COST),
-            floor($this->getMaxSustainableUpkeepRemaining() / DivisionDetail::UPKEEP_PER_DIVISION) - $this->deployments()->count()
-        );
+    public function getMaxRemainingDeployments(DivisionType $divisionType): int {
+        $meta = DivisionType::getMeta($divisionType);
+
+        $min = PHP_INT_MAX;
+
+        foreach ($meta->deploymentCosts as $resource => $cost) {
+            $min = min($min, floor($this->getAvailableProduction(ResourceType::from($resource)) / $cost));
+        }
+
+        return $min;
     }
 
     private function exportBalances(): array {
@@ -270,7 +272,6 @@ class NationDetail extends Model
             expenses: $this->exportExpenses(),
             available_production: $this->exportAvailableProduction(),
             balances: $this->exportBalances(),
-            max_remaining_deployments: $this->getMaxRemainingDeployments(),
         );
     }
 

@@ -86,6 +86,7 @@ class Deployment extends Model
     public function export() :DeploymentInfo {
         return new DeploymentInfo(
             deployment_id: $this->getId(),
+            division_type: $this->getDivisionType()->name,
             nation_id: $this->getNation()->getId(),
             territory_id: $this->getTerritory()->getId()
         );
@@ -122,7 +123,7 @@ class Deployment extends Model
         $deployment->nation_id = $nation->getId();
         $deployment->territory_id = $territory->getId();
         $deployment->turn_id = Turn::getCurrentForGame($nation->getGame())->getId();
-        $deployment->division_type = $type;
+        $deployment->division_type = $type->value;
         $deployment->has_been_deployed = false;
         $deployment->save();
 
