@@ -99,7 +99,7 @@ class GameSharedStaticAsset extends Model
             $metas = array_merge($metas, $dirMetas);
         }
         $dirMetas = GameSharedStaticAsset::readMeta('res/local/' . $subDirName);
-        if (is_array($metas)) {
+        if (is_array($dirMetas)) {
             $metas = array_merge($metas, $dirMetas);
         }
 
@@ -110,7 +110,7 @@ class GameSharedStaticAsset extends Model
                 $metas->put($meta['file'], $meta);
             }
         }
-        foreach(GameSharedStaticAsset::readDirectory('res/local/flags' . $subDirName, $reFileFilter) as $meta) {
+        foreach(GameSharedStaticAsset::readDirectory('res/local/' . $subDirName, $reFileFilter) as $meta) {
             if (!$metas->has($meta['file'])) {
                 $metas->put($meta['file'], $meta);
             }
