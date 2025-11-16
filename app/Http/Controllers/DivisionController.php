@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Domain\OrderType;
 use App\Http\Requests\CancelOrdersRequest;
 use App\Http\Requests\SendDisbandOrdersRequest;
 use App\Http\Requests\SendMoveOrdersRequest;
@@ -42,15 +43,29 @@ class DivisionController extends Controller
     #[Payload(SendMoveOrdersRequest::class)]
     #[ResponseCollection('data', DisbandOrderInfo::class, 'List of move/attack orders sent.')]
     public function sendMoveOrders(SendMoveOrdersRequest $request, NationContext $context): JsonResponse {
+        $game = $context->getGame();
         $nation = $context->getNation();
+        $detail = $nation->getDetail();
+
+        $startAttackingTypes = collect($request->getMoveOrders())
+            ->filter(function (SentMoveOrder $mo) use ($detail, $game) {
+                return $detail->isHostileTerritory($game->getTerritoryWithId($mo->destination_territory_id));
+            })
+            ->map(fn (SentMoveOrder $mo) => $detail->getActiveDivisionWithId($mo->division_id))
+            ->filter(fn (Division $d) => !$d->getDetail()->isAttacking())
+            ->map(fn (Division $d) => $d->getDivisionType());
+
+        if (!$nation->getDetail()->canAffordCosts(Order::calculateTotalAttackCostsByResourceType(...$startAttackingTypes))) {
+            abort(HttpStatusCode::UnprocessableContent, "Nation doesn't have enough resources to afford move/attack costs.");
+        }
 
         $sentOrders = [];
 
         foreach($request->getMoveOrders() as $order) {
             assert($order instanceof SentMoveOrder);
-            $division = $nation->getDetail()->getActiveDivisionWithId($order->division_id);
-            $destination = $nation->getGame()->getTerritoryWithId($order->destination_territory_id);
-            $sentOrders[] = $division->sendMoveOrder($destination);
+            $division = $detail->getActiveDivisionWithId($order->division_id);
+            $destination = $game->getTerritoryWithId($order->destination_territory_id);
+            $sentOrders[] = $division->sendMoveAttackOrder($destination);
         };
         
         return response()->json(['data' => array_map(fn (Order $o) => $o->exportForOwner(), $sentOrders)], HttpStatusCode::Created);

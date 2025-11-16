@@ -107,16 +107,14 @@ class DivisionDetail extends Model
         $orderOrNull = $this->getOrderOrNull();
 
         return ($order = $orderOrNull??false)
-            && $order->getType() == OrderType::Move
-            && $this->getNation()->equals($order->getDestinationTerritory()->getDetail()->getOwnerOrNull());
+            && $order->getType() == OrderType::Move;
     }
 
     public function isAttacking(): bool {
         $orderOrNull = $this->getOrderOrNull();
 
         return ($order = $orderOrNull??false)
-            && $order->getType() == OrderType::Move
-            && !$this->getNation()->equals($order->getDestinationTerritory()->getDetail()->getOwnerOrNull());
+            && $order->getType() == OrderType::Attack;
     }
 
     public function exportForOwner(): OwnedDivisionInfo {

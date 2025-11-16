@@ -182,8 +182,9 @@ class NationDetail extends Model
 
     public function getExpenses(ResourceType $resourceType): float {
         $deploymentExpenses = Deployment::getTotalCostsByResourceType($this->getNation(), $this->getTurn());
+        $orderExpenses = Order::getTotalCostsByResourceType($this->getNation(), $this->getTurn());
 
-        return $deploymentExpenses[$resourceType->value];
+        return $deploymentExpenses[$resourceType->value] + $orderExpenses[$resourceType->value];
     }
 
     public function getAvailableProduction(ResourceType $resourceType): float {
@@ -202,6 +203,12 @@ class NationDetail extends Model
         }
 
         return true;
+    }
+
+    public function isHostileTerritory(Territory $territory): bool {
+        return !$this->territories()
+            ->where('id', $territory->getId())
+            ->exists();
     }
 
     private function exportBalances(): array {

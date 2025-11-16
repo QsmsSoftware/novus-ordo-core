@@ -66,11 +66,21 @@ class Division extends Model
         return Order::createDisbandOrder($this);
     }
 
-    public function sendMoveOrder(Territory $destination): Order {
+    public function sendMoveAttackOrder(Territory $destination): Order {
         $detail = $this->getMostRecentDetail();
 
         if (!$detail->isActive()) {
             throw new LogicException("Can't give a move order to inactive division {$this->getId()}");
+        }
+        
+        if (!$this->getDetail()->accessibleTerritories()->pluck('id')->contains($destination->getId())) {
+            throw new LogicException("Division ID {$this->getId()} can't reach territory with ID {$destination->getId()}");
+        }
+
+        $attacking = $this->getNation()->getDetail()->isHostileTerritory($destination);
+
+        if ($attacking && !$this->getDetail()->isAttacking() && !$this->getNation()->getDetail()->canAffordCosts(Order::calculateTotalAttackCostsByResourceType($this->getDivisionType()))) {
+            throw new LogicException("Can't afford the resources for an extra attack by a division of type {$this->getDivisionType()->name}");
         }
 
         $previousOrderOrNull = $detail->getOrderOrNull();
@@ -78,12 +88,8 @@ class Division extends Model
         if ($previousOrderOrNull !== null) {
             $previousOrderOrNull->delete();
         }
-        
-        if (!$this->getDetail()->accessibleTerritories()->pluck('id')->contains($destination->getId())) {
-            throw new LogicException("Division ID {$this->getId()} can't reach territory with ID {$destination->getId()}");
-        }
 
-        return Order::createMoveOrder($this, $destination);
+        return $attacking ? Order::createAttackOrder($this, $destination) : Order::createMoveOrder($this, $destination);
     }
 
     public function cancelOrder(): void {

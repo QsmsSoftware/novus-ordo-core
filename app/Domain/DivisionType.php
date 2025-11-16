@@ -31,6 +31,21 @@ enum DivisionType :int {
         };
     }
 
+    public static function getAttackCostsByType(): array {
+        $costs = [];
+
+        foreach (DivisionType::cases() as $divisionType) {
+            $meta = DivisionType::getMeta($divisionType);
+            foreach (ResourceType::cases() as $resourceType) {
+                $costs[$divisionType->value][$resourceType->value] = isset($meta->attackCosts[$resourceType->value])
+                    ? $meta->attackCosts[$resourceType->value]
+                    : 0;
+            }
+        }
+
+        return $costs;
+    }
+
     public static function getDeploymentCostsByType(): array {
         $costs = [];
 

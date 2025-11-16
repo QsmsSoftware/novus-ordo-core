@@ -34,6 +34,14 @@
         .deficit-balance {
             color: crimson;
         }
+        .resource-icon {
+            width: 32px;
+            height: 32px;
+        }
+        .division-resource-icon {
+            width: 16px;
+            height: 16px;
+        }
     </style>
     {!! $static_js_services->renderAsTag() !!}
     {!! $static_js_territories_base_info->renderAsTag() !!}
@@ -52,7 +60,8 @@
             Default: 0,
             QueryTerritory: 0,
             DeployDivisions: 1,
-            SelectDestinationTerritory: 2,
+            SelectMoveDestinationTerritory: 2,
+            SelectAttackTargetTerritory: 3,
         };
 
         let victoryRanking = @json($victory_ranking);
@@ -426,7 +435,7 @@
                         ? `(<span class="deficit-balance">${balance.toFixed(2)}</span>)`
                         : `(<span class="surplus-balance">+${balance.toFixed(2)}</span>)`;
                 return '<div class="resource-box">'
-                    + `${budget.available_production[key].toFixed(2)} <img src="res/bundled/icons/resource_${key.toLowerCase()}.png" title="${resourceTypeInfo.description}&#10;&#10;Production: ${budget.production[key].toFixed(2)}&#10;Stockpile: ${formattedStockpile}&#10;Upkeep: -${budget.upkeep[key].toFixed(2)}&#10;Expenses: -${budget.expenses[key].toFixed(2)}&#10;Available: ${budget.available_production[key].toFixed(2)}" width="32" height="32"> ${formattedBalance}`
+                    + `${budget.available_production[key].toFixed(2)} <img class="resource-icon" src="res/bundled/icons/resource_${key.toLowerCase()}.png" title="${resourceTypeInfo.description}&#10;&#10;Production: ${budget.production[key].toFixed(2)}&#10;Stockpile: ${formattedStockpile}&#10;Upkeep: -${budget.upkeep[key].toFixed(2)}&#10;Expenses: -${budget.expenses[key].toFixed(2)}&#10;Available: ${budget.available_production[key].toFixed(2)}"> ${formattedBalance}`
                     + '</div>'
             }));
         }
@@ -515,7 +524,7 @@
             var html = "";
 
             html += '<p>You can still deploy (select the type of division you want to deploy):<br><ul>'
-            html += divisionTypeInfoByType.values().map(divisionTypeInfo => `<li>${getRemainingDeployments(divisionTypeInfo.division_type)}x ${renderActionLink(divisionTypeInfo.description, `startDeploying('${divisionTypeInfo.division_type}')`, divisionTypeInfo.division_type == selectedDivisionType)}</li>`).toArray().join("")
+            html += divisionTypeInfoByType.values().map(divisionTypeInfo => `<li>${getRemainingDeployments(divisionTypeInfo.division_type)}x ${renderActionLink(divisionTypeInfo.description, `startDeploying('${divisionTypeInfo.division_type}')`, divisionTypeInfo.division_type == selectedDivisionType)} (${renderResourceCosts(mapExportedObject(divisionTypeInfo.deployment_costs))})</li>`).toArray().join("")
             html += '</ul></p>';
 
 
@@ -553,19 +562,61 @@
             onDivisionSelectionChange();
         }
 
+        function canAffordAttackWithSelectedDivisions() {
+            let costs = calculateResourceAttackConsomption(getAllSelectedDivisionsInTerritory());
+            let costsOfSelectedDivisions = calculateResourceAttackConsomption(getAllSelectedDivisionsInTerritory().filter(d => d.order && d.order.order_type == OrderType.Attack));
+            let netCosts = new Map();
+
+            costs
+                .keys()
+                .forEach(resourceType => netCosts.set(resourceType, costs.get(resourceType) - costsOfSelectedDivisions.get(resourceType)));
+
+            return !netCosts
+                .keys()
+                .some(resourceType => netCosts.get(resourceType) > budget.available_production[resourceType]);
+        }
+
+        function renderResourceCosts(costs) {
+            return costs
+                .keys()
+                .filter(resourceType => costs.get(resourceType) > 0)
+                .map(resourceType => `${costs.get(resourceType)}x <img class="division-resource-icon" src="res/bundled/icons/resource_${resourceType.toLowerCase()}.png" title="${resourceTypeInfoByType.get(resourceType).description}">`)
+                .toArray()
+                .join(" ");
+        }
+
+        function calculateResourceAttackConsomption(divisions) {
+            let costByResourceType = new Map();
+
+            resourceTypeInfoByType.values().forEach(info => {
+                costByResourceType.set(info.resource_type, divisions.map(d => {
+                    let costs = divisionTypeInfoByType.get(d.division_type).attack_costs;
+
+                    return costs[info.resource_type] === undefined ? 0 : costs[info.resource_type];
+                }).reduce((sum, c) => sum + c, 0))
+            });
+
+            return costByResourceType;
+        }
+
         function onDivisionSelectionChange() {
             let numberOfSelectedDivisions = getAllSelectedDivisionsInTerritory().length;
             if (numberOfSelectedDivisions > 0) {
-                $("#send-order-link").html(currentMapMode == MapMode.SelectDestinationTerritory
+                let renderedCosts = renderResourceCosts(calculateResourceAttackConsomption(getAllSelectedDivisionsInTerritory()));
+                let attackLink = canAffordAttackWithSelectedDivisions()
+                    ? `${renderActionLink('attack', 'selectAttackTargetForDivisions()')} ${renderedCosts.length > 0 ? `(${renderedCosts})` : ''}`
+                    : `(too costly to attack: ${renderedCosts})`;
+
+                $("#send-order-link").html([MapMode.SelectMoveDestinationTerritory, MapMode.SelectAttackTargetTerritory].includes(currentMapMode)
                     ? `Select the destination territory to move to attack with the ${numberOfSelectedDivisions} selected divisions or <a href="javascript:void(0)" onclick="cancelSelectDestinationForDivisions()">cancel</a>`
-                    : `With ${numberOfSelectedDivisions} selected divisions: <a href="javascript:void(0)" onclick="selectDestinationForDivisions()">move / attack</a> - <a href="javascript:void(0)" onclick="sendDisbandOrdersToSelectedDivisions()">disband</a>`
+                    : `With ${numberOfSelectedDivisions} selected divisions: <a href="javascript:void(0)" onclick="selectMoveDestinationForDivisions()">move</a> - ${attackLink} - <a href="javascript:void(0)" onclick="sendDisbandOrdersToSelectedDivisions()">disband</a>`
                 );
             }
             else {
                 $("#send-order-link").html("&nbsp;");
             }
 
-            if (currentMapMode == MapMode.SelectDestinationTerritory) {
+            if ([MapMode.SelectMoveDestinationTerritory, MapMode.SelectAttackTargetTerritory].includes(currentMapMode)) {
                 $("#select-divisions-links").html("");
             }
             else {
@@ -574,11 +625,11 @@
         }
 
         function describeOrder(order) {
-            if (order.order_type == OrderType.Move) {
+            if (order.order_type == OrderType.Move || order.order_type == OrderType.Attack) {
                 let destination = territoriesById.get(order.destination_territory_id);
                 let destinationLink = renderActionLink(`${destination.name} (${destination.owner_nation_id ? nationsById.get(destination.owner_nation_id).usual_name : "neutral"})`, `selectTerritory(${destination.territory_id})`);
 
-                if (destination.owner_nation_id == ownNation.nation_id) {
+                if (order.order_type == OrderType.Move) {
                     return `moving to ${destinationLink}`;
                 }
                 else {
@@ -593,9 +644,15 @@
             }
         }
 
-        function selectDestinationForDivisions() {
+        function selectAttackTargetForDivisions() {
             [...document.getElementById('territory-division-list').getElementsByTagName("input")].forEach(cb => cb.disabled = true);
-            setMapMode(MapMode.SelectDestinationTerritory);
+            setMapMode(MapMode.SelectAttackTargetTerritory);
+            onDivisionSelectionChange();
+        }
+
+        function selectMoveDestinationForDivisions() {
+            [...document.getElementById('territory-division-list').getElementsByTagName("input")].forEach(cb => cb.disabled = true);
+            setMapMode(MapMode.SelectMoveDestinationTerritory);
             onDivisionSelectionChange();
         }
 
@@ -625,6 +682,7 @@
             let selectedDivisions = getAllSelectedDivisionsInTerritory();
             services.sendMoveOrders({orders: selectedDivisions.map(d => ({ division_id: d.division_id, destination_territory_id: tid }))})
                 .then(response => patchOrders(response.data))
+                .then(refreshBudget)
                 .catch(error => {
                     $("#error_messages").html(`<li style="color: crimson">${JSON.stringify(error.responseJSON)}}</li>`);
                 });
@@ -634,7 +692,7 @@
             if (!readyStatus.is_game_ready) {
                 return;
             }
-            if (currentMapMode == MapMode.SelectDestinationTerritory) {
+            if ([MapMode.SelectMoveDestinationTerritory, MapMode.SelectAttackTargetTerritory].includes(currentMapMode)) {
                 return;
             }
             services.cancelOrders({
@@ -644,6 +702,7 @@
                 divisionsById.get(did).order = null;
                 updateDivisionsPane();
             })
+            .then(refreshBudget)
             .catch(error => {
                 $("#error_messages").html(`<li style="color: crimson">${JSON.stringify(error.responseJSON)}}</li>`);
             });
@@ -825,14 +884,16 @@
                         });
                     }]);
                     break;
-                case MapMode.SelectDestinationTerritory:
+                case MapMode.SelectMoveDestinationTerritory: {
                     let origin = selectedTerritory;
                     let legalDestinations = territoriesById.values()
                         .filter(t => t.terrain_type != TerrainType.Water && t.territory_id != origin.territory_id)
                         .filter(t =>
                             t.connected_territory_ids.includes(origin.territory_id)
                             || t.has_sea_access && origin.has_sea_access
-                        ).toArray();
+                        )
+                        .filter(t => t.owner_nation_id == ownNation.nation_id)
+                        .toArray();
                     territoriesById.values().forEach(t => mapDisplay.setClickable(t.territory_id, legalDestinations.some(dest => dest.territory_id == t.territory_id)));
                     mapDisplay.onClick = sendMoveOrderToSelectedDivisions;
                     mapDisplay.onContextMenu = undefined;
@@ -842,6 +903,27 @@
                     }]);
                     mapDisplay.setTopLayers([]);
                     break;
+                }
+                case MapMode.SelectAttackTargetTerritory: {
+                    let origin = selectedTerritory;
+                    let legalDestinations = territoriesById.values()
+                        .filter(t => t.terrain_type != TerrainType.Water && t.territory_id != origin.territory_id)
+                        .filter(t =>
+                            t.connected_territory_ids.includes(origin.territory_id)
+                            || t.has_sea_access && origin.has_sea_access
+                        )
+                        .filter(t => t.owner_nation_id != ownNation.nation_id)
+                        .toArray();
+                    territoriesById.values().forEach(t => mapDisplay.setClickable(t.territory_id, legalDestinations.some(dest => dest.territory_id == t.territory_id)));
+                    mapDisplay.onClick = sendMoveOrderToSelectedDivisions;
+                    mapDisplay.onContextMenu = undefined;
+                    mapDisplay.setLayers([politicalMapLayer, (ctx, md) => {
+                        legalDestinations
+                            .forEach(t => t.owner_nation_id == ownNation.nation_id ? md.fillTerritory(t, "black") : md.fillTerritory(t, "red"));
+                    }]);
+                    mapDisplay.setTopLayers([]);
+                    break;
+                }
                 default:
                     throw new Error("Unreacheable.");
             }
