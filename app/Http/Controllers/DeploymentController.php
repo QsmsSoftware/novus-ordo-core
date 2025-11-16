@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Domain\DeploymentCommand;
 use App\Domain\DivisionType;
 use App\Http\Requests\CancelDeploymentsRequest;
-use App\Http\Requests\DeployInTerritoryRequest;
 use App\Http\Requests\DeployRequest;
 use App\Http\Requests\SentDeploymentOrder;
 use App\Models\Deployment;
@@ -13,12 +12,9 @@ use App\Models\Territory;
 use App\ReadModels\DeploymentInfo;
 use App\Services\NationContext;
 use App\Utils\Annotations\Payload;
-use App\Utils\Annotations\Response;
 use App\Utils\Annotations\ResponseCollection;
 use App\Utils\Annotations\Summary;
 use App\Utils\HttpStatusCode;
-use App\Utils\MapsValidatedDataToFormRequest;
-use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\JsonResponse;
 
 class DeploymentController extends Controller
