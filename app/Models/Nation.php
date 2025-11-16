@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Domain\DeploymentCommand;
 use App\Domain\DivisionType;
 use App\Domain\NationSetupStatus;
+use App\Domain\ResourceType;
 use App\Utils\GuardsForAssertions;
 use Closure;
 use Illuminate\Database\Eloquent\Builder;
@@ -80,21 +81,21 @@ class Nation extends Model
             ->update(['is_ready_for_next_turn' => false]);
     }
 
-    public function deploy(Territory $territory, DivisionType $type, int $numberOfDivisions): array {
-        if ($numberOfDivisions <= 0) {
-            throw new LogicException("Parameter numberOfDivisions must be at least 1");
-        }
-
-
-
-        if ($numberOfDivisions > $this->getDetail()->getMaxRemainingDeployments($type)) {
-            throw new LogicException("Parameter numberOfDivisions is greater than max remaining deployments.");
-        }
+    public function deploy(DeploymentCommand ...$deploymentCommands): array {
+        $detail = $this->getDetail();
 
         $deployments = [];
 
-        for ($i = 0; $i < $numberOfDivisions; $i++) {
-            $deployments[] = Deployment::Create($this, $type, $territory);
+        $deployedTypes = array_map(fn (DeploymentCommand $dc) => $dc->divisionType, $deploymentCommands);
+
+        if (!$detail->canAffordCosts(Deployment::calculateTotalCostsByResourceType(...$deployedTypes))) {
+            throw new LogicException("Not enough resources for deployment.");
+        }
+
+        foreach ($deploymentCommands as $d) {
+            $territory = $detail->getTerritoryById($d->territoryId);
+
+            $deployments[] = Deployment::Create($this, $d->divisionType, $territory);
         }
 
         return $deployments;

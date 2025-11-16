@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Domain\DeploymentCommand;
 use App\Domain\DivisionType;
 use App\Http\Requests\CancelDeploymentsRequest;
 use App\Http\Requests\DeployInTerritoryRequest;
+use App\Http\Requests\DeployRequest;
+use App\Http\Requests\SentDeploymentOrder;
 use App\Models\Deployment;
 use App\Models\Territory;
 use App\ReadModels\DeploymentInfo;
@@ -48,12 +51,23 @@ class DeploymentController extends Controller
     }
 
     #[Summary('Deploys divisions and returns the deployments.')]
+    #[Payload(DeployRequest::class)]
     #[ResponseCollection('data', DeploymentInfo::class, 'A list of all the new deployments.')]
-    public function deployInOwnedTerritory(DeployInTerritoryRequest $request, NationContext $context, int $territoryId): JsonResponse {
+    public function deploy(DeployRequest $request, NationContext $context): JsonResponse {
         $nation = $context->getNation();
-        $territory = Territory::asOrNotFound($nation->getDetail()->territories()->find($territoryId), "Current nation doesn't own territory: $territoryId");
-        
-        $deployments = array_map(fn (Deployment $d) => $d->export(), $nation->deploy($territory, DivisionType::fromName($request->division_type), $request->number_of_divisions));
+
+        $deploymentCommands = array_map(fn (SentDeploymentOrder $do) => new DeploymentCommand($do->territory_id, DivisionType::fromName($do->division_type)), $request->getDeployments());
+
+        $deployedTypes = array_map(fn (DeploymentCommand $dc) => $dc->divisionType, $deploymentCommands);
+
+        if (!$nation->getDetail()->canAffordCosts(Deployment::calculateTotalCostsByResourceType(...$deployedTypes))) {
+            abort(HttpStatusCode::UnprocessableContent, "Nation doesn't have enough resources to afford deployment costs.");
+        }
+
+        $deployments = array_map(
+            fn (Deployment $d) => $d->export(),
+            $nation->deploy(...$deploymentCommands)
+        );
         return response()->json(['data' => $deployments], HttpStatusCode::Created);
     }
 }

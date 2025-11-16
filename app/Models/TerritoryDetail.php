@@ -10,6 +10,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Exists;
 
 class NeutralOwnership {}
 
@@ -60,6 +62,12 @@ class TerritoryDetail extends Model
                 ->where('territory_id', $this->territory_id)
             )
             ->get();
+    }
+
+    public static function createRuleOwnedByNation(Nation $nation, Turn $turn):Exists {
+        return Rule::exists(TerritoryDetail::class, 'territory_id')
+            ->where('turn_id', $turn->getId())
+            ->where('owner_nation_id', $nation->getId());
     }
 
     public function assignOwner(Nation|NeutralOwnership $newOwner): void {

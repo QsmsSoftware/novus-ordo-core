@@ -421,11 +421,12 @@
             $('#resource-bar').html(Object.keys(budget.stockpiles).map(key => {
                 let resourceTypeInfo = resourceTypeInfoByType.get(key);
                 let balance = resourceTypeInfo.can_be_stocked ? budget.balances[key] : -budget.expenses[key];
-                var formattedBalance = balance < 0
+                let formattedStockpile = resourceTypeInfo.can_be_stocked ? budget.stockpiles[key].toFixed(2) : "(can't be stockpiled)";
+                let formattedBalance = balance < 0
                         ? `(<span class="deficit-balance">${balance.toFixed(2)}</span>)`
                         : `(<span class="surplus-balance">+${balance.toFixed(2)}</span>)`;
                 return '<div class="resource-box">'
-                    + `${budget.available_production[key].toFixed(2)} <img src="res/bundled/icons/resource_${key.toLowerCase()}.png" title="${resourceTypeInfo.description}&#10;&#10;Production: ${budget.production[key].toFixed(2)}&#10;Stockpile: ${budget.stockpiles[key].toFixed(2)}&#10;Upkeep: -${budget.upkeep[key].toFixed(2)}&#10;Expenses: -${budget.expenses[key].toFixed(2)}&#10;Available: ${budget.available_production[key].toFixed(2)}" width="32" height="32"> ${formattedBalance}`
+                    + `${budget.available_production[key].toFixed(2)} <img src="res/bundled/icons/resource_${key.toLowerCase()}.png" title="${resourceTypeInfo.description}&#10;&#10;Production: ${budget.production[key].toFixed(2)}&#10;Stockpile: ${formattedStockpile}&#10;Upkeep: -${budget.upkeep[key].toFixed(2)}&#10;Expenses: -${budget.expenses[key].toFixed(2)}&#10;Available: ${budget.available_production[key].toFixed(2)}" width="32" height="32"> ${formattedBalance}`
                     + '</div>'
             }));
         }
@@ -725,24 +726,12 @@
             }
 
             $("#deployments-display").html("<p>Waiting for the server to respond...</p>");
-            let pendingDeploymentsByTerritoryId = Map.groupBy(pendingDeployments, d => d.territoryId);
+            let deploymentOrders = pendingDeployments.map(d => ({ division_type: d.divisionType, territory_id: d.territoryId }));
             pendingDeployments.length = 0;
-            
-            let callChain = Promise.resolve();
 
-            pendingDeploymentsByTerritoryId.forEach((deploymentsInTerritory, tid) => {
-                let pendingDeploymentsInTerritoryByDivisionType = Map.groupBy(deploymentsInTerritory, d => d.divisionType);
-                pendingDeploymentsInTerritoryByDivisionType.forEach((group, divisionType) => {
-                    callChain = callChain
-                        .then(() => {
-                            return services.deployInTerritory(tid, { division_type: divisionType, number_of_divisions: group.length })
-                                .then(response => response.data.forEach(d => deploymentsById.set(d.deployment_id, d)))
-                                .then(updateTerritoryDeployments);
-                        });
-                });
-            });
-
-            callChain
+            services.deploy({ deployments: deploymentOrders })
+                .then(response => response.data.forEach(d => deploymentsById.set(d.deployment_id, d)))
+                .then(updateTerritoryDeployments)
                 .then(refreshBudget)
                 .then(updateDeploymentsPane)
                 .then(() => mapDisplay.refresh())

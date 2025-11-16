@@ -2,8 +2,10 @@
 
 namespace App\Models;
 
+use App\Domain\DeploymentCommand;
 use App\Domain\DivisionType;
 use App\Domain\OrderType;
+use App\Domain\ResourceType;
 use App\ReadModels\DeploymentInfo;
 use App\Utils\GuardsForAssertions;
 use Closure;
@@ -20,7 +22,6 @@ class Deployment extends Model
     use GuardsForAssertions;
 
     public const string FIELD_HAS_BEEN_DEPLOYED = 'has_been_deployed';
-    public const int DIVISION_COST = 3;
 
     public function game() :BelongsTo {
         return $this->belongsTo(Game::class);
@@ -66,14 +67,29 @@ class Deployment extends Model
         return $this->has_been_deployed;
     }
 
-    // public static function createValidationValidTerritoryForDeployment(Nation $nation): Closure {
-    //     return function (string $attribute, int $value, Closure $fail) use ($nation) {
-    //         $territoryOrNull = $nation->getDetail()->territories()->find($value);
-    //         if (is_null($territoryOrNull)) {
-    //             $fail("Nation ID {$nation->getId()} doesn't own Territory ID $value");
-    //         }
-    //     };
-    // }
+    public static function getTotalCostsByResourceType(Nation $nation, Turn $turn): array {
+        $deployedTypes = Deployment::where('nation_id', $nation->getId())
+            ->where('turn_id', $turn->getId())
+            ->pluck('division_type')
+            ->map(fn (int $type) => DivisionType::from($type));
+
+        return Deployment::calculateTotalCostsByResourceType(...$deployedTypes);
+    }
+
+    public static function calculateTotalCostsByResourceType(DivisionType ...$deployedTypes): array {
+        $costsByType = DivisionType::getDeploymentCostsByType();
+
+        $costs = [];
+
+        foreach(ResourceType::cases() as $resourceType) {
+            $costs[$resourceType->value] = 0;
+            foreach ($deployedTypes as $divisionType) {
+                $costs[$resourceType->value] += $costsByType[$divisionType->value][$resourceType->value];
+            }
+        }
+
+        return $costs;
+    }
 
     public static function createRuleValidDeployment(Nation $nation): Exists {
         return Rule::exists(Deployment::class, 'id')

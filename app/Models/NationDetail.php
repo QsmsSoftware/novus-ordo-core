@@ -181,11 +181,9 @@ class NationDetail extends Model
     }
 
     public function getExpenses(ResourceType $resourceType): float {
-        return match($resourceType) {
-            ResourceType::Capital => $this->deployments()->count() * Deployment::DIVISION_COST,
-            ResourceType::RecruitmentPool => $this->deployments()->count(),
-            default => 0,
-        };
+        $deploymentExpenses = Deployment::getTotalCostsByResourceType($this->getNation(), $this->getTurn());
+
+        return $deploymentExpenses[$resourceType->value];
     }
 
     public function getAvailableProduction(ResourceType $resourceType): float {
@@ -196,16 +194,14 @@ class NationDetail extends Model
         return $this->getProduction($resourceType) - $this->getUpkeep($resourceType) - $this->getExpenses($resourceType);
     }
 
-    public function getMaxRemainingDeployments(DivisionType $divisionType): int {
-        $meta = DivisionType::getMeta($divisionType);
-
-        $min = PHP_INT_MAX;
-
-        foreach ($meta->deploymentCosts as $resource => $cost) {
-            $min = min($min, floor($this->getAvailableProduction(ResourceType::from($resource)) / $cost));
+    public function canAffordCosts(array $costs): bool {
+        foreach(ResourceType::cases() as $resourceType) {
+            if ($costs[$resourceType->value] > $this->getAvailableProduction($resourceType)) {
+                return false;
+            }
         }
 
-        return $min;
+        return true;
     }
 
     private function exportBalances(): array {

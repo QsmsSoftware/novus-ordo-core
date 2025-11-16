@@ -31,7 +31,22 @@ enum DivisionType :int {
         };
     }
 
-    public static function exportCosts(array $costs): array {
+    public static function getDeploymentCostsByType(): array {
+        $costs = [];
+
+        foreach (DivisionType::cases() as $divisionType) {
+            $meta = DivisionType::getMeta($divisionType);
+            foreach (ResourceType::cases() as $resourceType) {
+                $costs[$divisionType->value][$resourceType->value] = isset($meta->deploymentCosts[$resourceType->value])
+                    ? $meta->deploymentCosts[$resourceType->value]
+                    : 0;
+            }
+        }
+
+        return $costs;
+    }
+
+    private static function exportCosts(array $costs): array {
         $exported = [];
 
         foreach ($costs as $type => $cost) {

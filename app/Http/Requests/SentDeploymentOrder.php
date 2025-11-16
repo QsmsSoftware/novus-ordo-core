@@ -4,11 +4,11 @@ namespace App\Http\Requests;
 
 use App\Utils\MapsArrayToInstance;
 
-readonly class SentMoveOrder {
+readonly class SentDeploymentOrder {
     use MapsArrayToInstance;
     public function __construct(
-        public int $division_id,
-        public int $destination_territory_id,
+        public string $division_type,
+        public int $territory_id,
     )
     {
         

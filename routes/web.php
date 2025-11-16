@@ -126,9 +126,8 @@ Route::middleware('auth')->group(function () {
     Route::middleware(EnsureGameIsNotUpkeeping::class)->group(function () {
         Route::post('nation/deployments/cancel-deployment-requests', [DeploymentController::class, 'cancelDeployments'])
             ->name('ajax.cancel-deployments');
-        Route::post('nation/territories/{territoryId}/deployments', [DeploymentController::class, 'deployInOwnedTerritory'])
-            ->whereNumber('territoryId')
-            ->name('ajax.deploy-in-territory');
+        Route::post('nation/territories/deployments', [DeploymentController::class, 'deploy'])
+            ->name('ajax.deploy');
     });
 });
 
