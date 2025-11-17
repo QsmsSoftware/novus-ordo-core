@@ -2,19 +2,21 @@
 
 namespace App\Models;
 
+use App\Domain\DivisionType;
 use App\Domain\OrderType;
+use App\Domain\ResourceType;
 use App\ModelTraits\ReplicatesForTurns;
 use App\ReadModels\OwnedDivisionInfo;
 use Closure;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Exists;
 
 class DivisionDetail extends Model
 {
-    public const UPKEEP_PER_DIVISION = 1;
     public const string FIELD_IS_ACTIVE = "is_active";
 
     use ReplicatesForTurns;
@@ -94,11 +96,7 @@ class DivisionDetail extends Model
     private static function whereActive(): Closure {
         return fn ($builder) => $builder->where(DivisionDetail::FIELD_IS_ACTIVE, true);
     }
-
-    public function getUpkeep(): int {
-        return DivisionDetail::UPKEEP_PER_DIVISION;
-    }
-
+    
     public function isActive(): bool {
         return $this->is_active;
     }
@@ -110,6 +108,18 @@ class DivisionDetail extends Model
             && $order->getType() == OrderType::Move;
     }
 
+    public static function getTotalUpkeepCostsByResourceType(Nation $nation, Turn $turn): array {
+        $divisionTypes = DB::table('division_details')
+            ->where('division_details.nation_id', $nation->getId())
+            ->where('division_details.turn_id', $turn->getId())
+            ->where('division_details.is_active', true)
+            ->join('divisions', 'divisions.id', "=", "division_details.division_id")
+            ->pluck('divisions.' . Division::FIELD_DIVISION_TYPE)
+            ->map(fn (int $type) => DivisionType::from($type));
+
+        return DivisionType::calculateTotalUpkeepCostsByResourceType(...$divisionTypes);
+    }
+    
     public function isAttacking(): bool {
         $orderOrNull = $this->getOrderOrNull();
 

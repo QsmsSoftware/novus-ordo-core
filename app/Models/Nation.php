@@ -88,7 +88,7 @@ class Nation extends Model
 
         $deployedTypes = array_map(fn (DeploymentCommand $dc) => $dc->divisionType, $deploymentCommands);
 
-        if (!$detail->canAffordCosts(Deployment::calculateTotalCostsByResourceType(...$deployedTypes))) {
+        if (!$detail->canAffordCosts(DivisionType::calculateTotalDeploymentCostsByResourceType(...$deployedTypes))) {
             throw new LogicException("Not enough resources for deployment.");
         }
 

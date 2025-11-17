@@ -47,7 +47,7 @@ class Order extends Model
     }
 
     public static function getTotalCostsByResourceType(Nation $nation, Turn $turn): array {
-        $deployedTypes = DB::table('orders')
+        $attackingTypes = DB::table('orders')
             ->where('orders.nation_id', $nation->getId())
             ->where('orders.turn_id', $turn->getId())
             ->where('orders.type', OrderType::Attack->value)
@@ -56,22 +56,7 @@ class Order extends Model
             ->pluck('divisions.division_type')
             ->map(fn (int $type) => DivisionType::from($type));
 
-        return Order::calculateTotalAttackCostsByResourceType(...$deployedTypes);
-    }
-
-    public static function calculateTotalAttackCostsByResourceType(DivisionType ...$deployedTypes): array {
-        $costsByType = DivisionType::getAttackCostsByType();
-
-        $costs = [];
-
-        foreach(ResourceType::cases() as $resourceType) {
-            $costs[$resourceType->value] = 0;
-            foreach ($deployedTypes as $divisionType) {
-                $costs[$resourceType->value] += $costsByType[$divisionType->value][$resourceType->value];
-            }
-        }
-
-        return $costs;
+        return DivisionType::calculateTotalAttackCostsByResourceType(...$attackingTypes);
     }
 
     public function exportForOwner(): object {

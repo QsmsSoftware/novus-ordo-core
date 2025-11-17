@@ -87,7 +87,7 @@ class NationDetail extends Model
         return $this
             ->getNation()
             ->hasMany(NationResourceStockpile::class)
-            ->where('nation_id', $this->getNation()->getId())
+            //->where('nation_id', $this->getNation()->getId())
             ->where('turn_id', $this->getTurn()->getId());
     }
 
@@ -170,14 +170,13 @@ class NationDetail extends Model
     }
 
     public function getUpkeep(ResourceType $resourceType): float {
-        return match($resourceType) {
-            ResourceType::Capital => $this->activeDivisions()
-                ->get()
-                ->sum(fn (Division $d) => $d->getDetail($this->getTurn())->getUpkeep()),
-            ResourceType::RecruitmentPool => $this->activeDivisions()->count(),
-            ResourceType::Food => $this->territories()->count(),
-            default => 0,
-        };
+        $divisionUpkeepCosts = DivisionDetail::getTotalUpkeepCostsByResourceType($this->getNation(), $this->getTurn());
+
+        return $divisionUpkeepCosts[$resourceType->value]
+            + match($resourceType) {
+                ResourceType::Food => $this->territories()->count(),
+                default => 0,
+            };
     }
 
     public function getExpenses(ResourceType $resourceType): float {

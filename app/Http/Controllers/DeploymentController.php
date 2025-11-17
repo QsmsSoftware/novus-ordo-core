@@ -56,7 +56,7 @@ class DeploymentController extends Controller
 
         $deployedTypes = array_map(fn (DeploymentCommand $dc) => $dc->divisionType, $deploymentCommands);
 
-        if (!$nation->getDetail()->canAffordCosts(Deployment::calculateTotalCostsByResourceType(...$deployedTypes))) {
+        if (!$nation->getDetail()->canAffordCosts(DivisionType::calculateTotalDeploymentCostsByResourceType(...$deployedTypes))) {
             abort(HttpStatusCode::UnprocessableContent, "Nation doesn't have enough resources to afford deployment costs.");
         }
 

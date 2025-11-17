@@ -73,22 +73,7 @@ class Deployment extends Model
             ->pluck('division_type')
             ->map(fn (int $type) => DivisionType::from($type));
 
-        return Deployment::calculateTotalCostsByResourceType(...$deployedTypes);
-    }
-
-    public static function calculateTotalCostsByResourceType(DivisionType ...$deployedTypes): array {
-        $costsByType = DivisionType::getDeploymentCostsByType();
-
-        $costs = [];
-
-        foreach(ResourceType::cases() as $resourceType) {
-            $costs[$resourceType->value] = 0;
-            foreach ($deployedTypes as $divisionType) {
-                $costs[$resourceType->value] += $costsByType[$divisionType->value][$resourceType->value];
-            }
-        }
-
-        return $costs;
+        return DivisionType::calculateTotalDeploymentCostsByResourceType(...$deployedTypes);
     }
 
     public static function createRuleValidDeployment(Nation $nation): Exists {

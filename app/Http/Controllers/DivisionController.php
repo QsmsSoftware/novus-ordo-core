@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Domain\DivisionType;
 use App\Domain\OrderType;
 use App\Http\Requests\CancelOrdersRequest;
 use App\Http\Requests\SendDisbandOrdersRequest;
@@ -55,7 +56,7 @@ class DivisionController extends Controller
             ->filter(fn (Division $d) => !$d->getDetail()->isAttacking())
             ->map(fn (Division $d) => $d->getDivisionType());
 
-        if (!$nation->getDetail()->canAffordCosts(Order::calculateTotalAttackCostsByResourceType(...$startAttackingTypes))) {
+        if (!$nation->getDetail()->canAffordCosts(DivisionType::calculateTotalAttackCostsByResourceType(...$startAttackingTypes))) {
             abort(HttpStatusCode::UnprocessableContent, "Nation doesn't have enough resources to afford move/attack costs.");
         }
 

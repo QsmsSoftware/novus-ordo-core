@@ -14,6 +14,8 @@ class Division extends Model
 {
     use GuardsForAssertions;
 
+    public const string FIELD_DIVISION_TYPE = 'division_type';
+
     public function game(): BelongsTo {
         return $this->belongsTo(Game::class);
     }
@@ -79,7 +81,7 @@ class Division extends Model
 
         $attacking = $this->getNation()->getDetail()->isHostileTerritory($destination);
 
-        if ($attacking && !$this->getDetail()->isAttacking() && !$this->getNation()->getDetail()->canAffordCosts(Order::calculateTotalAttackCostsByResourceType($this->getDivisionType()))) {
+        if ($attacking && !$this->getDetail()->isAttacking() && !$this->getNation()->getDetail()->canAffordCosts(DivisionType::calculateTotalAttackCostsByResourceType($this->getDivisionType()))) {
             throw new LogicException("Can't afford the resources for an extra attack by a division of type {$this->getDivisionType()->name}");
         }
 

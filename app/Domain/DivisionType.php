@@ -46,6 +46,10 @@ enum DivisionType :int {
         return $costs;
     }
 
+    public static function calculateTotalAttackCostsByResourceType(DivisionType ...$attackingTypes): array {
+        return DivisionType::calculateTotalCostsByResourceType(DivisionType::getAttackCostsByType(), ...$attackingTypes);
+    }
+
     public static function getDeploymentCostsByType(): array {
         $costs = [];
 
@@ -55,6 +59,42 @@ enum DivisionType :int {
                 $costs[$divisionType->value][$resourceType->value] = isset($meta->deploymentCosts[$resourceType->value])
                     ? $meta->deploymentCosts[$resourceType->value]
                     : 0;
+            }
+        }
+
+        return $costs;
+    }
+
+    public static function calculateTotalDeploymentCostsByResourceType(DivisionType ...$deployedTypes): array {
+        return DivisionType::calculateTotalCostsByResourceType(DivisionType::getDeploymentCostsByType(), ...$deployedTypes);
+    }
+
+    public static function getUpkeepCostsByType(): array {
+        $costs = [];
+
+        foreach (DivisionType::cases() as $divisionType) {
+            $meta = DivisionType::getMeta($divisionType);
+            foreach (ResourceType::cases() as $resourceType) {
+                $costs[$divisionType->value][$resourceType->value] = isset($meta->upkeepCosts[$resourceType->value])
+                    ? $meta->upkeepCosts[$resourceType->value]
+                    : 0;
+            }
+        }
+
+        return $costs;
+    }
+
+    public static function calculateTotalUpkeepCostsByResourceType(DivisionType ...$divisionTypes): array {
+        return DivisionType::calculateTotalCostsByResourceType(DivisionType::getUpkeepCostsByType(), ...$divisionTypes);
+    }
+
+    private static function calculateTotalCostsByResourceType(array $costsByType, DivisionType ...$divisionTypes): array {
+        $costs = [];
+
+        foreach(ResourceType::cases() as $resourceType) {
+            $costs[$resourceType->value] = 0;
+            foreach ($divisionTypes as $divisionType) {
+                $costs[$resourceType->value] += $costsByType[$divisionType->value][$resourceType->value];
             }
         }
 
