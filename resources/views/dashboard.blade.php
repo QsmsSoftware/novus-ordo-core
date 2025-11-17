@@ -327,6 +327,10 @@
                     return `${(value * 100).toFixed(0)}%`;
                 case StatUnit.Km2:
                     return `${Intl.NumberFormat().format(value)} km<sup>2</sup>`;
+                case StatUnit.WholeNumber:
+                    return Intl.NumberFormat().format(value);
+                case StatUnit.Unknown:
+                    return 'Unknown';
                 default:
                     throw new Error("Unreacheable.");
             }

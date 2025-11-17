@@ -3,8 +3,10 @@
 namespace App\Models;
 
 use App\Domain\ResourceType;
+use App\Domain\StatUnit;
 use App\Domain\TerrainType;
 use App\ModelTraits\ReplicatesForTurns;
+use App\ReadModels\DemographicStat;
 use App\ReadModels\TerritoryTurnPublicInfo;
 use App\Services\StaticJavascriptResource;
 use Illuminate\Database\Eloquent\Builder;
@@ -22,6 +24,7 @@ class TerritoryDetail extends Model
     use ReplicatesForTurns;
 
     public const string FIELD_OWNER_NATION_ID = 'owner_nation_id';
+    private const int DEFAULT_POPULATION_SIZE = 250_000;
 
     public function territory(): BelongsTo {
         return $this->belongsTo(Territory::class);
@@ -49,6 +52,15 @@ class TerritoryDetail extends Model
 
     public function isOwnedByNation(): bool {
         return !is_null($this->owner);
+    }
+
+    public function getPopulationSize(): int {
+        return $this->population_size;
+    }
+
+    public function setPopulationSize(int $population): void {
+        $this->population_size = $population;
+        $this->save();
     }
 
     public function getOwnerDivisions(): Collection {
@@ -86,7 +98,7 @@ class TerritoryDetail extends Model
             territory_id: $territory->getId(),
             turn_number: $this->getTurn()->getNumber(),
             owner_nation_id: $ownerOrNull?->getId(),
-            stats: [],
+            stats: [is_null($this->owner_nation_id) ? new DemographicStat('Population', 0, StatUnit::Unknown->name) : new DemographicStat('Population', $this->getPopulationSize(), StatUnit::WholeNumber->name)],
             production: collect(array_keys($productionByResource))
                 ->mapWithKeys(fn (int $resource) => [ResourceType::from($resource)->name => $productionByResource[$resource]])->all()
         );
@@ -107,7 +119,7 @@ class TerritoryDetail extends Model
 
         return array_map(fn ($t) => TerritoryTurnPublicInfo::fromObject($t, [
             'turn_number' => $turn->getNumber(),
-            'stats' => [],
+            'stats' => [is_null($t->owner_nation_id) ? new DemographicStat('Population', 0, StatUnit::Unknown->name) : new DemographicStat('Population', $t->population_size, StatUnit::WholeNumber->name)],
             'production' => $productionByTerrainResource[$t->terrain_type]->all()
         ]), $territories);
     }
@@ -129,6 +141,7 @@ class TerritoryDetail extends Model
         $details->game_id = $territory->getGame()->getId();
         $details->territory_id = $territory->getId();
         $details->turn_id = Turn::getCurrentForGame($territory->getGame())->getId();
+        $details->population_size = TerritoryDetail::DEFAULT_POPULATION_SIZE;
         $details->save();
 
         return $details;

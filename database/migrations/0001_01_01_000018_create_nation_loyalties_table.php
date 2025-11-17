@@ -1,0 +1,32 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('nation_loyalties', function (Blueprint $table) {
+            $table->id();
+            $table->timestamps();
+            $table->foreignId('game_id')->constrained('games')->cascadeOnDelete();
+            $table->foreignId('nation_id')->constrained('nations')->cascadeOnDelete();
+            $table->foreignId('territory_id')->constrained('territories')->cascadeOnDelete();
+            $table->foreignId('turn_id')->constrained('turns')->cascadeOnDelete();
+            $table->integer('loyalty');
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('nation_loyalties');
+    }
+};

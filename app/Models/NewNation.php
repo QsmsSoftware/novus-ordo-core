@@ -24,6 +24,7 @@ class NewNation extends Model
 {
     use GuardsForAssertions;
     private const CRITICAL_SECTION_HOME_TERRITORIES_SELECT_CACHE_NAME = 'critical_section:home_territories_select';
+    private const HOME_TERRITORY_POPULATION = 1_000_000;
 
     protected $table = 'nations';
 
@@ -75,7 +76,10 @@ class NewNation extends Model
                 }
             });
 
-            $homeTerritories->each(fn (Territory $territory) => $territory->getDetail()->assignOwner($nation));
+            $homeTerritories->each(function (Territory $territory) use ($nation) {
+                $territory->getDetail()->assignOwner($nation);
+                $territory->getDetail()->setPopulationSize(NewNation::HOME_TERRITORY_POPULATION);
+            });
 
             $nation->nation_setup_status = NationSetupStatus::FinishedSetup;
 

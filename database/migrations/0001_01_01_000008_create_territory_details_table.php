@@ -18,6 +18,7 @@ return new class extends Migration
             $table->foreignId('territory_id')->constrained('territories')->onDelete('cascade');
             $table->foreignId('turn_id')->constrained('turns')->onDelete('cascade');
             $table->foreignId('owner_nation_id')->nullable()->constrained('nations');
+            $table->integer('population_size');
         });
     }
 
