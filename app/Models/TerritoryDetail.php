@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Domain\ResourceType;
+use App\Domain\TerrainType;
 use App\ModelTraits\ReplicatesForTurns;
 use App\ReadModels\TerritoryTurnPublicInfo;
 use App\Services\StaticJavascriptResource;
@@ -78,24 +80,35 @@ class TerritoryDetail extends Model
     public function export(): TerritoryTurnPublicInfo {
         $ownerOrNull = $this->getOwnerOrNull();
         $territory = $this->getTerritory();
+        $productionByResource = TerrainType::getResourceProductionByResource($this->getTerritory()->getTerrainType());
 
         return new TerritoryTurnPublicInfo(
             territory_id: $territory->getId(),
             turn_number: $this->getTurn()->getNumber(),
             owner_nation_id: $ownerOrNull?->getId(),
             stats: [],
+            production: collect(array_keys($productionByResource))
+                ->mapWithKeys(fn (int $resource) => [ResourceType::from($resource)->name => $productionByResource[$resource]])->all()
         );
     }
 
     public static function exportAllTurnPublicInfo(Turn $turn): array {
+        $productionByTerrainResource = collect(TerrainType::getResourceProductionByTerrainResource())
+            ->mapWithKeys(fn (array $productionByResource, int $terrain) => [$terrain => collect($productionByResource)
+                ->mapWithKeys(fn (float $production, int $resource) => [ResourceType::from($resource)->name => $production])
+            ]);
         $territories = DB::table('territory_details')
-            ->where('game_id', $turn->getGame()->getId())
-            ->where('turn_id', $turn->getId())
-            ->get()->all();
+            ->where('territory_details.game_id', $turn->getGame()->getId())
+            ->where('territory_details.turn_id', $turn->getId())
+            ->join('territories', 'territories.id', '=', 'territory_details.territory_id')
+            ->select('territory_details.*', 'territories.terrain_type')
+            ->get()
+            ->all();
 
         return array_map(fn ($t) => TerritoryTurnPublicInfo::fromObject($t, [
             'turn_number' => $turn->getNumber(),
-            'stats' => []
+            'stats' => [],
+            'production' => $productionByTerrainResource[$t->terrain_type]->all()
         ]), $territories);
     }
 

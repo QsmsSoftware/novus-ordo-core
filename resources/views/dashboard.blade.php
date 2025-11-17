@@ -338,6 +338,12 @@
                 + '</table></div>';
         }
 
+        function renderProduction(production) {
+            return '<div><h2>Production</h2><table>'
+                + Object.keys(production).map(resourceType => `<tr><td>${production[resourceType].toFixed(2)}x</td><td>${renderProductionResourceIcon(resourceType)}</td></tr>`).join("")
+                + '</table></div>';
+        }
+
         function showAssetInfo(uri) {
             let popover = document.getElementById('asset-info');
             services.getAssetInfo(encodeURIComponent(encodeURIComponent(uri)))
@@ -385,7 +391,7 @@
                 + `<span id="territory-info-owner">` + (selectedTerritory.owner_nation_id != null ? `<p>Owned by ${nationsById.get(selectedTerritory.owner_nation_id).usual_name}</p>` : '') + "</span>"
             );
 
-            $("#info-details").html(renderDemography(selectedTerritory.stats));
+            $("#info-details").html(renderDemography(selectedTerritory.stats) + renderProduction(selectedTerritory.production));
         }
 
         function updateOwnerPane() {
@@ -574,6 +580,10 @@
             return !netCosts
                 .keys()
                 .some(resourceType => netCosts.get(resourceType) > budget.available_production[resourceType]);
+        }
+
+        function renderProductionResourceIcon(resourceType) {
+            return `<img class="division-resource-icon" src="res/bundled/icons/resource_${resourceType.toLowerCase()}.png" title="${resourceTypeInfoByType.get(resourceType).description}">`;
         }
 
         function renderResourceCosts(costs) {

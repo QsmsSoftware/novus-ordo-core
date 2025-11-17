@@ -37,7 +37,18 @@ enum TerrainType :int {
         };
     }
 
-    public static function getResourceProduction(): array {
+    public static function getResourceProductionByResource(TerrainType $terrainType): array {
+        $values = [];
+        $meta = TerrainType::getMeta($terrainType);
+        foreach(ResourceType::cases() as $resourceType) {
+            $resourceProductionOrNull = array_find($meta->baseResources, fn (ResourceProduction $rp) => $rp->type == $resourceType);
+            $values[$resourceType->value] = is_null($resourceProductionOrNull) ? 0 : $resourceProductionOrNull->amountProducted;
+        }
+
+        return $values;
+    }
+
+    public static function getResourceProductionByTerrainResource(): array {
         $values = [];
         foreach(ResourceType::cases() as $resourceType) {
             foreach(TerrainType::cases() as $terrainType) {

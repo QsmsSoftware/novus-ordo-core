@@ -7,7 +7,6 @@ use App\Domain\TerrainType;
 use App\Domain\TerritoryData;
 use App\ReadModels\DemographicStat;
 use App\ReadModels\TerritoryBasePublicInfo;
-use App\ReadModels\TerritoryTurnPublicInfo;
 use App\Services\StaticJavascriptResource;
 use App\Utils\GuardsForAssertions;
 use Closure;

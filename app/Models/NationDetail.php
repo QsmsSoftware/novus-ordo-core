@@ -147,7 +147,7 @@ class NationDetail extends Model
     }
 
     public function getProduction(ResourceType $resourceType): float {
-        $territoryProductionsByTerrainResource = TerrainType::getResourceProduction();
+        $territoryProductionsByTerrainResource = TerrainType::getResourceProductionByTerrainResource();
         $countByTerrain = $this->territories()
             ->pluck(Territory::FIELD_TERRAIN_TYPE)
             ->countBy();
