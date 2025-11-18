@@ -77,7 +77,7 @@ class NewNation extends Model
             });
 
             $homeTerritories->each(function (Territory $territory) use ($nation) {
-                $territory->getDetail()->assignOwner($nation);
+                $territory->getDetail()->assignHomeToOwner($nation);
                 $territory->getDetail()->setPopulationSize(NewNation::HOME_TERRITORY_POPULATION);
             });
 

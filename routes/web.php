@@ -98,7 +98,10 @@ Route::get('/territories/{territoryId}/base-info', [TerritoryController::class, 
 Route::get('/territories/{territoryId}/turn-info', [TerritoryController::class, 'turnInfo'])
     ->whereNumber('territoryId')
     ->name('ajax.get-territory-turn-info');
-
+Route::middleware('auth')->group(function () {
+    Route::get('/nation/territories/turn-infos', [TerritoryController::class, 'nationTerritoriesTurnInfo'])
+        ->name('ajax.get-nation-territories-turn-info');
+});
 // Division routes.
 Route::middleware('auth')->group(function () {
     Route::get('/nation/divisions', [DivisionController::class, 'allOwnedDivisions'])

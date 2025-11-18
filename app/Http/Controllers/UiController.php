@@ -190,6 +190,7 @@ class UiController extends Controller
             VictoryStatus::HasNotBeenWon => view('dashboard', [
                 'context' => new NationContext,
                 'own_nation' => $nation->getDetail()->exportForOwner(),
+                'own_territories_turn_info' => TerritoryDetail::exportAllTurnOwnerInfo($nation, $turn),
                 'ready_status' => $game->exportReadyStatus(),
                 'nations' => $nationsById->values(),
                 'deployments' => $nation->activeDeployments()->get()

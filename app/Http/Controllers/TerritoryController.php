@@ -99,6 +99,14 @@ class TerritoryController extends Controller
         return response()->json(['data' => $territories]);
     }
     
+    #[Summary('Get turn specific (privileged) information on the nation\' territories.')]
+    #[ResponseCollection("data", TerritoryTurnPublicInfo::class, "Turn specific information on all territories.")]
+    public function nationTerritoriesTurnInfo(NationContext $context) :JsonResponse {
+        $territories = TerritoryDetail::exportAllTurnOwnerInfo($context->getNation(), $context->getCurrentTurn());
+
+        return response()->json(['data' => $territories]);
+    }
+    
     #[Summary('Base information on a territory')]
     #[RouteParameter('territoryId', 'Territory ID')]
     #[Response(TerritoryBasePublicInfo::class)]

@@ -30,6 +30,8 @@ class Territory extends Model
 
     public const string FIELD_TERRAIN_TYPE = 'terrain_type';
 
+    public const int UNIT_OF_POPULATION_SIZE = 1_000_000;
+
     public function game(): BelongsTo {
         return $this->belongsTo(Game::class);
     }

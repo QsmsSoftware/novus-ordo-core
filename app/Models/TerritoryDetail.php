@@ -7,15 +7,18 @@ use App\Domain\StatUnit;
 use App\Domain\TerrainType;
 use App\ModelTraits\ReplicatesForTurns;
 use App\ReadModels\DemographicStat;
+use App\ReadModels\TerritoryTurnOwnerInfo;
 use App\ReadModels\TerritoryTurnPublicInfo;
 use App\Services\StaticJavascriptResource;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Exists;
+use stdClass;
 
 class NeutralOwnership {}
 
@@ -24,7 +27,11 @@ class TerritoryDetail extends Model
     use ReplicatesForTurns;
 
     public const string FIELD_OWNER_NATION_ID = 'owner_nation_id';
+    public const string FIELD_POPULATION_SIZE = 'population_size';
     private const int DEFAULT_POPULATION_SIZE = 250_000;
+    private const float HOME_TERRITORY_STARTING_LOYALTY_RATIO = 1.00;
+    private const float CONQUERED_TERRITORY_STARTING_LOYALTY_RATIO = 0.00;
+    private const float NEUTRAL_TERRITORY_STARTING_LOYALTY_RATIO = 0.50;
 
     public function territory(): BelongsTo {
         return $this->belongsTo(Territory::class);
@@ -48,6 +55,12 @@ class TerritoryDetail extends Model
 
     public function getOwnerOrNull(): ?Nation {
         return $this->owner;
+    }
+
+    public function allLoyalties(): Builder {
+        return NationLoyalty::where('territory_id', $this->territory_id)
+            ->where('turn_id', $this->turn_id);
+
     }
 
     public function isOwnedByNation(): bool {
@@ -85,7 +98,23 @@ class TerritoryDetail extends Model
     }
 
     public function assignOwner(Nation|NeutralOwnership $newOwner): void {
+        if ($newOwner instanceof Nation) {
+            $currentOwner = $this->getOwnerOrNull()??new NeutralOwnership;
+
+            if ($currentOwner instanceof NeutralOwnership) {
+                NationLoyalty::setLoyaltyRatioIfNotSet($newOwner, $this->getTerritory(), $this->getTurn(), TerritoryDetail::NEUTRAL_TERRITORY_STARTING_LOYALTY_RATIO);
+            }
+            else {
+                NationLoyalty::setLoyaltyRatioIfNotSet($newOwner, $this->getTerritory(), $this->getTurn(), TerritoryDetail::CONQUERED_TERRITORY_STARTING_LOYALTY_RATIO);
+            }
+        }
         $this->owner_nation_id = $newOwner instanceof NeutralOwnership ? null : $newOwner->getId();
+        $this->save();
+    }
+
+    public function assignHomeToOwner(Nation $newOwner): void {
+        $this->owner_nation_id = $newOwner->getId();
+        NationLoyalty::setLoyaltyRatioIfNotSet($newOwner, $this->getTerritory(), $this->getTurn(), TerritoryDetail::HOME_TERRITORY_STARTING_LOYALTY_RATIO);
         $this->save();
     }
 
@@ -100,11 +129,34 @@ class TerritoryDetail extends Model
             owner_nation_id: $ownerOrNull?->getId(),
             stats: [is_null($this->owner_nation_id) ? new DemographicStat('Population', 0, StatUnit::Unknown->name) : new DemographicStat('Population', $this->getPopulationSize(), StatUnit::WholeNumber->name)],
             production: collect(array_keys($productionByResource))
-                ->mapWithKeys(fn (int $resource) => [ResourceType::from($resource)->name => $productionByResource[$resource]])->all()
+                ->mapWithKeys(fn (int $resource) => [ResourceType::from($resource)->name => $productionByResource[$resource]])->all(),
+            loyalties: $this->allLoyalties()->get()->map(fn (NationLoyalty $l) => $l->export())->all()
         );
     }
 
+    public static function exportAllTurnOwnerInfo(Nation $owner, Turn $turn): array {
+        $territories = DB::table('territory_details')
+            ->where('territory_details.game_id', $turn->getGame()->getId())
+            ->where('territory_details.owner_nation_id', $owner->getId())
+            ->where('territory_details.turn_id', $turn->getId())
+            ->join('territories', 'territories.id', '=', 'territory_details.territory_id')
+            ->select('territory_details.territory_id')
+            ->get();
+
+            return $territories->map(fn ($t) => TerritoryTurnOwnerInfo::fromObject($t, [
+                'stats' => [
+                ]
+            ]))->all();
+    }
+
     public static function exportAllTurnPublicInfo(Turn $turn): array {
+        $loyaltiesByTerritoryId = DB::table('territories')
+            ->where('territories.game_id', $turn->getGame()->getId())
+            ->where('nation_loyalties.turn_id', $turn->getId())
+            ->join('nation_loyalties', 'nation_loyalties.territory_id', '=', 'territories.id')
+            ->select('territories.id as territory_id', 'nation_loyalties.nation_id', 'nation_loyalties.' . NationLoyalty::FIELD_LOYALTY_RATIO . ' as loyalty_ratio')
+            ->get()
+            ->groupBy('territory_id');
         $productionByTerrainResource = collect(TerrainType::getResourceProductionByTerrainResource())
             ->mapWithKeys(fn (array $productionByResource, int $terrain) => [$terrain => collect($productionByResource)
                 ->mapWithKeys(fn (float $production, int $resource) => [ResourceType::from($resource)->name => $production])
@@ -119,8 +171,11 @@ class TerritoryDetail extends Model
 
         return array_map(fn ($t) => TerritoryTurnPublicInfo::fromObject($t, [
             'turn_number' => $turn->getNumber(),
-            'stats' => [is_null($t->owner_nation_id) ? new DemographicStat('Population', 0, StatUnit::Unknown->name) : new DemographicStat('Population', $t->population_size, StatUnit::WholeNumber->name)],
-            'production' => $productionByTerrainResource[$t->terrain_type]->all()
+            'stats' => [
+                is_null($t->owner_nation_id) ? new DemographicStat('Population', 0, StatUnit::Unknown->name) : new DemographicStat('Population', $t->population_size, StatUnit::WholeNumber->name),
+            ],
+            'production' => $productionByTerrainResource[$t->terrain_type]->all(),
+            'loyalties' => $loyaltiesByTerritoryId->get($t->territory_id)?->map(fn (object $l) => ['nation_id' => $l->nation_id, 'loyalty' => $l->loyalty_ratio / 100])?->all()??[]
         ]), $territories);
     }
 
@@ -134,6 +189,9 @@ class TerritoryDetail extends Model
 
     public function onNextTurn(TerritoryDetail $current): void {
         $this->save();
+        $loyalties = $this->allLoyalties()->get();
+        assert($loyalties instanceof Collection);
+        $loyalties->each(fn (NationLoyalty $l) => $l->replicateForTurn()->onNextTurn($l));
     }
 
     public static function create(Territory $territory): TerritoryDetail {

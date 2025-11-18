@@ -66,9 +66,13 @@
 
         let victoryRanking = @json($victory_ranking);
         let budgetItems = mapExportedObject(@json($budget_items));
+        let ownTerritoriesTurnInfo = @json($own_territories_turn_info);
         let territoriesById = mergeMappedObjects(
-            mapExportedArray(allTerritoriesBaseInfo, t => t.territory_id),
-            mapExportedArray(allTerritoriesTurnInfo, t => t.territory_id)
+            mergeMappedObjects(
+                mapExportedArray(allTerritoriesBaseInfo, t => t.territory_id),
+                mapExportedArray(allTerritoriesTurnInfo, t => t.territory_id)
+            ),
+            mapExportedArray(ownTerritoriesTurnInfo, t => t.territory_id)
         );
         let nationsById = mapExportedArray(@json($nations), n => n.nation_id);
         let allBattleLogs = @json($battle_logs);
@@ -348,6 +352,15 @@
                 + '</table></div>';
         }
 
+        function renderLoyalties(loyalties) {
+            return '<div><h2>Loyalties</h2>'
+                + (loyalties.length > 0
+                    ? '<table>' + loyalties.map(loyalty => `<tr><td>${nationsById.get(loyalty.nation_id).usual_name}</td><td>${formatValue(loyalty.loyalty, StatUnit.Percent)}</td></tr>`).join("") + '</table>'
+                    : '<i>The population on this territory has no loyalty toward any nation.</i>'
+                )
+                + '</div>';
+        }
+
         function showAssetInfo(uri) {
             let popover = document.getElementById('asset-info');
             services.getAssetInfo(encodeURIComponent(encodeURIComponent(uri)))
@@ -395,7 +408,7 @@
                 + `<span id="territory-info-owner">` + (selectedTerritory.owner_nation_id != null ? `<p>Owned by ${nationsById.get(selectedTerritory.owner_nation_id).usual_name}</p>` : '') + "</span>"
             );
 
-            $("#info-details").html(renderDemography(selectedTerritory.stats) + renderProduction(selectedTerritory.production));
+            $("#info-details").html(renderDemography(selectedTerritory.stats) + renderProduction(selectedTerritory.production) + renderLoyalties(selectedTerritory.loyalties));
         }
 
         function updateOwnerPane() {

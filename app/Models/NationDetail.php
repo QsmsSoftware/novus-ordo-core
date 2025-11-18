@@ -19,6 +19,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
 class NationDetail extends Model
@@ -80,19 +81,33 @@ class NationDetail extends Model
     }
 
     public function getAllBattlesWhereParticipant(): Collection {
-        return $this->battlesWhereAttacker()->get()->concat($this->battlesWhereDefender()->get());
+        return $this
+            ->battlesWhereAttacker()
+            ->get()
+            ->concat($this
+                ->battlesWhereDefender()
+                ->get()
+            );
     }
 
     public function stockpiles(): HasMany {
         return $this
             ->getNation()
             ->hasMany(NationResourceStockpile::class)
-            //->where('nation_id', $this->getNation()->getId())
             ->where('turn_id', $this->getTurn()->getId());
     }
 
     public function getStockpiles(): Collection {
         return $this->stockpiles->mapWithKeys(fn (NationResourceStockpile $stockpile) => [$stockpile->getResourceType()->value => $stockpile]);
+    }
+
+    public function exportForOwner(): NationTurnOwnerInfo {
+        return new NationTurnOwnerInfo(
+            nation_id: $this->getNation()->getId(),
+            turn_number: $this->getTurn()->getNumber(),
+            is_ready_for_next_turn: $this->getNation()->isReadyForNextTurn(),
+            stats: [new DemographicStat('test2', 1 * Territory::TERRITORY_AREA_KM2, StatUnit::Percent->name)],
+        );
     }
 
     public function export(): NationTurnPublicInfo {
@@ -102,7 +117,10 @@ class NationDetail extends Model
             usual_name: $this->getUsualName(),
             formal_name: $this->getFormalName(),
             flag_src: $this->getFlagSrcOrNull(),
-            stats: [new DemographicStat('Total land area', Metacache::remember($this->getUsableLandKm2(...)), StatUnit::Km2->name)],
+            stats: [
+                new DemographicStat('Total land area', Metacache::remember($this->getUsableLandKm2(...)), StatUnit::Km2->name),
+                new DemographicStat('Population', $this->getPopulationSize(), StatUnit::WholeNumber->name)
+            ],
         );
     }
 
@@ -122,13 +140,11 @@ class NationDetail extends Model
         return $this->territories()->get()->sum(fn (Territory $t) => $t->getUsableLandKm2());
     }
 
-    public function exportForOwner(): NationTurnOwnerInfo {
-        return new NationTurnOwnerInfo(
-            nation_id: $this->getNation()->getId(),
-            turn_number: $this->getTurn()->getNumber(),
-            is_ready_for_next_turn: $this->getNation()->isReadyForNextTurn(),
-            stats: [new DemographicStat('test2', 1 * Territory::TERRITORY_AREA_KM2, StatUnit::Percent->name)],
-        );
+    public function getPopulationSize(): int {
+        return DB::table('territory_details')
+            ->where(TerritoryDetail::FIELD_OWNER_NATION_ID, $this->getNation()->getId())
+            ->where('turn_id', $this->getTurn()->getId())
+            ->sum(TerritoryDetail::FIELD_POPULATION_SIZE);
     }
 
     public function deployments(): HasMany {
@@ -174,7 +190,7 @@ class NationDetail extends Model
 
         return $divisionUpkeepCosts[$resourceType->value]
             + match($resourceType) {
-                ResourceType::Food => $this->territories()->count(),
+                ResourceType::Food => $this->getPopulationSize() / Territory::UNIT_OF_POPULATION_SIZE,
                 default => 0,
             };
     }
