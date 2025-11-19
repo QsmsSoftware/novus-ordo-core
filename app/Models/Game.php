@@ -4,11 +4,14 @@ namespace App\Models;
 
 use App\Domain\SharedAssetType;
 use App\Domain\GenerationData;
+use App\Domain\Ranking;
 use App\Domain\TerritoryConnectionData;
 use App\Utils\GuardsForAssertions;
 use App\Facades\RuntimeInfo;
 use App\ReadModels\GameInfo;
 use App\ReadModels\GameReadyStatusInfo;
+use App\ReadModels\RankingInfo;
+use App\Services\StaticJavascriptResource;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -313,6 +316,39 @@ class Game extends Model
 
     public function disable(): void {
         $this->is_active = false;
+    }
+
+    public function exportRankings(Turn $turn): array {
+        $nations = $this->nations;
+        assert($nations instanceof Collection);
+        $details = $nations->map(fn (Nation $n) => $n->getDetail($turn));
+
+        $rankingMetas = Ranking::getRankings();
+        $nationRankings = Ranking::rankNations(...$details);
+
+        $exported = [];
+
+        foreach ($rankingMetas as $index => $rankingMeta) {
+            assert($rankingMeta instanceof Ranking);
+            $rankedNations = $nationRankings[$index];
+            assert($rankedNations instanceof Collection);
+            $exported[] = new RankingInfo(
+                title: $rankingMeta->title,
+                ranked_nation_ids: $rankedNations->keys()->map(fn ($nationId) => $nationId)->values()->all(),
+                data_unit: $rankingMeta->unit->name,
+                data: $rankedNations->map(fn ($v) => $v)->values()->all(),
+            );
+        }
+
+        return $exported;
+    }
+
+    public function getRankingsClientResource(Turn $turn): StaticJavascriptResource {
+        return StaticJavascriptResource::forTurn(
+            'rankings-turn-js',
+            fn() => "let allRankings = " . json_encode($this->exportRankings($turn)) . ";",
+            $turn
+        );
     }
 
     public function getRequiredTerritoriesForVictory(): int {

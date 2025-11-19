@@ -38,7 +38,7 @@ enum ResourceType :int {
                 $resourceType->name,
                 $meta->description,
                 $meta->canBeStocked,
-                base_production: collect($productionByResourceTerrain[$resourceType->value])->mapWithKeys(fn (float $production, int $terrain) => [TerrainType::from($terrain)->name => $production])->all(),
+                base_production_by_terrain_type: collect($productionByResourceTerrain[$resourceType->value])->mapWithKeys(fn (float $production, int $terrain) => [TerrainType::from($terrain)->name => $production])->all(),
             );
         }
 

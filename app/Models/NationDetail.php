@@ -42,6 +42,10 @@ class NationDetail extends Model
         return $this->nation;
     }
 
+    public function getNationId(): int {
+        return $this->nation_id;
+    }
+
     public function territories(): HasMany {
         $nation = $this->getNation();
 

@@ -8,6 +8,6 @@ readonly class ResourceTypeInfo
         public string $resource_type,
         public string $description,
         public bool $can_be_stocked,
-        public array $base_production,
+        public array $base_production_by_terrain_type,
     ) {}
 }

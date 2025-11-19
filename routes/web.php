@@ -62,6 +62,8 @@ Route::middleware('auth')->group(function () {
 Route::get('/game', [GameController::class, 'info']);
 Route::get('/game/ready-status', [GameController::class, 'readyStatus'])
     ->name('ajax.get-game-ready-status');
+Route::get('/game/rankings', [GameController::class, 'rankings'])
+    ->name('ajax.get-game-rankings');
 
 // Nation routes.
 Route::middleware('auth')->group(function () {

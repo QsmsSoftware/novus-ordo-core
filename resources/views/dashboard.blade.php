@@ -46,6 +46,7 @@
     {!! $static_js_services->renderAsTag() !!}
     {!! $static_js_territories_base_info->renderAsTag() !!}
     {!! $static_js_territories_turn_info->renderAsTag() !!}
+    {!! $static_js_rankings->renderAsTag() !!}
     @if(EnsureWhenRunningInDevelopmentOnly::isRunningInDevelopmentEnvironment())
     {!! $static_js_dev_services->renderAsTag() !!}
     <script>
@@ -98,6 +99,7 @@
             Nation: 'Nation',
             BattleLogs: 'Battle logs',
             Deployments: 'Deployments',
+            Rankings: 'rankings',
         };
         
         var selectedDetailsTab = null;
@@ -303,6 +305,9 @@
                     $("#deployments-display").show();
                     startDeploying(DivisionType.Infantry);
                     break;
+                case 'Rankings':
+                    $("#rankings-display").show();
+                    break;
                 case null:
                     if (selectedTerritory) {
                         $("#details").show();
@@ -336,6 +341,8 @@
                     return `${Intl.NumberFormat().format(value)} km<sup>2</sup>`;
                 case StatUnit.WholeNumber:
                     return Intl.NumberFormat().format(value);
+                case StatUnit.ApproximateNumber:
+                    return 'about ' + Intl.NumberFormat().format(value);
                 case StatUnit.Unknown:
                     return 'Unknown';
                 default:
@@ -353,7 +360,7 @@
             let ownerLoyalty = territory.owner_nation_id ? territory.loyalties.find(l => l.nation_id == territory.owner_nation_id) : null;
             return '<div><h2>Production</h2><table>'
                 + '<tr><th>Base production (per 1M population)</th><th>Loyalty (to owner)</th><th>Production</th></th>'
-                + resourceTypeInfoByType.keys().map(resourceType => `<tr><td>${resourceTypeInfoByType.get(resourceType).base_production[territory.terrain_type].toFixed(2)}x</td><td>${ownerLoyalty ? formatValue(ownerLoyalty.loyalty_ratio, StatUnit.Percent) : ""}</td><td>${territory.owner_production ? territory.owner_production[resourceType].toFixed(2) : ""}x</td><td>${renderProductionResourceIcon(resourceType)}</td></tr>`).toArray().join("")
+                + resourceTypeInfoByType.keys().map(resourceType => `<tr><td>${resourceTypeInfoByType.get(resourceType).base_production_by_terrain_type[territory.terrain_type].toFixed(2)}x</td><td>${ownerLoyalty ? formatValue(ownerLoyalty.loyalty_ratio, StatUnit.Percent) : ""}</td><td>${territory.owner_production ? territory.owner_production[resourceType].toFixed(2) : ""}x</td><td>${renderProductionResourceIcon(resourceType)}</td></tr>`).toArray().join("")
                 + '</table></div>';
         }
 
@@ -429,6 +436,19 @@
             else {
                 $("#owner-details").html("<h1><b>Neutral territory</b></h1>");
             }
+        }
+
+        function renderRanking(ranking) {
+            return '<div>'
+                + `<b>${ranking.title}</b><br>`
+                + `<table>`
+                + ranking.ranked_nation_ids.map((nationId, index) => `<tr><td>${index + 1}</td><td>${nationsById.get(nationId).usual_name}</td><td>${formatValue(ranking.data[index], ranking.data_unit)}</td></tr>`).join("")
+                + `</table>`
+                + '</div>';
+        }
+
+        function updateRankingsPane() {
+            $('#rankings-display').html(allRankings.map(ranking => renderRanking(ranking)).join(""));
         }
 
         function updateNationPane(nation, component) {
@@ -1098,6 +1118,7 @@
             setMapMode(MapMode.Default);
             updateMainTabs();
             updateDetailsTabs();
+            updateRankingsPane();
             updateNationPane(ownNation, $('#own-nation-details'));
             $('#own-nation-flag').html(renderNationFlag(ownNation));
             $('#own-nation-demographics').html(renderDemography(ownNation.stats));
@@ -1124,7 +1145,7 @@
             if(selectedDetailsTabFromStorage) {
                 selectedDetailsTab = selectedDetailsTabFromStorage;
             }
-            if (selectedTerritoryIdFromStorage) {
+            if (selectedTerritoryIdFromStorage && territoriesById.has(selectedTerritoryIdFromStorage)) {
                 selectTerritory(selectedTerritoryIdFromStorage);
             }
             if (selectedMainTabFromStorage) {
@@ -1189,6 +1210,9 @@
             </div>
             <div id="deployments-display">
                 deployments
+            </div>
+            <div id="rankings-display">
+                rankings
             </div>
         </div>
         <div id="details">
