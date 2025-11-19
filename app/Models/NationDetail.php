@@ -102,11 +102,12 @@ class NationDetail extends Model
     }
 
     public function exportForOwner(): NationTurnOwnerInfo {
+        $turn = $this->getTurn();
         return new NationTurnOwnerInfo(
             nation_id: $this->getNation()->getId(),
             turn_number: $this->getTurn()->getNumber(),
             is_ready_for_next_turn: $this->getNation()->isReadyForNextTurn(),
-            stats: [new DemographicStat('test2', 1 * Territory::TERRITORY_AREA_KM2, StatUnit::Percent->name)],
+            stats: [new DemographicStat('Population growth rate', $this->territories->map(fn (Territory $t) => $t->getDetail($turn)->getPopulationGrowthRate() * $t->getDetail($turn)->getPopulationSize())->sum() / $this->getPopulationSize(), StatUnit::DetailedPercent->name)],
         );
     }
 
