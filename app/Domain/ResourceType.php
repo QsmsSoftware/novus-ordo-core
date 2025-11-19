@@ -13,12 +13,12 @@ enum ResourceType :int {
 
     public static function getMeta(ResourceType $resourceType): ResourceTypeMeta {
         return match($resourceType) {
-            ResourceType::Capital => new ResourceTypeMeta(description: "Capital (money)", canBeStocked: true),
-            ResourceType::RecruitmentPool => new ResourceTypeMeta(description: "Recruitement pool", canBeStocked: false),
-            ResourceType::Food => new ResourceTypeMeta(description: "Food", canBeStocked: true),
-            ResourceType::Material => new ResourceTypeMeta(description: "Raw materials", canBeStocked: true),
-            ResourceType::Ore => new ResourceTypeMeta(description: "Ores", canBeStocked: true),
-            ResourceType::Oil => new ResourceTypeMeta(description: "Oil", canBeStocked: true),
+            ResourceType::Capital => new ResourceTypeMeta(description: "Capital (money)", canBeStocked: true, startingStock: 10),
+            ResourceType::RecruitmentPool => new ResourceTypeMeta(description: "Recruitement pool", canBeStocked: false, startingStock: 0),
+            ResourceType::Food => new ResourceTypeMeta(description: "Food", canBeStocked: true, startingStock: 0),
+            ResourceType::Material => new ResourceTypeMeta(description: "Raw materials", canBeStocked: true, startingStock: 0),
+            ResourceType::Ore => new ResourceTypeMeta(description: "Ores", canBeStocked: true, startingStock: 5),
+            ResourceType::Oil => new ResourceTypeMeta(description: "Oil", canBeStocked: true, startingStock: 10),
         };
     }
 

@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Domain\DivisionType;
 use App\Domain\ResourceType;
 use App\Domain\SharedAssetType;
 use App\Domain\StatUnit;
@@ -363,11 +362,13 @@ class NationDetail extends Model
         if ($flagSrcOrAsset instanceof GameSharedStaticAsset && !$flagSrcOrAsset->getType() == SharedAssetType::Flag) {
             throw new InvalidArgumentException("flagSrcOrAsset: expecting Flag asset, got " . $flagSrcOrAsset->getType());
         }
+        
+        $turn = $nation->getGame()->getCurrentTurn();
 
         $nation_details = new NationDetail();
         $nation_details->game_id = $nation->getGame()->getId();
         $nation_details->nation_id = $nation->getId();
-        $nation_details->turn_id = Turn::getCurrentForGame($nation->getGame())->getId();
+        $nation_details->turn_id = $turn->getId();
         $nation_details->usual_name = $nation->getInternalName();
         $nation_details->formal_name = is_null($formalName) ? $nation_details->usual_name : $formalName;
         $nation_details->flag_src = match(true) {
@@ -380,6 +381,13 @@ class NationDetail extends Model
         }
 
     	$nation_details->save();
+
+        foreach (ResourceType::cases() as $resourceType) {
+            $meta = ResourceType::getMeta($resourceType);
+            if ($meta->startingStock > 0) {
+                NationResourceStockpile::create($nation, $turn, $resourceType, $meta->startingStock);
+            }
+        }
 
         return $nation_details;
     }
