@@ -217,7 +217,8 @@ class TerritoryDetail extends Model
         $this->save();
         $loyalties = $current->allLoyalties()->get();
         assert($loyalties instanceof Collection);
-        $loyalties->each(fn (NationLoyalty $l) => $l->replicateForTurn($this->getTurn())->onNextTurn($l));
+        $totalLoyalty = $loyalties->sum(fn (NationLoyalty $l) => $l->getLoyaltyRatio());
+        $loyalties->each(fn (NationLoyalty $l) => $l->replicateForTurn($this->getTurn())->onNextTurn($l, $totalLoyalty));
     }
 
     public static function create(Territory $territory): TerritoryDetail {

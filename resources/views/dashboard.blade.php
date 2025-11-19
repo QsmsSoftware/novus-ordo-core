@@ -99,7 +99,7 @@
             Nation: 'Nation',
             BattleLogs: 'Battle logs',
             Deployments: 'Deployments',
-            Rankings: 'rankings',
+            Rankings: 'Rankings',
         };
         
         var selectedDetailsTab = null;
@@ -342,7 +342,7 @@
                 case StatUnit.WholeNumber:
                     return Intl.NumberFormat().format(value);
                 case StatUnit.ApproximateNumber:
-                    return 'about ' + Intl.NumberFormat().format(value);
+                    return '~' + Intl.NumberFormat().format(value);
                 case StatUnit.Unknown:
                     return 'Unknown';
                 default:
@@ -360,14 +360,14 @@
             let ownerLoyalty = territory.owner_nation_id ? territory.loyalties.find(l => l.nation_id == territory.owner_nation_id) : null;
             return '<div><h2>Production</h2><table>'
                 + '<tr><th>Base production (per 1M population)</th><th>Loyalty (to owner)</th><th>Production</th></th>'
-                + resourceTypeInfoByType.keys().map(resourceType => `<tr><td>${resourceTypeInfoByType.get(resourceType).base_production_by_terrain_type[territory.terrain_type].toFixed(2)}x</td><td>${ownerLoyalty ? formatValue(ownerLoyalty.loyalty_ratio, StatUnit.Percent) : ""}</td><td>${territory.owner_production ? territory.owner_production[resourceType].toFixed(2) : ""}x</td><td>${renderProductionResourceIcon(resourceType)}</td></tr>`).toArray().join("")
+                + resourceTypeInfoByType.keys().map(resourceType => `<tr><td>${resourceTypeInfoByType.get(resourceType).base_production_by_terrain_type[territory.terrain_type].toFixed(2)}x</td><td class="stat-value">${ownerLoyalty ? formatValue(ownerLoyalty.loyalty_ratio, StatUnit.Percent) : ""}</td><td>${territory.owner_production ? territory.owner_production[resourceType].toFixed(2) : ""}x</td><td>${renderProductionResourceIcon(resourceType)}</td></tr>`).toArray().join("")
                 + '</table></div>';
         }
 
         function renderLoyalties(loyalties) {
             return '<div><h2>Loyalties</h2>'
                 + (loyalties.length > 0
-                    ? '<table>' + loyalties.map(loyalty => `<tr><td>${nationsById.get(loyalty.nation_id).usual_name}</td><td>${formatValue(loyalty.loyalty_ratio, StatUnit.Percent)}</td></tr>`).join("") + '</table>'
+                    ? '<table>' + loyalties.map(loyalty => `<tr><td>${nationsById.get(loyalty.nation_id).usual_name}</td><td class="stat-value">${formatValue(loyalty.loyalty_ratio, StatUnit.Percent)}</td></tr>`).join("") + '</table>'
                     : '<i>The population on this territory has no loyalty toward any nation.</i>'
                 )
                 + '</div>';
@@ -442,7 +442,7 @@
             return '<div>'
                 + `<b>${ranking.title}</b><br>`
                 + `<table>`
-                + ranking.ranked_nation_ids.map((nationId, index) => `<tr><td>${index + 1}</td><td>${nationsById.get(nationId).usual_name}</td><td>${formatValue(ranking.data[index], ranking.data_unit)}</td></tr>`).join("")
+                + ranking.ranked_nation_ids.map((nationId, index) => `<tr><td class="stat-value">${index + 1}</td><td>${nationsById.get(nationId).usual_name}</td><td class="stat-value">${formatValue(ranking.data[index], ranking.data_unit)}</td></tr>`).join("")
                 + `</table>`
                 + '</div>';
         }

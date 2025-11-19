@@ -26,6 +26,10 @@ class NationDetail extends Model
 {
     use ReplicatesForTurns;
 
+    private const float MIN_POPULATION_GROWTH_MULTIPLIER = 1.00;
+    private const float MAX_POPULATION_GROWTH_MULTIPLIER = 5.00;
+    private const float MAX_FOOD_SURPLUS_RATIO = 1.00;
+
     public function game(): BelongsTo {
         return $this->belongsTo(Game::class);
     }
@@ -235,10 +239,16 @@ class NationDetail extends Model
     }
 
     public function getPopulationGrowthMultiplier(): float {
+        $foodProduction = $this->getProduction(ResourceType::Food);
         $foodUpkeep = $this->getUpkeep(ResourceType::Food);
-        return $foodUpkeep > 0
-            ? 1 + ($this->getProduction(ResourceType::Food) - $foodUpkeep) / $foodUpkeep
-            : 1;
+
+        if ($foodProduction < $foodUpkeep) {
+            return 0.00;
+        }
+
+        $foodSurplusRatio = min(NationDetail::MAX_FOOD_SURPLUS_RATIO, ($foodProduction - $foodUpkeep) / $foodUpkeep);
+
+        return NationDetail::MIN_POPULATION_GROWTH_MULTIPLIER + ($foodSurplusRatio / NationDetail::MAX_FOOD_SURPLUS_RATIO) * (NationDetail::MAX_POPULATION_GROWTH_MULTIPLIER - NationDetail::MIN_POPULATION_GROWTH_MULTIPLIER);
     }
 
     public function isHostileTerritory(Territory $territory): bool {
