@@ -164,13 +164,20 @@ class NationDetail extends Model
 
     public function getProduction(ResourceType $resourceType): float {
         $territoryProductionsByTerrainResource = TerrainType::getResourceProductionByTerrainResource();
-        $countByTerrain = $this->territories()
-            ->pluck(Territory::FIELD_TERRAIN_TYPE)
-            ->countBy();
-
-        assert($countByTerrain instanceof Collection);
+        $terrainTypesPopulationSizesLoyalties = 
+            DB::table('territories')
+            ->join('territory_details', 'territories.id', '=', 'territory_details.territory_id')
+            ->join('nation_loyalties', fn ($join) => $join
+                ->on('territories.id', '=', 'nation_loyalties.territory_id')
+                ->on('nation_loyalties.turn_id', '=', 'territory_details.turn_id')
+                ->on('nation_loyalties.nation_id', '=', 'territory_details.owner_nation_id')
+            )
+            ->where('territory_details.turn_id', $this->turn_id)
+            ->where('territory_details.owner_nation_id', $this->nation_id)
+            ->select(Territory::FIELD_TERRAIN_TYPE . ' as terrain_type', TerritoryDetail::FIELD_POPULATION_SIZE . ' as population_size', NationLoyalty::FIELD_LOYALTY . ' as raw_loyalty')
+            ->get();
         
-        return $countByTerrain->reduceWithKeys(fn (float $sum, $count, $terrain) => $sum + $territoryProductionsByTerrainResource[$terrain][$resourceType->value] * $count, 0);
+        return $terrainTypesPopulationSizesLoyalties->reduce(fn (float $sum, $info) => $sum + TerritoryDetail::calculateEffectiveProduction($territoryProductionsByTerrainResource[$info->terrain_type][$resourceType->value], $info->population_size, $info->raw_loyalty / 100), 0);
     }
 
     public function getStockpiledQuantity(ResourceType $resourceType): float {
@@ -190,7 +197,7 @@ class NationDetail extends Model
 
         return $divisionUpkeepCosts[$resourceType->value]
             + match($resourceType) {
-                ResourceType::Food => $this->getPopulationSize() / Territory::UNIT_OF_POPULATION_SIZE,
+                ResourceType::Food => $this->getPopulationSize() / TerritoryDetail::UNIT_OF_POPULATION_SIZE,
                 default => 0,
             };
     }
@@ -218,6 +225,13 @@ class NationDetail extends Model
         }
 
         return true;
+    }
+
+    public function getPopulationGrowthMultiplier(): float {
+        $foodUpkeep = $this->getUpkeep(ResourceType::Food);
+        return $foodUpkeep > 0
+            ? 1 + ($this->getProduction(ResourceType::Food) - $foodUpkeep) / $foodUpkeep
+            : 1;
     }
 
     public function isHostileTerritory(Territory $territory): bool {

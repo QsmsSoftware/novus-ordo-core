@@ -12,7 +12,7 @@ readonly class TerritoryTurnPublicInfo {
         public int $turn_number,
         public ?int $owner_nation_id,
         public array $stats,
-        public array $production,
+        public ?array $owner_production,
         public array $loyalties,
     ) {}
 }

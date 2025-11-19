@@ -23,10 +23,23 @@ enum ResourceType :int {
     }
 
     public static function exportMetas(): array {
+        $productionByResourceTerrain = [];
+        foreach(TerrainType::getResourceProductionByTerrainResource() as $terrain => $productionByResource) {
+            foreach($productionByResource as $resource => $production) {
+                $productionByResourceTerrain[$resource][$terrain] = $production;
+            }
+        }
+
         $resourceTypes = [];
         foreach (ResourceType::cases() as $resourceType) {
             $meta = ResourceType::getMeta($resourceType);
-            $resourceTypes[] = new ResourceTypeInfo($resourceType->name, $meta->description, $meta->canBeStocked);
+            
+            $resourceTypes[] = new ResourceTypeInfo(
+                $resourceType->name,
+                $meta->description,
+                $meta->canBeStocked,
+                base_production: collect($productionByResourceTerrain[$resourceType->value])->mapWithKeys(fn (float $production, int $terrain) => [TerrainType::from($terrain)->name => $production])->all(),
+            );
         }
 
         return $resourceTypes;

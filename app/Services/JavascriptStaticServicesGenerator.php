@@ -24,6 +24,7 @@ class JavascriptStaticServicesGenerator {
                 $this->servicesGenerator->generateClientService("NovusOrdoServices", "ajax"),
                 "const allResourceTypes = " . json_encode(ResourceType::exportMetas()) . ";",
                 "const allDivisionTypes = " . json_encode(DivisionType::exportMetas()) . ";",
+                "const allTerrainTypes = " . json_encode(TerrainType::exportMetas()) . ";",
         ]));
     }
 }

@@ -13,12 +13,11 @@ use App\Services\StaticJavascriptResource;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Exists;
-use stdClass;
+use PhpOption\Option;
 
 class NeutralOwnership {}
 
@@ -32,6 +31,8 @@ class TerritoryDetail extends Model
     private const float HOME_TERRITORY_STARTING_LOYALTY_RATIO = 1.00;
     private const float CONQUERED_TERRITORY_STARTING_LOYALTY_RATIO = 0.00;
     private const float NEUTRAL_TERRITORY_STARTING_LOYALTY_RATIO = 0.50;
+    public const int UNIT_OF_POPULATION_SIZE = 1_000_000;
+    public const float BASE_POPULATION_GROWTH_RATE = 0.01;
 
     public function territory(): BelongsTo {
         return $this->belongsTo(Territory::class);
@@ -72,8 +73,18 @@ class TerritoryDetail extends Model
     }
 
     public function setPopulationSize(int $population): void {
-        $this->population_size = $population;
+        $this->population_size = min($this->getTerritory()->getMaxPopulationSize(), $population);
         $this->save();
+    }
+
+    private static function calculatePopulationGrowthRate(float $populationGrowthMultiplier): float {
+        return TerritoryDetail::BASE_POPULATION_GROWTH_RATE * $populationGrowthMultiplier;
+    }
+
+    public function getPopulationGrowthRate(): float {
+        return Option::fromValue($this->getOwnerOrNull())
+            ->map(fn (Nation $n) => TerritoryDetail::calculatePopulationGrowthRate($n->getDetail($this->getTurn())->getPopulationGrowthMultiplier()))
+            ->getOrElse(0.00);
     }
 
     public function getOwnerDivisions(): Collection {
@@ -118,23 +129,31 @@ class TerritoryDetail extends Model
         $this->save();
     }
 
+    public static function calculateEffectiveProduction(float $baseProduction, int $populationSize, float $loyaltyRatio): float {
+        return $baseProduction * $populationSize / TerritoryDetail::UNIT_OF_POPULATION_SIZE * $loyaltyRatio;
+    }
+
     public function export(): TerritoryTurnPublicInfo {
         $ownerOrNull = $this->getOwnerOrNull();
         $territory = $this->getTerritory();
         $productionByResource = TerrainType::getResourceProductionByResource($this->getTerritory()->getTerrainType());
+        $loyalties = $this->allLoyalties()->get();
 
         return new TerritoryTurnPublicInfo(
             territory_id: $territory->getId(),
             turn_number: $this->getTurn()->getNumber(),
             owner_nation_id: $ownerOrNull?->getId(),
             stats: [is_null($this->owner_nation_id) ? new DemographicStat('Population', 0, StatUnit::Unknown->name) : new DemographicStat('Population', $this->getPopulationSize(), StatUnit::WholeNumber->name)],
-            production: collect(array_keys($productionByResource))
-                ->mapWithKeys(fn (int $resource) => [ResourceType::from($resource)->name => $productionByResource[$resource]])->all(),
-            loyalties: $this->allLoyalties()->get()->map(fn (NationLoyalty $l) => $l->export())->all()
+            owner_production: is_null($this->owner_nation_id) ? null : collect(array_keys($productionByResource))
+                ->mapWithKeys(fn (int $resource) => [ResourceType::from($resource)->name => TerritoryDetail::calculateEffectiveProduction($productionByResource[$resource], $this->getPopulationSize(), $loyalties->get($this->owner_nation_id)->getLoyaltyRatio())])->all(),
+            loyalties: $loyalties->map(fn (NationLoyalty $l) => $l->export())->all()
         );
     }
 
     public static function exportAllTurnOwnerInfo(Nation $owner, Turn $turn): array {
+        $populationGrowthMultiplier = $owner->getDetail($turn)->getPopulationGrowthMultiplier();
+
+        //dd($populationGrowthMultiplier);
         $territories = DB::table('territory_details')
             ->where('territory_details.game_id', $turn->getGame()->getId())
             ->where('territory_details.owner_nation_id', $owner->getId())
@@ -145,6 +164,7 @@ class TerritoryDetail extends Model
 
             return $territories->map(fn ($t) => TerritoryTurnOwnerInfo::fromObject($t, [
                 'stats' => [
+                    new DemographicStat('Population growth rate', TerritoryDetail::calculatePopulationGrowthRate($populationGrowthMultiplier), StatUnit::DetailedPercent->name)
                 ]
             ]))->all();
     }
@@ -154,7 +174,7 @@ class TerritoryDetail extends Model
             ->where('territories.game_id', $turn->getGame()->getId())
             ->where('nation_loyalties.turn_id', $turn->getId())
             ->join('nation_loyalties', 'nation_loyalties.territory_id', '=', 'territories.id')
-            ->select('territories.id as territory_id', 'nation_loyalties.nation_id', 'nation_loyalties.' . NationLoyalty::FIELD_LOYALTY_RATIO . ' as loyalty_ratio')
+            ->select('territories.id as territory_id', 'nation_loyalties.nation_id', 'nation_loyalties.' . NationLoyalty::FIELD_LOYALTY . ' as raw_loyalty')
             ->get()
             ->groupBy('territory_id');
         $productionByTerrainResource = collect(TerrainType::getResourceProductionByTerrainResource())
@@ -165,7 +185,12 @@ class TerritoryDetail extends Model
             ->where('territory_details.game_id', $turn->getGame()->getId())
             ->where('territory_details.turn_id', $turn->getId())
             ->join('territories', 'territories.id', '=', 'territory_details.territory_id')
-            ->select('territory_details.*', 'territories.terrain_type')
+            ->leftJoin('nation_loyalties', fn ($join) => $join
+                ->on('nation_loyalties.territory_id', '=', 'territory_details.territory_id')
+                ->on('nation_loyalties.turn_id', '=', 'territory_details.turn_id')
+                ->on('nation_loyalties.nation_id', '=', 'territory_details.owner_nation_id')
+            )
+            ->select('territory_details.*', Territory::FIELD_TERRAIN_TYPE . ' as terrain_type', NationLoyalty::FIELD_LOYALTY . ' as raw_loyalty')
             ->get()
             ->all();
 
@@ -174,8 +199,8 @@ class TerritoryDetail extends Model
             'stats' => [
                 is_null($t->owner_nation_id) ? new DemographicStat('Population', 0, StatUnit::Unknown->name) : new DemographicStat('Population', $t->population_size, StatUnit::WholeNumber->name),
             ],
-            'production' => $productionByTerrainResource[$t->terrain_type]->all(),
-            'loyalties' => $loyaltiesByTerritoryId->get($t->territory_id)?->map(fn (object $l) => ['nation_id' => $l->nation_id, 'loyalty' => $l->loyalty_ratio / 100])?->all()??[]
+            'owner_production' => is_null($t->owner_nation_id) ? null : $productionByTerrainResource[$t->terrain_type]->mapWithKeys(fn ($production, $resource) => [$resource => TerritoryDetail::calculateEffectiveProduction($production, $t->population_size, $t->raw_loyalty / 100)])->all(),
+            'loyalties' => $loyaltiesByTerritoryId->get($t->territory_id)?->map(fn (object $l) => ['nation_id' => $l->nation_id, 'loyalty_ratio' => $l->raw_loyalty / 100])?->all()??[]
         ]), $territories);
     }
 
@@ -188,10 +213,11 @@ class TerritoryDetail extends Model
     }
 
     public function onNextTurn(TerritoryDetail $current): void {
+        $this->setPopulationSize($this->getPopulationSize() * (1 + $current->getPopulationGrowthRate()));
         $this->save();
-        $loyalties = $this->allLoyalties()->get();
+        $loyalties = $current->allLoyalties()->get();
         assert($loyalties instanceof Collection);
-        $loyalties->each(fn (NationLoyalty $l) => $l->replicateForTurn()->onNextTurn($l));
+        $loyalties->each(fn (NationLoyalty $l) => $l->replicateForTurn($this->getTurn())->onNextTurn($l));
     }
 
     public static function create(Territory $territory): TerritoryDetail {

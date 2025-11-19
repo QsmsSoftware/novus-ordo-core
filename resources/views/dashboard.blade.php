@@ -80,6 +80,7 @@
         var divisionsById = mapExportedArray(@json($divisions), d => d.division_id);
         let resourceTypeInfoByType = mapExportedArray(allResourceTypes, rt => rt.resource_type);
         let divisionTypeInfoByType = mapExportedArray(allDivisionTypes, dt => dt.division_type);
+        let terrainTypeInfoByType = mapExportedArray(allTerrainTypes, tt => tt.terrain_type);
         var budget = @json($budget);
 
         let ownNation = @json($own_nation);
@@ -329,6 +330,8 @@
             switch (unit) {
                 case StatUnit.Percent:
                     return `${(value * 100).toFixed(0)}%`;
+                case StatUnit.DetailedPercent:
+                    return `${(value * 100).toFixed(2)}%`;
                 case StatUnit.Km2:
                     return `${Intl.NumberFormat().format(value)} km<sup>2</sup>`;
                 case StatUnit.WholeNumber:
@@ -346,16 +349,18 @@
                 + '</table></div>';
         }
 
-        function renderProduction(production) {
+        function renderProduction(territory) {
+            let ownerLoyalty = territory.owner_nation_id ? territory.loyalties.find(l => l.nation_id == territory.owner_nation_id) : null;
             return '<div><h2>Production</h2><table>'
-                + Object.keys(production).map(resourceType => `<tr><td>${production[resourceType].toFixed(2)}x</td><td>${renderProductionResourceIcon(resourceType)}</td></tr>`).join("")
+                + '<tr><th>Base production (per 1M population)</th><th>Loyalty (to owner)</th><th>Production</th></th>'
+                + resourceTypeInfoByType.keys().map(resourceType => `<tr><td>${resourceTypeInfoByType.get(resourceType).base_production[territory.terrain_type].toFixed(2)}x</td><td>${ownerLoyalty ? formatValue(ownerLoyalty.loyalty_ratio, StatUnit.Percent) : ""}</td><td>${territory.owner_production ? territory.owner_production[resourceType].toFixed(2) : ""}x</td><td>${renderProductionResourceIcon(resourceType)}</td></tr>`).toArray().join("")
                 + '</table></div>';
         }
 
         function renderLoyalties(loyalties) {
             return '<div><h2>Loyalties</h2>'
                 + (loyalties.length > 0
-                    ? '<table>' + loyalties.map(loyalty => `<tr><td>${nationsById.get(loyalty.nation_id).usual_name}</td><td>${formatValue(loyalty.loyalty, StatUnit.Percent)}</td></tr>`).join("") + '</table>'
+                    ? '<table>' + loyalties.map(loyalty => `<tr><td>${nationsById.get(loyalty.nation_id).usual_name}</td><td>${formatValue(loyalty.loyalty_ratio, StatUnit.Percent)}</td></tr>`).join("") + '</table>'
                     : '<i>The population on this territory has no loyalty toward any nation.</i>'
                 )
                 + '</div>';
@@ -408,7 +413,7 @@
                 + `<span id="territory-info-owner">` + (selectedTerritory.owner_nation_id != null ? `<p>Owned by ${nationsById.get(selectedTerritory.owner_nation_id).usual_name}</p>` : '') + "</span>"
             );
 
-            $("#info-details").html(renderDemography(selectedTerritory.stats) + renderProduction(selectedTerritory.production) + renderLoyalties(selectedTerritory.loyalties));
+            $("#info-details").html(renderDemography(selectedTerritory.stats) + renderProduction(selectedTerritory) + renderLoyalties(selectedTerritory.loyalties));
         }
 
         function updateOwnerPane() {

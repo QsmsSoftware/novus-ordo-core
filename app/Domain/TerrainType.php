@@ -1,6 +1,9 @@
 <?php
 namespace App\Domain;
 
+use App\ReadModels\TerrainTypeInfo;
+use Illuminate\Support\Collection;
+
 enum TerrainType :int {    
     case Water = 0;
     case Plain = 1;
@@ -27,14 +30,18 @@ enum TerrainType :int {
 
     public static function getMeta(TerrainType $terrainType): TerrainTypeMeta {
         return match($terrainType) {
-            TerrainType::Water => new TerrainTypeMeta("Water"),
-            TerrainType::Plain => new TerrainTypeMeta("Plain", new ResourceProduction(ResourceType::Capital, 1), new ResourceProduction(ResourceType::RecruitmentPool, 1),  new ResourceProduction(ResourceType::Food, 2), new ResourceProduction(ResourceType::Material, 0.20), new ResourceProduction(ResourceType::Ore, 0.20), new ResourceProduction(ResourceType::Oil, 0.20)),
-            TerrainType::River => new TerrainTypeMeta("Description('Plain (with major river)", new ResourceProduction(ResourceType::Capital, 1), new ResourceProduction(ResourceType::RecruitmentPool, 1),  new ResourceProduction(ResourceType::Food, 2), new ResourceProduction(ResourceType::Material, 0.20), new ResourceProduction(ResourceType::Ore, 0.20), new ResourceProduction(ResourceType::Oil, 0.20)),
-            TerrainType::Desert => new TerrainTypeMeta("Desert", new ResourceProduction(ResourceType::Capital, 1), new ResourceProduction(ResourceType::RecruitmentPool, 1),  new ResourceProduction(ResourceType::Food, 1.20), new ResourceProduction(ResourceType::Material, 0.20), new ResourceProduction(ResourceType::Ore, 0.20), new ResourceProduction(ResourceType::Oil, 1)),
-            TerrainType::Tundra => new TerrainTypeMeta("Tundra", new ResourceProduction(ResourceType::Capital, 1), new ResourceProduction(ResourceType::RecruitmentPool, 1),  new ResourceProduction(ResourceType::Food, 1.20), new ResourceProduction(ResourceType::Material, 0.20), new ResourceProduction(ResourceType::Ore, 0.20), new ResourceProduction(ResourceType::Oil, 1)),
-            TerrainType::Mountain => new TerrainTypeMeta("Mountain", new ResourceProduction(ResourceType::Capital, 1), new ResourceProduction(ResourceType::RecruitmentPool, 1),  new ResourceProduction(ResourceType::Food, 1.20), new ResourceProduction(ResourceType::Material, 0.20), new ResourceProduction(ResourceType::Ore, 1), new ResourceProduction(ResourceType::Oil, 0.20)),
-            TerrainType::Forest => new TerrainTypeMeta("Forest", new ResourceProduction(ResourceType::Capital, 1), new ResourceProduction(ResourceType::RecruitmentPool, 1),  new ResourceProduction(ResourceType::Food, 1.20), new ResourceProduction(ResourceType::Material, 1), new ResourceProduction(ResourceType::Ore, 0.20), new ResourceProduction(ResourceType::Oil, 0.20)),
+            TerrainType::Water => new TerrainTypeMeta("Water", 0),
+            TerrainType::Plain => new TerrainTypeMeta("Plain", 1.00, new ResourceProduction(ResourceType::Capital, 1), new ResourceProduction(ResourceType::RecruitmentPool, 1),  new ResourceProduction(ResourceType::Food, 2), new ResourceProduction(ResourceType::Material, 0.20), new ResourceProduction(ResourceType::Ore, 0.20), new ResourceProduction(ResourceType::Oil, 0.20)),
+            TerrainType::River => new TerrainTypeMeta("Description('Plain (with major river)", 1.00, new ResourceProduction(ResourceType::Capital, 1), new ResourceProduction(ResourceType::RecruitmentPool, 1),  new ResourceProduction(ResourceType::Food, 2), new ResourceProduction(ResourceType::Material, 0.20), new ResourceProduction(ResourceType::Ore, 0.20), new ResourceProduction(ResourceType::Oil, 0.20)),
+            TerrainType::Desert => new TerrainTypeMeta("Desert", 0.25, new ResourceProduction(ResourceType::Capital, 1), new ResourceProduction(ResourceType::RecruitmentPool, 1),  new ResourceProduction(ResourceType::Food, 1.20), new ResourceProduction(ResourceType::Material, 0.20), new ResourceProduction(ResourceType::Ore, 0.20), new ResourceProduction(ResourceType::Oil, 1)),
+            TerrainType::Tundra => new TerrainTypeMeta("Tundra", 0.25, new ResourceProduction(ResourceType::Capital, 1), new ResourceProduction(ResourceType::RecruitmentPool, 1),  new ResourceProduction(ResourceType::Food, 1.20), new ResourceProduction(ResourceType::Material, 0.20), new ResourceProduction(ResourceType::Ore, 0.20), new ResourceProduction(ResourceType::Oil, 1)),
+            TerrainType::Mountain => new TerrainTypeMeta("Mountain", 0.25, new ResourceProduction(ResourceType::Capital, 1), new ResourceProduction(ResourceType::RecruitmentPool, 1),  new ResourceProduction(ResourceType::Food, 1.20), new ResourceProduction(ResourceType::Material, 0.20), new ResourceProduction(ResourceType::Ore, 1), new ResourceProduction(ResourceType::Oil, 0.20)),
+            TerrainType::Forest => new TerrainTypeMeta("Forest", 0.25, new ResourceProduction(ResourceType::Capital, 1), new ResourceProduction(ResourceType::RecruitmentPool, 1),  new ResourceProduction(ResourceType::Food, 1.20), new ResourceProduction(ResourceType::Material, 1), new ResourceProduction(ResourceType::Ore, 0.20), new ResourceProduction(ResourceType::Oil, 0.20)),
         };
+    }
+
+    public static function getMetas(): Collection {
+        return collect(TerrainType::cases())->mapWithKeys(fn (TerrainType $terrainType) => [$terrainType->value => TerrainType::getMeta($terrainType)]);
     }
 
     public static function getResourceProductionByResource(TerrainType $terrainType): array {
@@ -59,5 +66,15 @@ enum TerrainType :int {
         }
 
         return $values;
+    }
+
+    public static function exportMetas(): array {
+        $types = [];
+        foreach(TerrainType::cases() as $terrainType) {
+            $meta = TerrainType::getMeta($terrainType);
+            $types[] = new TerrainTypeInfo($terrainType->name, $meta->description);
+        }
+
+        return $types;
     }
 }

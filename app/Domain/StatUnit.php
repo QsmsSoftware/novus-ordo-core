@@ -6,4 +6,5 @@ enum StatUnit {
     case Km2;
     case WholeNumber;
     case Unknown;
+    case DetailedPercent;
 }

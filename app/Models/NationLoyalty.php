@@ -5,20 +5,23 @@ namespace App\Models;
 use App\ModelTraits\ReplicatesForTurns;
 use App\Utils\GuardsForAssertions;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class NationLoyalty extends Model
 {
     use GuardsForAssertions;
     use ReplicatesForTurns;
 
-    public const string FIELD_LOYALTY_RATIO = 'loyalty';
+    public const string FIELD_LOYALTY = 'loyalty';
 
-    public static function getLoyaltyRatio(Nation $nation, Territory $territory, Turn $turn): float {
-        $loyaltyOrNull = NationLoyalty::getLoyaltyOrNull($nation, $territory, $turn);
-
-        return is_null($loyaltyOrNull) ? 0 : $loyaltyOrNull->loyalty / 100;
+    public function getLoyaltyRatio(): float {
+        return $this->loyalty / 100;
     }
+
+    // public static function getLoyaltyRatio(Nation $nation, Territory $territory, Turn $turn): float {
+    //     $loyaltyOrNull = NationLoyalty::getLoyaltyOrNull($nation, $territory, $turn);
+
+    //     return is_null($loyaltyOrNull) ? 0 : $loyaltyOrNull->loyalty / 100;
+    // }
 
     public static function getLoyaltyOrNull(Nation $nation, Territory $territory, Turn $turn): ?NationLoyalty {
         return NationLoyalty::where('nation_id', $nation->getId())
@@ -53,7 +56,7 @@ class NationLoyalty extends Model
         }
     }
 
-    public function onNextTurn(Turn $current): void {
+    public function onNextTurn(NationLoyalty $current): void {
         $this->save();
     }
 

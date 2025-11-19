@@ -30,7 +30,7 @@ class Territory extends Model
 
     public const string FIELD_TERRAIN_TYPE = 'terrain_type';
 
-    public const int UNIT_OF_POPULATION_SIZE = 1_000_000;
+    public const int MAX_POPULATION_SIZE_PER_TERRITORY = 10_000_000;
 
     public function game(): BelongsTo {
         return $this->belongsTo(Game::class);
@@ -89,6 +89,14 @@ class Territory extends Model
 
     public function getName(): string {
         return $this->name;
+    }
+
+    private static function calculateMaxPopulationSize(float $usableLandRatio, float $terrainMaxPopulationDensity): int {
+        return round(Territory::MAX_POPULATION_SIZE_PER_TERRITORY * $usableLandRatio * $terrainMaxPopulationDensity);
+    }
+
+    public function getMaxPopulationSize(): int {
+        return Territory::calculateMaxPopulationSize($this->getUsableLandRatio(), TerrainType::getMeta($this->getTerrainType())->maxPopulationDensity);
     }
 
     public function isSuitableAsHome(): bool {
@@ -205,6 +213,8 @@ class Territory extends Model
             ->get()
             ->groupBy('territory_id');
 
+        $terrainInfoByType = TerrainType::getMetas();
+
         $territoriesByCoords = [];
 
         foreach($territories as $territory) {
@@ -219,7 +229,9 @@ class Territory extends Model
                 ->map(fn ($c) => $c->connected_territory_id)
                 ->values()
                 ->all(),
-            'stats' => Territory::statsFromRow($t)
+            'stats' => array_merge(Territory::statsFromRow($t), [
+                new DemographicStat('Maximum population', Territory::calculateMaxPopulationSize($t->usable_land_ratio, $terrainInfoByType->get($t->terrain_type)->maxPopulationDensity), StatUnit::WholeNumber->name)
+            ]),
         ]), $territories);
     }
 
