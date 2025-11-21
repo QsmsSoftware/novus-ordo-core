@@ -2,18 +2,91 @@
 
 namespace App\Models;
 
+use App\Domain\DivisionType;
+use App\Domain\ResourceType;
 use App\ReadModels\ParticipantBattleLog;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Collection;
 use LogicException;
+use PhpOption\Option;
+
+class BattleFormation {
+    private bool $isActive = true;
+
+    public function isActive(): bool {
+        return $this->isActive;
+    }
+
+    public function kill(): void {
+        $this->isActive = false;
+    }
+
+    public function __construct(
+        public readonly string $description,
+        public readonly int $power,
+        public readonly int $value,
+        public readonly ?Division $linkedDivision = null,
+    )
+    {
+        
+    }
+
+    public static function fromDivision(Division $division, NationDetail $ownerDetail, int $power): BattleFormation {
+        $meta = DivisionType::getMeta($division->getDivisionType());
+
+        return new BattleFormation($meta->description . " ({$ownerDetail->getUsualName()})", $power, $meta->deploymentCosts[ResourceType::Capital->value], $division);
+    }
+
+    public static function newPartisans(NationDetail $ownerDetail, int $power) {
+        $description = "Partisans ({$ownerDetail->getUsualName()})";
+
+        return new BattleFormation($description, $power, 0);
+    }
+
+    public static function newMilitia(?NationDetail $ownerDetail, int $power) {
+        $faction = is_null($ownerDetail) ? "neutral" : $ownerDetail->getUsualName();
+        $description = "Militia ($faction)";
+
+        return new BattleFormation($description, $power, 0);
+    }
+}
+
+readonly class BattleLosses {
+    public function __construct(
+        public int $numberOfFormations,
+        public int $totalLosses,
+        public bool $anySurvivors,
+        public Collection $destroyedFormations,
+        public Collection $destroyedDivisions,
+    )
+    {
+        
+    }
+}
+
+readonly class BattleKills {
+    public function __construct(
+        public int $totalPower,
+        public int $baseKills,
+        public int $remainingPower,
+        public int $roll,
+        public bool $extraKill,
+        public int $totalKills,
+    )
+    {
+        
+    }
+}
 
 class Battle extends Model
 {
-    private const float ATTACK_POWER_PER_DIVISION = 0.3;
-    private const float DEFENSE_POWER_PER_DIVISION = 0.5;
-    private const int MIN_NEUTRAL_DIVISIONS = 1;
-    private const int MAX_NEUTRAL_DIVISIONS = 3;
+    private const float MIN_SUPPORT_FOR_MILITIA = 0.50;
+    private const int MIN_MILITIA_BASE_FORMATIONS = 1;
+    private const int MAX_MILITIA_BASE_FORMATIONS = 3;
+    private const int EXTRA_FORMATIONS_PER_MILLION_SUPPORTERS = 1;
+    private const int PARTISANS_POWER = 30;
+    private const int MILITIA_POWER = 30;
 
     public function game(): BelongsTo {
         return $this->belongsTo(Game::class);
@@ -59,7 +132,98 @@ class Battle extends Model
         return $this->log;
     }
 
-    public static function resolveBattle(Territory $territory, Collection $attackingDivisions): Battle {
+    private static function calculateTotalPower(Collection $formations): int {
+        return $formations->sum(fn (BattleFormation $f) => $f->power);
+    }
+
+    private static function processSide(Collection $formations): BattleKills {
+        $totalPower = Battle::calculateTotalPower($formations);
+
+        $baseKills = floor($totalPower / 100);
+        $remainingPower = $totalPower - $baseKills * 100;
+        $roll = random_int(1, 100);
+        $extraKill = $roll <= $remainingPower;
+        $totalKills = $extraKill ? $baseKills + 1 : $baseKills;
+
+        return new BattleKills(
+            totalPower: $totalPower,
+            baseKills: $baseKills,
+            remainingPower: $remainingPower,
+            roll: $roll,
+            extraKill: $extraKill,
+            totalKills: $totalKills
+        );
+    }
+
+    private static function listFormations(Collection $formations): string {
+        $formationsByType = $formations->groupBy(fn (BattleFormation $f) => $f->description)->sortBy(fn (Collection $formations) => $formations->first()->value);
+        $described = [];
+        $longestDescLength = $formationsByType->max(fn (Collection $formations) => strlen($formations->first()->description));
+
+        foreach ($formationsByType->keys() as $desc) {
+            $count = $formationsByType->get($desc)->count();
+            $power = $formationsByType->get($desc)->first()->power;
+            $cumulatedPower = $power * $count;
+            
+            $described[] =  "{$count}x " . str_pad($desc, $longestDescLength) . " [power: $power, cumulated power: $cumulatedPower]";
+        }
+
+        return join("\n", $described);
+    }
+
+    private static function describeFormations(string $side, Collection $formations): string {
+        $totalPower = Battle::calculateTotalPower($formations);
+        return "$side [{$formations->count()} formations, $totalPower total power]:\n" . Battle::listFormations($formations);
+    }
+
+    private static function describeKills(string $side, BattleKills $kills): string {
+        $log = "";
+
+        $log .= "{$side}'s total power                      : {$kills->totalPower}\n";
+        $log .= "{$side}'s base kills (1 kill per 100 power): {$kills->baseKills}\n";
+        $log .= "{$side}'s remaining power                  : {$kills->remainingPower}\n";
+        if ($kills->remainingPower > 0) {
+            $log .= "{$side} rolls                              : {$kills->roll}";
+            if ($kills->extraKill) {
+                $log .= " (rolled below or equal to {$kills->remainingPower}, extra kill!)\n";
+            }
+            else {
+                $log .= " (rolled above {$kills->remainingPower}, no extra kill!)\n";
+            }
+        }
+        else {
+            $log .= "{$side} has no remaining power, no roll for extra kill.\n";
+        }
+        $log .= "{$side}'s total kills                      : {$kills->totalKills}\n";
+
+        return $log;
+    }
+
+    public static function applyLosses(BattleKills $kills, Collection $formations): BattleLosses {
+        $totalLosses = min($kills->totalKills, $formations->count());
+
+        $formationOrderedByValue = $formations->sortBy(fn (BattleFormation $f) => $f->value);
+
+        $destroyedFormations = $formationOrderedByValue->take($totalLosses);
+
+        $destroyedDivisions = $destroyedFormations->filter(fn (BattleFormation $f) => !is_null($f->linkedDivision))->map(fn (BattleFormation $f) => $f->linkedDivision);
+
+        return new BattleLosses(
+            numberOfFormations: $formations->count(),
+            totalLosses: $totalLosses,
+            anySurvivors: $totalLosses < $formations->count(),
+            destroyedFormations: $destroyedFormations,
+            destroyedDivisions: $destroyedDivisions,
+        );
+    }
+
+    public static function describeLosses(string $side, BattleLosses $losses): string {
+        $numberOfDestroyedDivisions = count($losses->destroyedDivisions);
+        return "$side lost {$losses->totalLosses} formations, among them $numberOfDestroyedDivisions divisions:\n" . Battle::listFormations($losses->destroyedFormations);
+    }
+
+    public static function resolveBattle(Territory $territory, Turn $currentTurn, Turn $nextTurn, Collection $attackingDivisions): Battle {
+        $teritoryDetail = $territory->getDetail($currentTurn);
         $log = "";
 
         $numberOfAttackers = $attackingDivisions->count();
@@ -68,74 +232,104 @@ class Battle extends Model
         }
         $firstDiv = Division::notNull($attackingDivisions->first());
         $attacker = $firstDiv->getNation();
+        $attackerDetail = $attacker->getDetail($currentTurn);
         $attackingDivisions->each(function (Division $d) use ($attacker) {
             if (!$d->getNation()->equals($attacker)) {
                 throw new LogicException("All attacking divisions must have the same owner.");
             }
         });
-        $attackPower = Battle::ATTACK_POWER_PER_DIVISION * $numberOfAttackers;
+
+        $divisionInfoByType = DivisionType::getMetas();
+
+        $attackingFormations = $attackingDivisions
+            ->filter(fn (Division $d) => $d->getDetail($nextTurn)->isActive())
+            ->map(fn (Division $d) => BattleFormation::fromDivision($d, $attackerDetail, $divisionInfoByType->get($d->getDivisionType()->value)->attackPower));
+        $attackerLoyaltyRatio = Option::fromValue(NationLoyalty::getLoyaltyOrNull($attacker, $territory, $currentTurn))
+                ->map(fn (NationLoyalty $l) => $l->getLoyaltyRatio())
+                ->getOrElse(0.00);
+        $numberOfPartisans = floor($attackerLoyaltyRatio * Battle::EXTRA_FORMATIONS_PER_MILLION_SUPPORTERS * $teritoryDetail->getPopulationSize() / 1_000_000);
+        
+        for ($i = 0; $i < $numberOfPartisans; $i++) {
+            $attackingFormations->push(BattleFormation::newPartisans($attacker->getDetail($currentTurn), Battle::PARTISANS_POWER));
+        }
 
         $defenderOrNull = $territory->getDetail()->getOwnerOrNull();
         $defenderIsNeutral = is_null($defenderOrNull);
-        $defenderDescription = $defenderIsNeutral ? "neutral territory" : "{$defenderOrNull->getDetail()->getUsualName()} on territory";
-        
-        $log .= "$numberOfAttackers divisions of {$attacker->getDetail()->getUsualName()} attacks {$defenderDescription} {$territory->getName()} (ID {$territory->getId()}).\n";
-        
+        $defenderDescription = $defenderIsNeutral ? "neutral territory" : "{$defenderOrNull->getDetail()->getUsualName()} on";
+
+        $log .= "{$attacker->getDetail()->getUsualName()} attacks {$defenderDescription} {$territory->getName()}.";
+        $log .= "\n\n";
+
+        if ($attackingFormations->count() < 1) {
+            return Battle::create($territory, $attacker, $defenderOrNull, $defenderOrNull, "No attacking division is still operational. Attack aborted.");
+        }
+
         if ($defenderIsNeutral) {
-            $numberOfDefenders = random_int(Battle::MIN_NEUTRAL_DIVISIONS, Battle::MAX_NEUTRAL_DIVISIONS);
-            $log .= 'Rolled between ' . Battle::MIN_NEUTRAL_DIVISIONS . ' and ' . Battle::MAX_NEUTRAL_DIVISIONS . " for number of neutral divisions: $numberOfDefenders divisions will be defending.\n";
+            $numberOfMilitias = random_int(Battle::MIN_MILITIA_BASE_FORMATIONS, Battle::MAX_MILITIA_BASE_FORMATIONS);
+            $defendingFormations = collect();
         }
         else {
-            $numberOfDefenders = $territory->getDetail()->getOwnerDivisions()->count();
-            $log .= "The defender has $numberOfDefenders divisions.\n";
-        }
-        $defensePower = Battle::DEFENSE_POWER_PER_DIVISION * $numberOfDefenders;
+            $defenderDetail = Nation::notNull($defenderOrNull)->getDetail($currentTurn);
+            $defenderLoyaltyRatio = Option::fromValue(NationLoyalty::getLoyaltyOrNull($defenderOrNull, $territory, $currentTurn))
+                ->map(fn (NationLoyalty $l) => $l->getLoyaltyRatio())
+                ->getOrElse(0.00);
+            if ($defenderLoyaltyRatio >= Battle::MIN_SUPPORT_FOR_MILITIA) {
+                $log .= "The territory's current owner has enough support for the population to take up arms and form militia formations.\n";
+                $numberOfMilitias = Battle::MIN_MILITIA_BASE_FORMATIONS
+                    + random_int(0, round($defenderLoyaltyRatio * (Battle::MAX_MILITIA_BASE_FORMATIONS - Battle::MIN_MILITIA_BASE_FORMATIONS)))
+                    + floor($defenderLoyaltyRatio * Battle::EXTRA_FORMATIONS_PER_MILLION_SUPPORTERS * $teritoryDetail->getPopulationSize() / 1_000_000);
+            }
+            else {
+                $log .= "The territory's current owner doesn't have enough support for the population to take up arms and form militia formations.\n";
+                $numberOfMilitias = 0;
+            }
 
-        $attackerRoll = random_int(1, 100) / 100;
-        $remainingAttackPower = $attackPower - floor($attackPower);
-        $attackerBaseKills = floor($attackPower);
-        $attackerKills = min($attackerBaseKills + ($attackerRoll <= $remainingAttackPower ? 1 : 0), $numberOfDefenders);
+            $log .= "\n";
 
-        $log .= "Attacker's power ($numberOfAttackers divisions x " . Battle::ATTACK_POWER_PER_DIVISION . "): $attackPower\n";
-        $log .= "Attacker's base kills: $attackerBaseKills\n";
-        $log .= "Attacker's remaining power: $remainingAttackPower\n";
-        if ($remainingAttackPower >= 0.01) {
-            $log .= "Attacker's d100 roll: $attackerRoll\n";
-            $log .= "Attacker " . ($attackerRoll <= $remainingAttackPower ? " rolled below or equal their remaining power and scores an extra kill." : "rolled above their remaining power and doesn't score an extra kill.") . "\n";
+            $defendingFormations = $territory->getDetail($currentTurn)
+                ->getOwnerDivisions()
+                ->map(fn (Division $d) => BattleFormation::fromDivision($d, $defenderDetail, $divisionInfoByType->get($d->getDivisionType()->value)->defensePower));
         }
-        else {
-            $log .= "No remaining power for attacker, no chance for extra kill.\n";
-        }
-        $log .= "Attacker total kills: $attackerKills / $numberOfDefenders divisions\n";
         
-        $defenderRoll = random_int(1, 100) / 100;
-        $remainingDefensePower = $defensePower - floor($defensePower);
-        $defenderBaseKills = floor($defensePower);
-        $defenderKills = min($defenderBaseKills + ($defenderRoll <= $remainingDefensePower ? 1 : 0), $numberOfAttackers);
-        $log .= "Defender's power ($numberOfDefenders divisions x " . Battle::DEFENSE_POWER_PER_DIVISION . "): $defensePower\n";
-        $log .= "Defender's base kills: $defenderBaseKills\n";
-        $log .= "Defender's remaining power: $remainingDefensePower\n";
-        if ($remainingDefensePower >= 0.01) {
-            $log .= "Defender's d100 roll: $defenderRoll\n";
-            $log .= "Defender " . ($defenderRoll <= $remainingDefensePower ? " rolled below or equal their remaining power and scores an extra kill." : "rolled above their remaining power and doesn't score an extra kill.") . "\n";
-        }
-        else {
-            $log .= "No remaining power for defender, no chance for extra kill.\n";
-        }
-        $log .= "Defender total kills: $defenderKills / $numberOfAttackers divisions\n";
-
-        $attackingDivisions->take($defenderKills)->each(fn (Division $defeatedDivision) => $defeatedDivision->getDetail()->disband());
-
-        if (!$defenderIsNeutral) {
-            $territory->getDetail()->getOwnerDivisions()->take($attackerKills)->each(fn (Division $defeatedDivision) => $defeatedDivision->getDetail()->disband());
+        for ($i = 0; $i < $numberOfMilitias; $i++) {
+            $defendingFormations->push(BattleFormation::newMilitia($defenderOrNull?->getDetail($currentTurn), Battle::MILITIA_POWER));
         }
 
-        $someAttackersRemain = $numberOfAttackers - $defenderKills > 0;
-        $someDefendersRemain = $numberOfDefenders - $attackerKills > 0;
+        $log .= Battle::describeFormations("Attacking forces ({$attackerDetail->getUsualName()})", $attackingFormations);
+        $log .= "\n\n";
+
+        $log .= Battle::describeFormations('Defending forces (' . ($defenderIsNeutral ? 'neutral' : NationDetail::notNull($defenderDetail)->getUsualName()) . ')', $defendingFormations);
+        $log .= "\n\n";
+        
+        $attackerKills = Battle::processSide($attackingFormations);
+        $log .= Battle::describeKills('Attacker', $attackerKills);
+        $log .= "\n\n";
+
+        $defenderKills = Battle::processSide($defendingFormations);
+        $log .= Battle::describeKills('Defender', $defenderKills);
+        $log .= "\n\n";
+
+        $log .= "End of battle!";
+        $log .= "\n\n";
+
+        $attackerLosses = Battle::applyLosses($defenderKills, $attackingFormations);
+        $log .= Battle::describeLosses('Attacker', $attackerLosses);
+        $log .= "\n\n";
+
+        $defenderLosses = Battle::applyLosses($attackerKills, $defendingFormations);
+        $log .= Battle::describeLosses('Defender', $defenderLosses);
+        $log .= "\n\n";
+
+        $attackerLosses->destroyedDivisions->each(fn (Division $defeatedDivision) => $defeatedDivision->getDetail()->disband());
+
+        $defenderLosses->destroyedDivisions->each(fn (Division $defeatedDivision) => $defeatedDivision->getDetail()->disband());
+
+        $someAttackersRemain = $attackerLosses->anySurvivors;
+        $someDefendersRemain = $defenderLosses->anySurvivors;
 
         if ($someAttackersRemain && !$someDefendersRemain) {
             $winnerOrNull = $attacker;
-            $territory->getDetail()->assignOwner($attacker);
+            $territory->getDetail()->conquer($attacker);
             $log .= "Attacker won. Territory conquered.";
             $attackingDivisions->each(function (Division $division) use ($territory) {
                 if ($division->getDetail()->isActive()) {

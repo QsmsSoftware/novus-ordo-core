@@ -12,6 +12,7 @@ use App\ReadModels\BudgetInfo;
 use App\ReadModels\DemographicStat;
 use App\ReadModels\NationTurnOwnerInfo;
 use App\ReadModels\NationTurnPublicInfo;
+use App\Utils\GuardsForAssertions;
 use Closure;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -24,6 +25,7 @@ use InvalidArgumentException;
 class NationDetail extends Model
 {
     use ReplicatesForTurns;
+    use GuardsForAssertions;
 
     private const float MIN_POPULATION_GROWTH_MULTIPLIER = 1.00;
     private const float MAX_POPULATION_GROWTH_MULTIPLIER = 5.00;

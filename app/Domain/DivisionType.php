@@ -3,6 +3,7 @@ namespace App\Domain;
 
 use App\ReadModels\DivisionTypeInfo;
 use App\Utils\ParsableFromCaseName;
+use Illuminate\Support\Collection;
 
 enum DivisionType :int {
     use ParsableFromCaseName;
@@ -29,6 +30,10 @@ enum DivisionType :int {
                 defensePower: 30
             ),
         };
+    }
+
+    public static function getMetas(): Collection {
+        return collect(DivisionType::cases())->mapWithKeys(fn (DivisionType $divisionType) => [$divisionType->value => DivisionType::getMeta($divisionType)]);
     }
 
     public static function getAttackCostsByType(): array {

@@ -571,9 +571,18 @@
         function updateDeploymentsPane() {
             var html = "";
 
-            html += '<p>You can still deploy (select the type of division you want to deploy):<br><ul>'
-            html += divisionTypeInfoByType.values().map(divisionTypeInfo => `<li>${getRemainingDeployments(divisionTypeInfo.division_type)}x ${renderActionLink(divisionTypeInfo.description, `startDeploying('${divisionTypeInfo.division_type}')`, divisionTypeInfo.division_type == selectedDivisionType)} (${renderResourceCosts(mapExportedObject(divisionTypeInfo.deployment_costs))})</li>`).toArray().join("")
-            html += '</ul></p>';
+            html += '<p>You can still deploy (select the type of division you want to deploy):<br><table>'
+            html += '<tr><th>Quantity</th><th>Type</th><th>Attack Power</th><th>Defense Power</th><th>Cost</th></tr>'
+            html += divisionTypeInfoByType.values().map(divisionTypeInfo => '<tr>'
+                + `<td>${getRemainingDeployments(divisionTypeInfo.division_type)}x</td>`
+                + `<td>${renderActionLink(divisionTypeInfo.description, `startDeploying('${divisionTypeInfo.division_type}')`, divisionTypeInfo.division_type == selectedDivisionType)}</td>`
+                + `<td>${formatValue(divisionTypeInfo.attack_power / 100, StatUnit.Percent)}</td>`
+                + `<td>${formatValue(divisionTypeInfo.defense_power / 100, StatUnit.Percent)}</td>`
+                + `<td>${renderResourceCosts(mapExportedObject(divisionTypeInfo.deployment_costs))}</td>`
+                + '</tr>')
+                .toArray()
+                .join("")
+            html += '</table></p>';
 
 
             if (pendingDeployments.length > 0) {

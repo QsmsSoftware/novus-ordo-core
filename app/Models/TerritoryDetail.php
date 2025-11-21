@@ -108,7 +108,7 @@ class TerritoryDetail extends Model
             ->where('owner_nation_id', $nation->getId());
     }
 
-    public function assignOwner(Nation|NeutralOwnership $newOwner): void {
+    public function conquer(Nation|NeutralOwnership $newOwner): void {
         if ($newOwner instanceof Nation) {
             $currentOwner = $this->getOwnerOrNull()??new NeutralOwnership;
 

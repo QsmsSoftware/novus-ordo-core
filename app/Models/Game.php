@@ -256,7 +256,7 @@ class Game extends Model
                         ->getDestinationTerritory()
                         ->getId();
                     $destinationTerritory = $this->getTerritoryWithId($destinationTerritoryId);
-                    Battle::resolveBattle($destinationTerritory, $attackingDivisions);
+                    Battle::resolveBattle($destinationTerritory, $currentTurn, $nextTurn, $attackingDivisions);
                     $attackingDivisions->each(fn (Division $d) => $d->getDetail($currentTurn)->getOrder()->onExecution());
                 }
 
