@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\DB;
 
-class NationLoyalty extends Model
+class NationTerritoryLoyalty extends Model
 {
     use GuardsForAssertions;
     use ReplicatesForTurns;
@@ -40,15 +40,15 @@ class NationLoyalty extends Model
         $this->save();
     }
 
-    public static function getLoyaltyOrNull(Nation $nation, Territory $territory, Turn $turn): ?NationLoyalty {
-        return NationLoyalty::where('nation_id', $nation->getId())
+    public static function getLoyaltyOrNull(Nation $nation, Territory $territory, Turn $turn): ?NationTerritoryLoyalty {
+        return NationTerritoryLoyalty::where('nation_id', $nation->getId())
             ->where('territory_id', $territory->getId())
             ->where('turn_id', $turn->getId())
             ->first();
     }
 
     public static function create(Nation $nation, Territory $territory, Turn $turn, float $initialLoyaltyRatio): void {
-            $loyalty = new NationLoyalty();
+            $loyalty = new NationTerritoryLoyalty();
             $loyalty->game_id = $nation->getGame()->getId();
             $loyalty->nation_id = $nation->getId();
             $loyalty->territory_id = $territory->getId();
@@ -58,23 +58,23 @@ class NationLoyalty extends Model
     }
 
     public static function setLoyaltyRatioIfNotSet(Nation $nation, Territory $territory, Turn $turn, float $loyaltyRatio): void {
-        $loyaltyOrNull = NationLoyalty::getLoyaltyOrNull($nation, $territory, $turn);
+        $loyaltyOrNull = NationTerritoryLoyalty::getLoyaltyOrNull($nation, $territory, $turn);
 
         if (is_null($loyaltyOrNull)) {
-            NationLoyalty::create($nation, $territory, $turn, $loyaltyRatio);
+            NationTerritoryLoyalty::create($nation, $territory, $turn, $loyaltyRatio);
         }
     }
 
     private function decay(): void {
-        $this->setLoyaltyRatio($this->getLoyaltyRatio() * NationLoyalty::RIVAL_LOYALTY_DECAY);
+        $this->setLoyaltyRatio($this->getLoyaltyRatio() * NationTerritoryLoyalty::RIVAL_LOYALTY_DECAY);
         $this->save();
     }
 
-    public function onNextTurn(NationLoyalty $current, float $territoryTotalLoyalty): void {
+    public function onNextTurn(NationTerritoryLoyalty $current, float $territoryTotalLoyalty): void {
         if ($this->isLoyaltyOfOwner()) {
             $ownerLoyalty = $current->getLoyaltyRatio();
             $ownerLoyaltyWeight = $territoryTotalLoyalty > 0 ? $ownerLoyalty / $territoryTotalLoyalty : 1;
-            $loyaltyGain = min(1.00 - $territoryTotalLoyalty, NationLoyalty::BASE_LOYALTY_GAIN * ((1 - NationLoyalty::RIVAL_LOYALTY_IMPACT) + NationLoyalty::RIVAL_LOYALTY_IMPACT * $ownerLoyaltyWeight));
+            $loyaltyGain = min(1.00 - $territoryTotalLoyalty, NationTerritoryLoyalty::BASE_LOYALTY_GAIN * ((1 - NationTerritoryLoyalty::RIVAL_LOYALTY_IMPACT) + NationTerritoryLoyalty::RIVAL_LOYALTY_IMPACT * $ownerLoyaltyWeight));
             $this->setLoyaltyRatio($ownerLoyalty + $loyaltyGain);
         }
         else {

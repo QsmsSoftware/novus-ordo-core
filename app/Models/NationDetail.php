@@ -179,14 +179,14 @@ class NationDetail extends Model
         $terrainTypesPopulationSizesLoyalties = 
             DB::table('territories')
             ->join('territory_details', 'territories.id', '=', 'territory_details.territory_id')
-            ->join('nation_loyalties', fn ($join) => $join
-                ->on('territories.id', '=', 'nation_loyalties.territory_id')
-                ->on('nation_loyalties.turn_id', '=', 'territory_details.turn_id')
-                ->on('nation_loyalties.nation_id', '=', 'territory_details.owner_nation_id')
+            ->join('nation_territory_loyalties', fn ($join) => $join
+                ->on('territories.id', '=', 'nation_territory_loyalties.territory_id')
+                ->on('nation_territory_loyalties.turn_id', '=', 'territory_details.turn_id')
+                ->on('nation_territory_loyalties.nation_id', '=', 'territory_details.owner_nation_id')
             )
             ->where('territory_details.turn_id', $this->turn_id)
             ->where('territory_details.owner_nation_id', $this->nation_id)
-            ->select(Territory::FIELD_TERRAIN_TYPE . ' as terrain_type', TerritoryDetail::FIELD_POPULATION_SIZE . ' as population_size', NationLoyalty::FIELD_LOYALTY . ' as raw_loyalty')
+            ->select(Territory::FIELD_TERRAIN_TYPE . ' as terrain_type', TerritoryDetail::FIELD_POPULATION_SIZE . ' as population_size', NationTerritoryLoyalty::FIELD_LOYALTY . ' as raw_loyalty')
             ->get();
         
         return $terrainTypesPopulationSizesLoyalties->reduce(fn (float $sum, $info) => $sum + TerritoryDetail::calculateEffectiveProduction($territoryProductionsByTerrainResource[$info->terrain_type][$resourceType->value], $info->population_size, $info->raw_loyalty / 100), 0);

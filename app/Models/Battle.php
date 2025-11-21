@@ -244,8 +244,8 @@ class Battle extends Model
         $attackingFormations = $attackingDivisions
             ->filter(fn (Division $d) => $d->getDetail($nextTurn)->isActive())
             ->map(fn (Division $d) => BattleFormation::fromDivision($d, $attackerDetail, $divisionInfoByType->get($d->getDivisionType()->value)->attackPower));
-        $attackerLoyaltyRatio = Option::fromValue(NationLoyalty::getLoyaltyOrNull($attacker, $territory, $currentTurn))
-                ->map(fn (NationLoyalty $l) => $l->getLoyaltyRatio())
+        $attackerLoyaltyRatio = Option::fromValue(NationTerritoryLoyalty::getLoyaltyOrNull($attacker, $territory, $currentTurn))
+                ->map(fn (NationTerritoryLoyalty $l) => $l->getLoyaltyRatio())
                 ->getOrElse(0.00);
         $numberOfPartisans = floor($attackerLoyaltyRatio * Battle::EXTRA_FORMATIONS_PER_MILLION_SUPPORTERS * $teritoryDetail->getPopulationSize() / 1_000_000);
         
@@ -270,8 +270,8 @@ class Battle extends Model
         }
         else {
             $defenderDetail = Nation::notNull($defenderOrNull)->getDetail($currentTurn);
-            $defenderLoyaltyRatio = Option::fromValue(NationLoyalty::getLoyaltyOrNull($defenderOrNull, $territory, $currentTurn))
-                ->map(fn (NationLoyalty $l) => $l->getLoyaltyRatio())
+            $defenderLoyaltyRatio = Option::fromValue(NationTerritoryLoyalty::getLoyaltyOrNull($defenderOrNull, $territory, $currentTurn))
+                ->map(fn (NationTerritoryLoyalty $l) => $l->getLoyaltyRatio())
                 ->getOrElse(0.00);
             if ($defenderLoyaltyRatio >= Battle::MIN_SUPPORT_FOR_MILITIA) {
                 $log .= "The territory's current owner has enough support for the population to take up arms and form militia formations.\n";

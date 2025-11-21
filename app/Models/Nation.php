@@ -20,7 +20,7 @@ class Nation extends Model
 {
     use GuardsForAssertions;
 
-    public const string FIELD_USUAL_NAME = 'usual_name';
+    public const string FIELD_USUAL_NAME = 'name';
 
     public function game(): BelongsTo {
         return $this->belongsTo(Game::class);
@@ -69,7 +69,7 @@ class Nation extends Model
         return $this->getKey();
     }
     public function getInternalName(): string {
-        return $this->usual_name;
+        return $this->name;
     }
 
     public function isReadyForNextTurn(): bool {

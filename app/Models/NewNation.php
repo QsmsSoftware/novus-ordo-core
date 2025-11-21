@@ -48,7 +48,7 @@ class NewNation extends Model
         if ($this->anotherNationHasTheSameName($usualName)) {
             throw new LogicException("Another nation is named '$usualName'");
         }
-        $this->usual_name = $usualName;
+        $this->name = $usualName;
         $this->save();
     }
 
@@ -116,12 +116,12 @@ class NewNation extends Model
     }
 
     public static function createRuleNoNationWithSameNameInGame(Game $game): Unique {
-        return Rule::unique(NewNation::class, 'usual_name')
+        return Rule::unique(NewNation::class, 'name')
             ->where('game_id', $game->getId());
     }
 
     public static function createRuleNoNationWithSameNameInGameUnlessItsOwner(Game $game, User $user): Unique {
-        return Rule::unique(NewNation::class, 'usual_name')
+        return Rule::unique(NewNation::class, 'name')
             ->where('game_id', $game->getId())
             ->whereNot('user_id', $user->getId());
     }
@@ -162,7 +162,7 @@ class NewNation extends Model
         $nation->game_id = $game->getId();
         $nation->user_id = $user->getId();
         $nation->nation_setup_status = NationSetupStatus::HomeTerritoriesSelection->value;
-        $nation->usual_name = $usualName;
+        $nation->name = $usualName;
         $nation->save();
 
         return $nation;

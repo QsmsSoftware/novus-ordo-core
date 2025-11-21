@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('nation_loyalties', function (Blueprint $table) {
+        Schema::create('nation_territory_loyalties', function (Blueprint $table) {
             $table->id();
             $table->timestamps();
             $table->foreignId('game_id')->constrained('games')->cascadeOnDelete();
@@ -27,6 +27,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('nation_loyalties');
+        Schema::dropIfExists('nation_territory_loyalties');
     }
 };
