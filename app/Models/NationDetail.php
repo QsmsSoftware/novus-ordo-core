@@ -168,17 +168,13 @@ class NationDetail extends Model
     }
 
     public function deployments(): HasMany {
-        $turn = $this->getTurn();
-
         return $this->getNation()->deployments()
-            ->where('turn_id', $turn->getId());
+            ->where('turn_id', $this->turn_id);
     }
 
     public function deploymentsInTerritory(Territory $territory): HasMany {
-        $turn = $this->getTurn();
-
         return $this->getNation()->deployments()
-            ->where('turn_id', $turn->getId())
+            ->where('turn_id', $this->turn_id)
             ->where('territory_id', $territory->getId());
     }
 

@@ -47,10 +47,6 @@ class Nation extends Model
         return $this->hasMany(Deployment::class);
     }
 
-    public function activeDeployments(): HasMany {
-        return $this->hasMany(Deployment::class);
-    }
-
     public function deploymentByIds(int ...$ids): HasMany {
         return $this->deployments()
             ->whereIn('id', $ids);

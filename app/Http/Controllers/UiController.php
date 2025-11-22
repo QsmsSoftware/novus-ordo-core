@@ -184,18 +184,19 @@ class UiController extends Controller
         $nation = $context->getNation();
         $game = $context->getGame();
         $turn = $game->getCurrentTurn();
+        $nationDetail = $nation->getDetail($turn);
         $nationsById = $game->nations()->get()->mapWithKeys(fn (Nation $nation) => [$nation->getId() => $nation->getDetail()->export()]);
 
         return view('dashboard', [
             'context' => new NationContext,
-            'own_nation' => $nation->getDetail()->exportForOwner(),
+            'own_nation' => $nationDetail->exportForOwner(),
             'own_territories_turn_info' => TerritoryDetail::exportAllTurnOwnerInfo($nation, $turn),
             'ready_status' => $game->exportReadyStatus(),
             'nations' => $nationsById->values(),
-            'deployments' => $nation->activeDeployments()->get()
+            'deployments' => $nationDetail->deployments()->get()
                 ->map(fn (Deployment $d) => $d->export())
                 ->values(),
-            'divisions' => $nation->getDetail()->activeDivisions()->get()
+            'divisions' => $nationDetail->activeDivisions()->get()
                 ->map(fn (Division $d) => $d->getDetail()->exportForOwner())
                 ->values(),
             'static_js_services' => $staticServices->getStaticJsServices(),
@@ -204,9 +205,9 @@ class UiController extends Controller
             'static_js_territories_turn_info' => TerritoryDetail::getAllTerritoriesTurnInfoClientResource($turn),
             'static_js_rankings' => $game->getRankingsClientResource($turn),
             'victory_status' => $game->exportVictoryStatus(),
-            'budget' => $nation->getDetail()->exportBudget(),
+            'budget' => $nationDetail->exportBudget(),
             'budget_items' => ['production' => new Asset('Production'), 'stockpiles' => new Asset('Reserves'), 'upkeep' => new Liability('Upkeep'), 'expenses' => new Liability('Expenses'), 'available_production' => new Asset('Available Production')],
-            'battle_logs' => $nation->getDetail()
+            'battle_logs' => $nationDetail
                     ->getAllBattlesWhereParticipant()
                     ->map(fn (Battle $b) => $b->exportForParticipant()),
         ]);
