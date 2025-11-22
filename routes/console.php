@@ -1,12 +1,17 @@
 <?php
 
+use App\Console\Commands\ServerUpkeep;
 use App\Models\Game;
 use App\Models\ProvisionedUser;
 use App\Models\User;
 use App\Models\UserAlreadyExists;
 use Illuminate\Console\Command;
-use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Schedule;
+
+Schedule::command(ServerUpkeep::class, [])
+    ->everyFiveMinutes()
+    ->withoutOverlapping();
 
 Artisan::command('app:next-turn {gameId?}', function (int $gameId = 0) {
     assert($this instanceof Command);

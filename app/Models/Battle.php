@@ -84,7 +84,7 @@ class Battle extends Model
     private const float MIN_SUPPORT_FOR_MILITIA = 0.50;
     private const int MIN_MILITIA_BASE_FORMATIONS = 1;
     private const int MAX_MILITIA_BASE_FORMATIONS = 3;
-    private const int EXTRA_FORMATIONS_PER_MILLION_SUPPORTERS = 1;
+    private const int SUPPORTERS_PER_EXTRA_FORMATION = 2_000_000;
     private const int PARTISANS_POWER = 30;
     private const int MILITIA_POWER = 30;
 
@@ -247,7 +247,7 @@ class Battle extends Model
         $attackerLoyaltyRatio = Option::fromValue(NationTerritoryLoyalty::getLoyaltyOrNull($attacker, $territory, $currentTurn))
                 ->map(fn (NationTerritoryLoyalty $l) => $l->getLoyaltyRatio())
                 ->getOrElse(0.00);
-        $numberOfPartisans = floor($attackerLoyaltyRatio * Battle::EXTRA_FORMATIONS_PER_MILLION_SUPPORTERS * $teritoryDetail->getPopulationSize() / 1_000_000);
+        $numberOfPartisans = floor($attackerLoyaltyRatio * $teritoryDetail->getPopulationSize() / Battle::SUPPORTERS_PER_EXTRA_FORMATION);
         
         for ($i = 0; $i < $numberOfPartisans; $i++) {
             $attackingFormations->push(BattleFormation::newPartisans($attacker->getDetail($currentTurn), Battle::PARTISANS_POWER));
@@ -261,7 +261,7 @@ class Battle extends Model
         $log .= "\n\n";
 
         if ($attackingFormations->count() < 1) {
-            return Battle::create($territory, $attacker, $defenderOrNull, $defenderOrNull, "No attacking division is still operational. Attack aborted.");
+            return Battle::create($territory, $attacker, $defenderOrNull, $defenderOrNull, "No attacking formation is still operational. Attack aborted.");
         }
 
         if ($defenderIsNeutral) {
@@ -277,7 +277,7 @@ class Battle extends Model
                 $log .= "The territory's current owner has enough support for the population to take up arms and form militia formations.\n";
                 $numberOfMilitias = Battle::MIN_MILITIA_BASE_FORMATIONS
                     + random_int(0, round($defenderLoyaltyRatio * (Battle::MAX_MILITIA_BASE_FORMATIONS - Battle::MIN_MILITIA_BASE_FORMATIONS)))
-                    + floor($defenderLoyaltyRatio * Battle::EXTRA_FORMATIONS_PER_MILLION_SUPPORTERS * $teritoryDetail->getPopulationSize() / 1_000_000);
+                    + floor($defenderLoyaltyRatio * $teritoryDetail->getPopulationSize() / Battle::SUPPORTERS_PER_EXTRA_FORMATION);
             }
             else {
                 $log .= "The territory's current owner doesn't have enough support for the population to take up arms and form militia formations.\n";
@@ -286,7 +286,7 @@ class Battle extends Model
 
             $log .= "\n";
 
-            $defendingFormations = $territory->getDetail($currentTurn)
+            $defendingFormations = $territory->getDetail($nextTurn)
                 ->getOwnerDivisions()
                 ->map(fn (Division $d) => BattleFormation::fromDivision($d, $defenderDetail, $divisionInfoByType->get($d->getDivisionType()->value)->defensePower));
         }
@@ -297,6 +297,11 @@ class Battle extends Model
 
         $log .= Battle::describeFormations("Attacking forces ({$attackerDetail->getUsualName()})", $attackingFormations);
         $log .= "\n\n";
+
+        if ($defendingFormations->count() < 1) {
+            Battle::finalizeAttackerVictory($territory, $attacker, $attackingDivisions);
+            return Battle::create($territory, $attacker, $defenderOrNull, $attacker, "No active formation able to defend the territory. Territory conquered by attacker.");
+        }
 
         $log .= Battle::describeFormations('Defending forces (' . ($defenderIsNeutral ? 'neutral' : NationDetail::notNull($defenderDetail)->getUsualName()) . ')', $defendingFormations);
         $log .= "\n\n";
@@ -329,13 +334,8 @@ class Battle extends Model
 
         if ($someAttackersRemain && !$someDefendersRemain) {
             $winnerOrNull = $attacker;
-            $territory->getDetail()->conquer($attacker);
+            Battle::finalizeAttackerVictory($territory, $attacker, $attackingDivisions);
             $log .= "Attacker won. Territory conquered.";
-            $attackingDivisions->each(function (Division $division) use ($territory) {
-                if ($division->getDetail()->isActive()) {
-                    $division->getDetail()->moveTo($territory);
-                }
-            });
         }
         else {
             $winnerOrNull = $defenderOrNull;
@@ -343,6 +343,16 @@ class Battle extends Model
         }
 
         return Battle::create($territory, $attacker, $defenderOrNull, $winnerOrNull, $log);
+    }
+
+    private static function finalizeAttackerVictory(Territory $territory, Nation $attacker, Collection $attackingDivisions): void {
+        $territory->getDetail()->conquer($attacker);
+
+        $attackingDivisions->each(function (Division $division) use ($territory) {
+                if ($division->getDetail()->isActive()) {
+                    $division->getDetail()->moveTo($territory);
+                }
+            });
     }
 
     public function exportForParticipant(): ParticipantBattleLog {
