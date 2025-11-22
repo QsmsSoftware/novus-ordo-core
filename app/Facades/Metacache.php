@@ -84,7 +84,7 @@ final class Metacache {
         return $hashedKey;
     }
 
-    public static function remember(Closure $fallback): mixed {
+    public static function remember(Closure $fallback, bool $alsoCacheInMemory = true): mixed {
         $fct = new ReflectionFunction($fallback);
 
         $keyComponents = [$fct->getName()];
@@ -100,6 +100,7 @@ final class Metacache {
         }
         else if ($objectOrNull instanceof TerritoryDetail) {
             $tags[] = "game_{$objectOrNull->getGame()->getId()}";
+            $tags[] = "territory_{$objectOrNull->getTerritoryId()}";
             $tags[] = "turn_{$objectOrNull->getTurn()->getId()}";
         }
         else if ($objectOrNull instanceof DivisionDetail) {
@@ -107,6 +108,13 @@ final class Metacache {
             $tags[] = "nation_{$objectOrNull->getNation()->getId()}";
             $tags[] = "division_{$objectOrNull->getDivision()->getId()}";
             $tags[] = "turn_{$objectOrNull->getTurn()->getId()}";
+        }
+        else if ($objectOrNull instanceof Turn) {
+            $tags[] = "game_{$objectOrNull->getGame()->getId()}";
+            $tags[] = "turn_{$objectOrNull->getId()}";
+        }
+        else if ($objectOrNull instanceof Game) {
+            $tags[] = "game_{$objectOrNull->getId()}";
         }
         else {
             throw new InvalidArgumentException("fallback: fallback is an instance method from an unsupported class (remember doesn't suport " . Check::typeOrClassOf($objectOrNull) . ")");
@@ -117,10 +125,19 @@ final class Metacache {
 
         $hashedKey = Metacache::deriveKey($keyComponents);
 
-        return Cache::remember(
-            "metacache-$hashedKey-" . join("-", $tags) . "-",
-            Metacache::TIME_TO_LIVE_SECONDS,
-            $fallback
-        );
+        if ($alsoCacheInMemory) {
+            return Cache::memo()->remember(
+                "metacache-$hashedKey-" . join("-", $tags) . "-",
+                Metacache::TIME_TO_LIVE_SECONDS,
+                $fallback
+            );
+        }
+        else {
+            return Cache::remember(
+                "metacache-$hashedKey-" . join("-", $tags) . "-",
+                Metacache::TIME_TO_LIVE_SECONDS,
+                $fallback
+            );
+        }
     }
 }

@@ -43,6 +43,10 @@ class TerritoryDetail extends Model
         return $this->territory;
     }
 
+    public function getTerritoryId(): int {
+        return $this->territory_id;
+    }
+
     public function turn(): BelongsTo {
         return $this->belongsTo(Turn::class);
     }

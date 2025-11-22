@@ -131,7 +131,7 @@ class NationDetail extends Model
             flag_src: $this->getFlagSrcOrNull(),
             stats: [
                 new DemographicStat('Total land area', Metacache::remember($this->getUsableLandKm2(...)), StatUnit::Km2->name),
-                new DemographicStat('Total population', $this->getPopulationSize(), StatUnit::WholeNumber->name)
+                new DemographicStat('Total population', Metacache::remember($this->getPopulationSize(...)), StatUnit::WholeNumber->name)
             ],
         );
     }

@@ -204,7 +204,7 @@ class UiController extends Controller
                 'static_js_territories_base_info' => Territory::getAllTerritoriesBaseInfoClientResource($game),
                 'static_js_territories_turn_info' => TerritoryDetail::getAllTerritoriesTurnInfoClientResource($turn),
                 'static_js_rankings' => $game->getRankingsClientResource($turn),
-                'victory_ranking' => $game->getVictoryProgression()->values(),
+                'victory_status' => $game->exportVictoryStatus(),
                 'budget' => $nation->getDetail()->exportBudget(),
                 'budget_items' => ['production' => new Asset('Production'), 'stockpiles' => new Asset('Reserves'), 'upkeep' => new Liability('Upkeep'), 'expenses' => new Liability('Expenses'), 'available_production' => new Asset('Available Production')],
                 'battle_logs' => $nation->getDetail()

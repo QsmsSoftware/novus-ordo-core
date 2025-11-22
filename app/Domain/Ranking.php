@@ -5,7 +5,6 @@ namespace App\Domain;
 use App\Facades\Metacache;
 use App\Models\NationDetail;
 use Closure;
-use Illuminate\Support\Collection;
 use InvalidArgumentException;
 
 readonly class Ranking {
@@ -14,7 +13,7 @@ readonly class Ranking {
     private function __construct(
         public string $title,
         private Closure $valueGetter,
-        public int $sortOrder,
+        private int $sortOrder,
         public StatUnit $unit,
         ?Closure $valuePostProcessing = null,
     )
@@ -23,7 +22,7 @@ readonly class Ranking {
             throw new InvalidArgumentException("sortOrder: must be either SORT_ASC or SORT_DESC");
         }
 
-        $this->valuePostProcessing = is_null($valuePostProcessing) ? fn ($v) => $v : $valuePostProcessing;
+        $this->valuePostProcessing = is_null($valuePostProcessing) ? fn (mixed $v) => $v : $valuePostProcessing;
     }
 
     public static function rankNations(NationDetail ...$nationDetails): array {

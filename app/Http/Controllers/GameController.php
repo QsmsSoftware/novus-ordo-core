@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\ReadModels\GameInfo;
 use App\ReadModels\GameReadyStatusInfo;
 use App\ReadModels\RankingInfo;
+use App\ReadModels\VictoryGoalInfo;
 use App\Services\PublicGameContext;
 use App\Utils\Annotations\Response;
 use App\Utils\Annotations\Summary;
@@ -28,5 +29,11 @@ class GameController extends Controller
     #[Response(RankingInfo::class)]
     public function rankings(PublicGameContext $context): JsonResponse {
         return response()->json($context->getGame()->exportRankings($context->getGame()->getCurrentTurn()));
+    }
+
+    #[Summary('Returns the game victory status and nations\' progression.')]
+    #[Response(VictoryGoalInfo::class)]
+    public function victoryStatus(PublicGameContext $context): JsonResponse {
+        return response()->json($context->getGame()->exportVictoryStatus($context->getGame()));
     }
 }

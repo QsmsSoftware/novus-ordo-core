@@ -6,12 +6,16 @@ use App\Domain\SharedAssetType;
 use App\Domain\GenerationData;
 use App\Domain\Ranking;
 use App\Domain\TerritoryConnectionData;
+use App\Domain\VictoryGoal;
+use App\Domain\VictoryProgress;
 use App\Domain\VictoryStatus;
 use App\Utils\GuardsForAssertions;
 use App\Facades\RuntimeInfo;
 use App\ReadModels\GameInfo;
 use App\ReadModels\GameReadyStatusInfo;
 use App\ReadModels\RankingInfo;
+use App\ReadModels\VictoryGoalInfo;
+use App\ReadModels\VictoryStatusInfo;
 use App\Services\StaticJavascriptResource;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -30,20 +34,6 @@ readonly class GameHasNotEnoughFreeTerritories {
 }
 
 readonly class GameHasEnoughFreeTerritories {}
-
-readonly class VictoryProgress {
-    public float $progress;
-    public bool $isVictorious;
-
-    public function __construct(
-        public int $nationId,
-        public int $numberOfTerritories,
-        public int $numberOfTerritoriesRequired
-    ) {
-        $this->progress = min($this->numberOfTerritories / $this->numberOfTerritoriesRequired, 1);
-        $this->isVictorious = $this->numberOfTerritories >= $this->numberOfTerritoriesRequired;
-    }
-}
 
 class Game extends Model
 {
@@ -147,6 +137,10 @@ class Game extends Model
 
     public function isActive(): bool {
         return $this->is_active;
+    }
+
+    public function getUsableLandKm2(): int {
+        return $this->territories()->get()->sum(fn (Territory $t) => $t->getUsableLandKm2());
     }
 
     public function exportForTurn(?Turn $turnOrNull = null): GameInfo {
@@ -340,6 +334,15 @@ class Game extends Model
         return $exported;
     }
 
+    public function exportVictoryStatus(): VictoryStatusInfo {
+        return VictoryStatusInfo::from(
+            victoryStatus: $this->getVictoryStatus(),
+            winnerNationId: $this->getWinnerOrNull()?->getNationId(),
+            goals: collect($this->getGoals()),
+            progressions: collect($this->getVictoryProgression()),
+        );
+    }
+
     public function getRankingsClientResource(Turn $turn): StaticJavascriptResource {
         return StaticJavascriptResource::forTurn(
             'rankings-turn-js',
@@ -352,22 +355,33 @@ class Game extends Model
         return floor(Game::REQUIRED_OWNERSHIP_RATIO_FOR_VICTORY * $this->territories()->where(Territory::whereIsControllable())->count()) + 1;
     }
 
-    public function getVictoryProgression(): Collection {
-        $requiredTerritories = $this->getRequiredTerritoriesForVictory();
-        return $this->nations()->get()
-            ->map(fn (Nation $nation) => new VictoryProgress($nation->getId(), $nation->getDetail()->territories()->count(), $requiredTerritories))
-            ->sortByDesc(fn (VictoryProgress $p) => $p->progress);
+    private function getGoals(): array {
+        $turn = $this->getCurrentTurn();
+
+        return VictoryGoal::getGoals($this, $turn);
+    }
+
+    public function getVictoryProgression(): array {
+        return VictoryGoal::getNationProgressions(...$this->getCurrentTurn()->nationDetails);
     }
 
     public function getWinnerOrNull(): ?Nation {
+        if ($this->nations()->count() < 1) {
+            return null;
+        }
+
+        $goals = collect($this->getGoals());
         $progressions = $this->getVictoryProgression();
 
-        $victoryOrNull = $progressions->first(fn (VictoryProgress $p, int $nationId) => $p->isVictorious);
+        $tops = $goals->map(fn (VictoryGoal $g) => $progressions[$g->title]->sortByDesc(fn (VictoryProgress $p) => $p->progress)->first());
 
-        return match(true) {
-            $victoryOrNull instanceof VictoryProgress => Nation::notNull($this->nations()->find($victoryOrNull->nationId)),
-            $victoryOrNull === null => null,
-        };
+        $onesOnTop = $tops->unique(fn (VictoryProgress $p) => $p->nationId);
+
+        if ($onesOnTop->count() != 1) {
+            return null;
+        }
+
+        return Nation::notNull($this->nations()->find($onesOnTop->first()->nationId));
     }
 
     public function getNationWithIdOrNull(int $nationId): ?Nation {

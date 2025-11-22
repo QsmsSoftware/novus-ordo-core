@@ -65,7 +65,7 @@
             SelectAttackTargetTerritory: 3,
         };
 
-        let victoryRanking = @json($victory_ranking);
+        let victoryStatus = @json($victory_status);
         let budgetItems = mapExportedObject(@json($budget_items));
         let ownTerritoriesTurnInfo = @json($own_territories_turn_info);
         let territoriesById = mergeMappedObjects(
@@ -100,6 +100,7 @@
             BattleLogs: 'Battle logs',
             Deployments: 'Deployments',
             Rankings: 'Rankings',
+            Goals: 'Goals',
         };
         
         var selectedDetailsTab = null;
@@ -308,6 +309,9 @@
                 case 'Rankings':
                     $("#rankings-display").show();
                     break;
+                case 'Goals':
+                    $("#goals-display").show();
+                    break;
                 case null:
                     if (selectedTerritory) {
                         $("#details").show();
@@ -476,8 +480,8 @@
                 + budgetItems.keys().toArray().map(key => {
                     let item = budgetItems.get(key);
                     return item.type == "Asset"
-                        ? `<tr><td>${item.description}</td><td><i>${budget[key][ResourceType.Capital]}</i></td></tr>`
-                        : `<tr><td>${item.description}</td><td><i style="color: crimson">${budget[key][ResourceType.Capital]}</i></td></tr>`;
+                        ? `<tr><td>${item.description}</td><td><i>${formatValue(budget[key][ResourceType.Capital], StatUnit.DecimalNumber)}</i></td></tr>`
+                        : `<tr><td>${item.description}</td><td><i style="color: crimson">${formatValue(budget[key][ResourceType.Capital], StatUnit.DecimalNumber)}</i></td></tr>`;
                 }).join("")
                 + '</table>'
             );
@@ -497,9 +501,12 @@
 
         function updateVictoryPane() {
             $('#victory-details').html(
-                '<table>'
-                + victoryRanking.map((rankInfo, i) => `<tr><td>${i + 1}</td><td>${nationsById.get(rankInfo.nationId).usual_name}</td><td>${(rankInfo.progress * 100).toFixed(2)}% (owns ${rankInfo.numberOfTerritories} of ${rankInfo.numberOfTerritoriesRequired} required territories)</td></tr>`).join("")
-                + '</table>'
+                victoryStatus.goals.map((goal, index) =>
+                    `<h4>Goal: ${goal.title}</h4>`
+                        + '<table><tr><th>Rank</th><th>Nation</th><th>Progression</th></tr>'
+                        + victoryStatus.progressions[index].map(nationProgress => `<tr><td>${nationProgress.rank}</td><td>${nationsById.get(nationProgress.nation_id).usual_name}</td><td>${formatValue(nationProgress.value, goal.unit)} / ${formatValue(goal.goal, goal.unit)} (${formatValue(nationProgress.progress, StatUnit.Percent)})</td></tr>`).join("")
+                        + '</table>'
+                ).join("")
             );
         }
 
@@ -1216,10 +1223,6 @@
                 <div id="budget-details">
                     budget
                 </div>
-                <h3>Victory progression</h3>
-                <div id="victory-details">
-                victory
-            </div>
             </div>
             <div id="battle-logs-display">
                 battle logs
@@ -1229,6 +1232,11 @@
             </div>
             <div id="rankings-display">
                 rankings
+            </div>
+            <div id="goals-display">
+                <div id="victory-details">
+                victory
+                </div>
             </div>
         </div>
         <div id="details">

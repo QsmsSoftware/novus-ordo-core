@@ -8,6 +8,7 @@ use DateTimeZone;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\DB;
 
 class Turn extends Model
 {
@@ -32,12 +33,22 @@ class Turn extends Model
         return $this->hasMany(Order::class);
     }
 
+    public function nationDetails(): HasMany {
+        return $this->hasMany(NationDetail::class);
+    }
+
     public function getId(): int {
         return $this->getKey();
     }
 
     public function getNumber(): int {
         return $this->number;
+    }
+
+    public function getPopulationSize(): int {
+        return DB::table('territory_details')
+            ->where('turn_id', $this->id)
+            ->sum(TerritoryDetail::FIELD_POPULATION_SIZE);
     }
 
     private static function calculateUltimatum(int $timeLimitMinutes): CarbonImmutable {
