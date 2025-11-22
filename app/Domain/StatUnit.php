@@ -8,4 +8,5 @@ enum StatUnit {
     case Unknown;
     case DetailedPercent;
     case ApproximateNumber;
+    case DecimalNumber;
 }

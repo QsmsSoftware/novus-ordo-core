@@ -332,6 +332,8 @@
         }
 
         function formatValue(value, unit) {
+            const defaultLocale = navigator.language;
+
             switch (unit) {
                 case StatUnit.Percent:
                     return `${(value * 100).toFixed(0)}%`;
@@ -343,6 +345,11 @@
                     return Intl.NumberFormat().format(value);
                 case StatUnit.ApproximateNumber:
                     return '~' + Intl.NumberFormat().format(value);
+                case StatUnit.DecimalNumber:
+                    return Intl.NumberFormat(defaultLocale, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                    }).format(value);
                 case StatUnit.Unknown:
                     return 'Unknown';
                 default:
@@ -359,8 +366,8 @@
         function renderProduction(territory) {
             let ownerLoyalty = territory.owner_nation_id ? territory.loyalties.find(l => l.nation_id == territory.owner_nation_id) : null;
             return '<div><h2>Production</h2><table>'
-                + '<tr><th>Base production (per 1M population)</th><th>Loyalty (to owner)</th><th>Production</th></th>'
-                + resourceTypeInfoByType.keys().map(resourceType => `<tr><td>${resourceTypeInfoByType.get(resourceType).base_production_by_terrain_type[territory.terrain_type].toFixed(2)}x</td><td class="stat-value">${ownerLoyalty ? formatValue(ownerLoyalty.loyalty_ratio, StatUnit.Percent) : ""}</td><td>${territory.owner_production ? territory.owner_production[resourceType].toFixed(2) : ""}x</td><td>${renderProductionResourceIcon(resourceType)}</td></tr>`).toArray().join("")
+                + '<tr><th>Base production</th><th>Loyal population (M)</th><th>Production</th></th>'
+                + resourceTypeInfoByType.keys().map(resourceType => `<tr><td class="stat-value">${resourceTypeInfoByType.get(resourceType).base_production_by_terrain_type[territory.terrain_type].toFixed(2)}x</td><td class="stat-value">${formatValue(ownerLoyalty ? ownerLoyalty.loyalty_ratio * territory.stats.find(s => s.title == TerritoryStat.Population).value / 1_000_000 : 0, StatUnit.DecimalNumber)}</td><td class="stat-value">${territory.owner_production ? territory.owner_production[resourceType].toFixed(2) : ""}x</td><td>${renderProductionResourceIcon(resourceType)}</td></tr>`).toArray().join("")
                 + '</table></div>';
         }
 

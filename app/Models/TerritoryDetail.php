@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Domain\ResourceType;
 use App\Domain\StatUnit;
 use App\Domain\TerrainType;
+use App\Domain\TerritoryStat;
 use App\ModelTraits\ReplicatesForTurns;
 use App\ReadModels\DemographicStat;
 use App\ReadModels\TerritoryTurnOwnerInfo;
@@ -197,7 +198,7 @@ class TerritoryDetail extends Model
         return array_map(fn ($t) => TerritoryTurnPublicInfo::fromObject($t, [
             'turn_number' => $turn->getNumber(),
             'stats' => [
-                is_null($t->owner_nation_id) ? new DemographicStat('Population', 0, StatUnit::Unknown->name) : new DemographicStat('Population', $t->population_size, StatUnit::WholeNumber->name),
+                is_null($t->owner_nation_id) ? new DemographicStat(TerritoryStat::Population->name, 0, StatUnit::Unknown->name) : new DemographicStat(TerritoryStat::Population->name, $t->population_size, StatUnit::WholeNumber->name),
             ],
             'owner_production' => is_null($t->owner_nation_id) ? null : $productionByTerrainResource[$t->terrain_type]->mapWithKeys(fn ($production, $resource) => [$resource => TerritoryDetail::calculateEffectiveProduction($production, $t->population_size, $t->raw_loyalty / 100)])->all(),
             'loyalties' => $loyaltiesByTerritoryId->get($t->territory_id)?->map(fn (object $l) => ['nation_id' => $l->nation_id, 'loyalty_ratio' => $l->raw_loyalty / 100])?->all()??[]

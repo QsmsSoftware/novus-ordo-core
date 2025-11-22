@@ -6,6 +6,7 @@ use App\Domain\OrderType;
 use App\Domain\ResourceType;
 use App\Domain\StatUnit;
 use App\Domain\TerrainType;
+use App\Domain\TerritoryStat;
 
 class JavascriptStaticServicesGenerator {
     public function __construct(
@@ -21,6 +22,7 @@ class JavascriptStaticServicesGenerator {
                 $this->servicesGenerator->generateClientEnum(OrderType::class, true),
                 $this->servicesGenerator->generateClientEnum(DivisionType::class, true),
                 $this->servicesGenerator->generateClientEnum(StatUnit::class, true),
+                $this->servicesGenerator->generateClientEnum(TerritoryStat::class, true),
                 $this->servicesGenerator->generateClientService("NovusOrdoServices", "ajax"),
                 "const allResourceTypes = " . json_encode(ResourceType::exportMetas()) . ";",
                 "const allDivisionTypes = " . json_encode(DivisionType::exportMetas()) . ";",
