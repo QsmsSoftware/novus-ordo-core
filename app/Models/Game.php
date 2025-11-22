@@ -374,12 +374,16 @@ class Game extends Model
 
         $tops = $goals->map(fn (VictoryGoal $g) => $progressions[$g->title]->sortByDesc(fn (VictoryProgress $p) => $p->progress)->first());
 
+        if ($tops->some(fn (VictoryProgress $p) => !$p->isFulfilled)) {
+            return null;
+        }
+
         $onesOnTop = $tops->unique(fn (VictoryProgress $p) => $p->nationId);
 
         if ($onesOnTop->count() != 1) {
             return null;
         }
-
+        
         return Nation::notNull($this->nations()->find($onesOnTop->first()->nationId));
     }
 

@@ -513,7 +513,7 @@
                 + victoryStatus.goals.map((goal, index) =>
                     `<h4>Goal: ${goal.title}</h4>`
                     + '<table><tr><th>Rank</th><th>Nation</th><th>Progression</th></tr>'
-                    + victoryStatus.progressions[index].map(nationProgress => `<tr><td>${nationProgress.rank}</td><td>${(victoryStatus.winner_nation_id == nationProgress.nation_id ? renderVictorIcon() : "") + nationsById.get(nationProgress.nation_id).usual_name}</td><td>${formatValue(nationProgress.value, goal.unit)} / ${formatValue(goal.goal, goal.unit)} (${formatValue(nationProgress.progress, StatUnit.Percent)})</td></tr>`).join("")
+                    + victoryStatus.progressions[index].map(nationProgress => `<tr><td>${nationProgress.rank}</td><td>${(nationProgress.is_fulfilled && nationProgress.rank == 1 ? renderVictorIcon() : "") + nationsById.get(nationProgress.nation_id).usual_name}</td><td>${formatValue(nationProgress.value, goal.unit)} / ${formatValue(goal.goal, goal.unit)} (${formatValue(nationProgress.progress, StatUnit.Percent)})</td></tr>`).join("")
                     + '</table>'
                 ).join("")
             );
