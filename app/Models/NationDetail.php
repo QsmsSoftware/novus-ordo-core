@@ -345,14 +345,14 @@ class NationDetail extends Model
                 continue;
             }
 
+            $balance = max(0, $current->getBalance($resourceType));
             if ($stockpiles->has($resourceType->value)) {
                 $stockpile = $stockpiles->get($resourceType->value);
                 assert($stockpile instanceof NationResourceStockpile);
                 $newStockpile = $stockpile->replicateForTurn($turn);
-                $newStockpile->onNextTurn($current->getBalance($resourceType));
+                $newStockpile->onNextTurn($balance);
             }
             else {
-                $balance = max(0, $current->getBalance($resourceType));
                 $stockpile = NationResourceStockpile::create($nation, $turn, $resourceType, $balance);
             }
         }
