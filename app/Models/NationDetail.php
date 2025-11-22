@@ -110,14 +110,22 @@ class NationDetail extends Model
         return $this->stockpiles->mapWithKeys(fn (NationResourceStockpile $stockpile) => [$stockpile->getResourceType()->value => $stockpile]);
     }
 
-    public function exportForOwner(): NationTurnOwnerInfo {
+    public function getPopulationGrowthRate(): float {
         $turn = $this->getTurn();
+        $nationPopulation = Metacache::remember($this->getPopulationSize(...));
+
+        return $nationPopulation > 0
+            ? $this->territories->map(fn (Territory $t) => $t->getDetail($turn)->getPopulationGrowthRate() * $t->getDetail($turn)->getPopulationSize())->sum() / $nationPopulation
+            : 0;
+    }
+
+    public function exportForOwner(): NationTurnOwnerInfo {
         return new NationTurnOwnerInfo(
             nation_id: $this->getNation()->getId(),
             turn_number: $this->getTurn()->getNumber(),
             is_ready_for_next_turn: $this->getNation()->isReadyForNextTurn(),
             stats: [
-                new DemographicStat('Population growth rate', $this->territories->map(fn (Territory $t) => $t->getDetail($turn)->getPopulationGrowthRate() * $t->getDetail($turn)->getPopulationSize())->sum() / $this->getPopulationSize(), StatUnit::DetailedPercent->name)
+                new DemographicStat('Population growth rate', Metacache::remember($this->getPopulationGrowthRate(...)) , StatUnit::DetailedPercent->name)
             ],
         );
     }
@@ -242,6 +250,10 @@ class NationDetail extends Model
     public function getPopulationGrowthMultiplier(): float {
         $foodProduction = $this->getProduction(ResourceType::Food);
         $foodUpkeep = $this->getUpkeep(ResourceType::Food);
+
+        if ($foodUpkeep <= 0) {
+            return 0.00;
+        }
 
         if ($foodProduction < $foodUpkeep) {
             return 0.00;

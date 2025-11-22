@@ -6,6 +6,7 @@ use App\Domain\ResourceType;
 use App\Domain\StatUnit;
 use App\Domain\TerrainType;
 use App\Domain\TerritoryStat;
+use App\Facades\Metacache;
 use App\ModelTraits\ReplicatesForTurns;
 use App\ReadModels\DemographicStat;
 use App\ReadModels\TerritoryTurnOwnerInfo;
@@ -88,7 +89,7 @@ class TerritoryDetail extends Model
 
     public function getPopulationGrowthRate(): float {
         return Option::fromValue($this->getOwnerOrNull())
-            ->map(fn (Nation $n) => TerritoryDetail::calculatePopulationGrowthRate($n->getDetail($this->getTurn())->getPopulationGrowthMultiplier()))
+            ->map(fn (Nation $n) => TerritoryDetail::calculatePopulationGrowthRate(Metacache::remember($n->getDetail($this->getTurn())->getPopulationGrowthMultiplier(...))))
             ->getOrElse(0.00);
     }
 

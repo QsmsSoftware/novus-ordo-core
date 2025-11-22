@@ -38,6 +38,10 @@
             width: 32px;
             height: 32px;
         }
+        .victor-icon {
+            width: 16px;
+            height: 16px;
+        }
         .division-resource-icon {
             width: 16px;
             height: 16px;
@@ -499,13 +503,18 @@
             }));
         }
 
+        function renderVictorIcon() {
+            return '<img class="victor-icon" src="res/bundled/icons/crown.png" title="Goal winner">';
+        }
+
         function updateVictoryPane() {
             $('#victory-details').html(
-                victoryStatus.goals.map((goal, index) =>
+                (victoryStatus.victory_status == VictoryStatus.HasBeenWon ? `<h1>${nationsById.get(victoryStatus.winner_nation_id).usual_name} has won!</h1>` : "")
+                + victoryStatus.goals.map((goal, index) =>
                     `<h4>Goal: ${goal.title}</h4>`
-                        + '<table><tr><th>Rank</th><th>Nation</th><th>Progression</th></tr>'
-                        + victoryStatus.progressions[index].map(nationProgress => `<tr><td>${nationProgress.rank}</td><td>${nationsById.get(nationProgress.nation_id).usual_name}</td><td>${formatValue(nationProgress.value, goal.unit)} / ${formatValue(goal.goal, goal.unit)} (${formatValue(nationProgress.progress, StatUnit.Percent)})</td></tr>`).join("")
-                        + '</table>'
+                    + '<table><tr><th>Rank</th><th>Nation</th><th>Progression</th></tr>'
+                    + victoryStatus.progressions[index].map(nationProgress => `<tr><td>${nationProgress.rank}</td><td>${(victoryStatus.winner_nation_id == nationProgress.nation_id ? renderVictorIcon() : "") + nationsById.get(nationProgress.nation_id).usual_name}</td><td>${formatValue(nationProgress.value, goal.unit)} / ${formatValue(goal.goal, goal.unit)} (${formatValue(nationProgress.progress, StatUnit.Percent)})</td></tr>`).join("")
+                    + '</table>'
                 ).join("")
             );
         }
@@ -1075,8 +1084,9 @@
         }
 
         function updateTimeRemaining() {
-            if (!readyStatus.turn_expiration) {
+            if (!readyStatus.turn_expiration || victoryStatus.victory_status == VictoryStatus.HasBeenWon) {
                 $("#time-remaining").html("");
+                return;
             }
             const expirationDate = new Date(readyStatus.turn_expiration);
             const currentDate = new Date();
@@ -1115,6 +1125,10 @@
             $("#ready-for-next-turn-section").hide();
             $("#ready-for-next-turn-status").hide();
 
+            if (victoryStatus.victory_status == VictoryStatus.HasBeenWon) {
+                return;
+            }
+            
             if (!readyForNextTurnButtonEnabled) {
                 $("#force-next-turn-section").show();
             }
@@ -1171,15 +1185,20 @@
             if (selectedTerritoryIdFromStorage && territoriesById.has(selectedTerritoryIdFromStorage)) {
                 selectTerritory(selectedTerritoryIdFromStorage);
             }
-            if (selectedMainTabFromStorage) {
+            if (victoryStatus.victory_status == VictoryStatus.HasBeenWon) {
+                $('#gameover-message').html(`Game is over, ${nationsById.get(victoryStatus.winner_nation_id).usual_name} is the winner!`);
+                selectMainTab(MainTabs.Goals);
+            }
+            else if (selectedMainTabFromStorage) {
                 selectMainTab(selectedMainTabFromStorage);
             }
         });
     </script>
     <body>
         <div>
-        <b>{{ $context->getNation()->getDetail()->getFormalName() }}</b>, turn #{{ $context->getCurrentTurn()->getNumber() }}
+            <p><b>{{ $context->getNation()->getDetail()->getFormalName() }}</b>, turn #{{ $context->getCurrentTurn()->getNumber() }}
             <a href="{{route('logout')}}">logout</a>
+            </p>
             @if(EnsureWhenRunningInDevelopmentOnly::isRunningInDevelopmentEnvironment())
                 <div id="force-next-turn-section">
                     <button id="force-next-turn-button" class="btn btn-primary" title="CTRL-click to force the end of the turn." onclick="forceNextTurn()">Force next turn</button>
@@ -1193,6 +1212,7 @@
                 </div>
             @endif
             <span id='time-remaining'></span>
+            <span id='gameover-message'></span>
             <x-dev-mode />
         </div>
         <span id="main-tabs"></span>

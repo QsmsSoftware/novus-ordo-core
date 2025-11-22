@@ -186,37 +186,30 @@ class UiController extends Controller
         $turn = $game->getCurrentTurn();
         $nationsById = $game->nations()->get()->mapWithKeys(fn (Nation $nation) => [$nation->getId() => $nation->getDetail()->export()]);
 
-        return match ($game->getVictoryStatus()) {
-            VictoryStatus::HasNotBeenWon => view('dashboard', [
-                'context' => new NationContext,
-                'own_nation' => $nation->getDetail()->exportForOwner(),
-                'own_territories_turn_info' => TerritoryDetail::exportAllTurnOwnerInfo($nation, $turn),
-                'ready_status' => $game->exportReadyStatus(),
-                'nations' => $nationsById->values(),
-                'deployments' => $nation->activeDeployments()->get()
-                    ->map(fn (Deployment $d) => $d->export())
-                    ->values(),
-                'divisions' => $nation->getDetail()->activeDivisions()->get()
-                    ->map(fn (Division $d) => $d->getDetail()->exportForOwner())
-                    ->values(),
-                'static_js_services' => $staticServices->getStaticJsServices(),
-                'static_js_dev_services' => StaticJavascriptResource::permanent('devservices', fn () => $servicesGenerator->generateClientService('DevServices', 'dev.ajax')),
-                'static_js_territories_base_info' => Territory::getAllTerritoriesBaseInfoClientResource($game),
-                'static_js_territories_turn_info' => TerritoryDetail::getAllTerritoriesTurnInfoClientResource($turn),
-                'static_js_rankings' => $game->getRankingsClientResource($turn),
-                'victory_status' => $game->exportVictoryStatus(),
-                'budget' => $nation->getDetail()->exportBudget(),
-                'budget_items' => ['production' => new Asset('Production'), 'stockpiles' => new Asset('Reserves'), 'upkeep' => new Liability('Upkeep'), 'expenses' => new Liability('Expenses'), 'available_production' => new Asset('Available Production')],
-                'battle_logs' => $nation->getDetail()
-                     ->getAllBattlesWhereParticipant()
-                     ->map(fn (Battle $b) => $b->exportForParticipant()),
-            ]),
-            VictoryStatus::HasBeenWon => view('gameover', [
-                'winner' => Nation::notNull($game->getWinnerOrNull())->getDetail()->getUsualName(),
-                'victory_progresses' => $game->getVictoryProgression(),
-                'nationsById' => $nationsById,
-            ])
-        };
+        return view('dashboard', [
+            'context' => new NationContext,
+            'own_nation' => $nation->getDetail()->exportForOwner(),
+            'own_territories_turn_info' => TerritoryDetail::exportAllTurnOwnerInfo($nation, $turn),
+            'ready_status' => $game->exportReadyStatus(),
+            'nations' => $nationsById->values(),
+            'deployments' => $nation->activeDeployments()->get()
+                ->map(fn (Deployment $d) => $d->export())
+                ->values(),
+            'divisions' => $nation->getDetail()->activeDivisions()->get()
+                ->map(fn (Division $d) => $d->getDetail()->exportForOwner())
+                ->values(),
+            'static_js_services' => $staticServices->getStaticJsServices(),
+            'static_js_dev_services' => StaticJavascriptResource::permanent('devservices', fn () => $servicesGenerator->generateClientService('DevServices', 'dev.ajax')),
+            'static_js_territories_base_info' => Territory::getAllTerritoriesBaseInfoClientResource($game),
+            'static_js_territories_turn_info' => TerritoryDetail::getAllTerritoriesTurnInfoClientResource($turn),
+            'static_js_rankings' => $game->getRankingsClientResource($turn),
+            'victory_status' => $game->exportVictoryStatus(),
+            'budget' => $nation->getDetail()->exportBudget(),
+            'budget_items' => ['production' => new Asset('Production'), 'stockpiles' => new Asset('Reserves'), 'upkeep' => new Liability('Upkeep'), 'expenses' => new Liability('Expenses'), 'available_production' => new Asset('Available Production')],
+            'battle_logs' => $nation->getDetail()
+                    ->getAllBattlesWhereParticipant()
+                    ->map(fn (Battle $b) => $b->exportForParticipant()),
+        ]);
     }
 
     public function loginUser(Request $request) :RedirectResponse {

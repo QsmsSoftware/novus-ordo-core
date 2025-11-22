@@ -255,7 +255,7 @@ class Game extends Model
 
                 $this->activeDivisionsInTurn($currentTurn)->get()->each(fn (Division $d) => $d->afterBattlePhase($currentTurn, $nextTurn));
 
-                $this->updateVictoryStatus();
+                $this->updateVictoryStatus($nextTurn);
 
                 $this->save();
 
@@ -288,7 +288,7 @@ class Game extends Model
 
             $currentTurn->reset();
 
-            $this->updateVictoryStatus();
+            $this->updateVictoryStatus($currentTurn);
         });
 
         if (!$gotLock) {
@@ -297,8 +297,8 @@ class Game extends Model
         }
     }
     
-    private function updateVictoryStatus(): void {
-        $winnerOrNull = $this->getWinnerOrNull();
+    private function updateVictoryStatus(Turn $turn): void {
+        $winnerOrNull = $this->getWinnerOrNull($turn);
 
         $this->victory_status = is_null($winnerOrNull) ? VictoryStatus::HasNotBeenWon : VictoryStatus::HasBeenWon->value;
 
@@ -335,11 +335,12 @@ class Game extends Model
     }
 
     public function exportVictoryStatus(): VictoryStatusInfo {
+        $turn = $this->getCurrentTurn();
         return VictoryStatusInfo::from(
             victoryStatus: $this->getVictoryStatus(),
-            winnerNationId: $this->getWinnerOrNull()?->getNationId(),
-            goals: collect($this->getGoals()),
-            progressions: collect($this->getVictoryProgression()),
+            winnerNationId: $this->getWinnerOrNull($turn)?->getId(),
+            goals: collect($this->getGoals($turn)),
+            progressions: collect($this->getVictoryProgression($turn)),
         );
     }
 
@@ -355,23 +356,21 @@ class Game extends Model
         return floor(Game::REQUIRED_OWNERSHIP_RATIO_FOR_VICTORY * $this->territories()->where(Territory::whereIsControllable())->count()) + 1;
     }
 
-    private function getGoals(): array {
-        $turn = $this->getCurrentTurn();
-
+    private function getGoals(Turn $turn): array {
         return VictoryGoal::getGoals($this, $turn);
     }
 
-    public function getVictoryProgression(): array {
-        return VictoryGoal::getNationProgressions(...$this->getCurrentTurn()->nationDetails);
+    private function getVictoryProgression(Turn $turn): array {
+        return VictoryGoal::getNationProgressions(...$turn->nationDetails);
     }
 
-    public function getWinnerOrNull(): ?Nation {
+    private function getWinnerOrNull(Turn $turn): ?Nation {
         if ($this->nations()->count() < 1) {
             return null;
         }
 
-        $goals = collect($this->getGoals());
-        $progressions = $this->getVictoryProgression();
+        $goals = collect($this->getGoals($turn));
+        $progressions = $this->getVictoryProgression($turn);
 
         $tops = $goals->map(fn (VictoryGoal $g) => $progressions[$g->title]->sortByDesc(fn (VictoryProgress $p) => $p->progress)->first());
 
