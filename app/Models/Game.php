@@ -6,13 +6,13 @@ use App\Domain\SharedAssetType;
 use App\Domain\GenerationData;
 use App\Domain\Ranking;
 use App\Domain\TerritoryConnectionData;
+use App\Domain\VictoryStatus;
 use App\Utils\GuardsForAssertions;
 use App\Facades\RuntimeInfo;
 use App\ReadModels\GameInfo;
 use App\ReadModels\GameReadyStatusInfo;
 use App\ReadModels\RankingInfo;
 use App\Services\StaticJavascriptResource;
-use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -22,19 +22,14 @@ use Illuminate\Support\Facades\Cache;
 use LogicException;
 use PhpOption\Option;
 
-enum VictoryStatus :int {
-    case HasNotBeenWon = 0;
-    case HasBeenWon = 1;
-}
-
-readonly class NotEnoughFreeTerritories {
+readonly class GameHasNotEnoughFreeTerritories {
     public function __construct(
         public int $required,
         public int $remaining
     ) {}
 }
 
-readonly class EnoughFreeTerritories {}
+readonly class GameHasEnoughFreeTerritories {}
 
 readonly class VictoryProgress {
     public float $progress;
@@ -230,6 +225,10 @@ class Game extends Model
                     return;
                 }
 
+                if ($this->getVictoryStatus() == VictoryStatus::HasBeenWon) {
+                    return;
+                }
+
                 $currentTurn->end();
 
                 $nextTurn = $currentTurn->createNext();
@@ -381,14 +380,14 @@ class Game extends Model
         return $this->divisions()->find($divisionId);
     }
 
-    public function hasEnoughTerritoriesForNewNation(): NotEnoughFreeTerritories|EnoughFreeTerritories {
+    public function hasEnoughTerritoriesForNewNation(): GameHasNotEnoughFreeTerritories|GameHasEnoughFreeTerritories {
         $freeTerritories = $this->freeSuitableTerritoriesInTurn()->take(Game::NUMBER_OF_STARTING_TERRITORIES)->get();
 
         if ($freeTerritories->count() < Game::NUMBER_OF_STARTING_TERRITORIES) {
-            return new NotEnoughFreeTerritories(Game::NUMBER_OF_STARTING_TERRITORIES, $freeTerritories->count());
+            return new GameHasNotEnoughFreeTerritories(Game::NUMBER_OF_STARTING_TERRITORIES, $freeTerritories->count());
         }
 
-        return new EnoughFreeTerritories();
+        return new GameHasEnoughFreeTerritories();
     }
 
     public static function getCurrentOrNull(): ?Game {

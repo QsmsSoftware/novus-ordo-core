@@ -2,13 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Domain\VictoryStatus;
 use App\Models\Battle;
 use App\Models\Deployment;
 use App\Models\Division;
 use App\Models\Game;
 use App\Models\Nation;
 use App\Models\NewNation;
-use App\Models\NotEnoughFreeTerritories;
+use App\Models\GameHasNotEnoughFreeTerritories;
 use App\Models\Territory;
 use App\Models\TerritoryDetail;
 use App\Models\Turn;
@@ -16,7 +17,6 @@ use App\Models\User;
 use App\Models\UserCredentials;
 use App\Models\UserCredentialsRejected;
 use App\Models\UserLogedIn;
-use App\Models\VictoryStatus;
 use App\ReadModels\GameReadyStatusInfo;
 use App\Services\JavascriptClientServicesGenerator;
 use App\Services\JavascriptStaticServicesGenerator;
@@ -147,7 +147,7 @@ class UiController extends Controller
 
         return redirect()->route('dashboard');
     }
-    private function generateNotEnoughTerritoriesResponse(NotEnoughFreeTerritories $error) :Response {
+    private function generateNotEnoughTerritoriesResponse(GameHasNotEnoughFreeTerritories $error) :Response {
         return new Response("Unable to create nation: There are not enough free territories remaining. {$error->required} required, {$error->remaining} remaining.");
     }
     public function createNation(LoggedInGameContext $context) : View|Response {
@@ -156,7 +156,7 @@ class UiController extends Controller
         }
 
         $enoughTerritoryValidation = $context->getGame()->hasEnoughTerritoriesForNewNation();
-        if ($enoughTerritoryValidation instanceof NotEnoughFreeTerritories) {
+        if ($enoughTerritoryValidation instanceof GameHasNotEnoughFreeTerritories) {
             return $this->generateNotEnoughTerritoriesResponse($enoughTerritoryValidation);
         }
 
