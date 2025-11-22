@@ -20,7 +20,6 @@ return new class extends Migration
             $table->foreignId('territory_id')->constrained('territories')->onDelete('cascade');
             $table->foreignId('turn_id')->constrained('turns')->onDelete('cascade');
             $table->integer('division_type');
-            $table->boolean('has_been_deployed');
         });
     }
 

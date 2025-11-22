@@ -82,7 +82,6 @@ readonly class DevDeploymentInfo {
         public int $turn_id,
         public int $nation_id,
         public int $territory_id,
-        public bool $has_been_deployed,
     ) {}
 }
 
@@ -172,7 +171,6 @@ class DevController extends Controller
             turn_id: $deployment->getTurn()->getId(),
             nation_id: $deployment->getNation()->getId(),
             territory_id: $deployment->getTerritory()->getId(),
-            has_been_deployed: $deployment->hasBeenDeployed()
         ));
     }
 

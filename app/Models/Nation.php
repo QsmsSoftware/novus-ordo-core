@@ -48,8 +48,7 @@ class Nation extends Model
     }
 
     public function activeDeployments(): HasMany {
-        return $this->hasMany(Deployment::class)
-            ->where(Deployment::FIELD_HAS_BEEN_DEPLOYED, false);
+        return $this->hasMany(Deployment::class);
     }
 
     public function deploymentByIds(int ...$ids): HasMany {

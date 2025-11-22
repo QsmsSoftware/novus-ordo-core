@@ -21,8 +21,6 @@ class Deployment extends Model
     use SoftDeletes;
     use GuardsForAssertions;
 
-    public const string FIELD_HAS_BEEN_DEPLOYED = 'has_been_deployed';
-
     public function game() :BelongsTo {
         return $this->belongsTo(Game::class);
     }
@@ -63,10 +61,6 @@ class Deployment extends Model
         return DivisionType::from($this->division_type);
     }
 
-    public function hasBeenDeployed() :int {
-        return $this->has_been_deployed;
-    }
-
     public static function getTotalCostsByResourceType(Nation $nation, Turn $turn): array {
         $deployedTypes = Deployment::where('nation_id', $nation->getId())
             ->where('turn_id', $turn->getId())
@@ -80,8 +74,7 @@ class Deployment extends Model
         return Rule::exists(Deployment::class, 'id')
             ->where('nation_id', $nation->getId())
             ->where('turn_id', $nation->getGame()->getCurrentTurn()->getId())
-            ->whereNull('deleted_at')
-            ->where(Deployment::FIELD_HAS_BEEN_DEPLOYED, false);
+            ->whereNull('deleted_at');
     }
 
     public function export() :DeploymentInfo {
@@ -95,7 +88,6 @@ class Deployment extends Model
 
     public function execute() :void {
         Division::create($this);
-        $this->has_been_deployed = true;
         $this->save();
     }
 
@@ -106,18 +98,6 @@ class Deployment extends Model
         $this->delete();
     }
 
-    /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
-    protected function casts(): array
-    {
-        return [
-            'has_been_deployed' => 'boolean',
-        ];
-    }
-
     public static function Create(Nation $nation, DivisionType $type, Territory $territory) :Deployment {
         $deployment = new Deployment();
         $deployment->game_id = $nation->getGame()->getId();
@@ -125,7 +105,6 @@ class Deployment extends Model
         $deployment->territory_id = $territory->getId();
         $deployment->turn_id = Turn::getCurrentForGame($nation->getGame())->getId();
         $deployment->division_type = $type->value;
-        $deployment->has_been_deployed = false;
         $deployment->save();
 
         return $deployment;

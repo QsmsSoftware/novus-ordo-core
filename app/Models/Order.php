@@ -23,8 +23,6 @@ class Order extends Model
     use SoftDeletes;
     use GuardsForAssertions;
 
-    public const string FIELD_HAS_BEEN_EXECUTED = 'has_been_executed';
-
     public function getId(): int {
         return $this->id;
     }
@@ -42,7 +40,6 @@ class Order extends Model
     }
 
     public function onExecution(): void {
-        $this->has_been_executed = true;
         $this->save();
     }
 
@@ -78,18 +75,6 @@ class Order extends Model
         };
     }
 
-    /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
-    protected function casts(): array
-    {
-        return [
-            'has_been_executed' => 'boolean',
-        ];
-    }
-
     private static function prepareBaseOrder(Division $division, OrderType $type): Order {
         $order = new Order();
         $order->game_id = $division->getGame()->getId();
@@ -97,7 +82,6 @@ class Order extends Model
         $order->division_id = $division->getId();
         $order->turn_id = $division->getGame()->getCurrentTurn()->getId();
         $order->type = $type->value;
-        $order->has_been_executed = false;
 
         return $order;
     }
