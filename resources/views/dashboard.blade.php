@@ -18,8 +18,10 @@
         .ready-nation {
             color: green;
         }
-        .flag {
+        .full-sized-flag {
             outline: 1px solid black;
+            width: 300px;
+            height: 200px;
         }
         .resource-bar {
             display: flex;
@@ -411,12 +413,18 @@
             
         }
 
-        function renderNationFlag(nation) {
+        function renderNationFlagFullSize(nation) {
+            let flag = getNationFlagImgOrNull(nation.nation_id);
+
+            return `<img class="full-sized-flag" src="${flag.src}" title="Flag of the ${nation.formal_name}" alt="Flag of the ${nation.formal_name}">`;
+        }
+
+        function renderNationFlagSection(nation) {
             let flag = getNationFlagImgOrNull(nation.nation_id);
 
             if (flag) {
                 return '<div><h2>Flag</h2>'
-                    + `<img class="flag" src="${flag.src}" title="Flag of the ${nation.formal_name}" alt="Flag of the ${nation.formal_name}" width="300" height="200">`
+                    + renderNationFlagFullSize(nation)
                     + ` <a href="javascript:void(0)" title="About this picture" onclick="showAssetInfo('${getRelativeUri(flag.src)}', 'popover_target_flag_${nation.nation_id}')">i</a>`
                     + '</div>';
             }
@@ -444,7 +452,7 @@
                 var html = "";
                 html += `<h1>${nation.formal_name}</h1>`;
                 html += `<p>Usual name: ${nation.usual_name}<p>`;
-                html += renderNationFlag(nation);
+                html += renderNationFlagSection(nation);
                 html += renderDemography(nation.stats);
                 $("#owner-details").html(html);
             }
@@ -509,7 +517,7 @@
 
         function updateVictoryPane() {
             $('#victory-details').html(
-                (victoryStatus.victory_status == VictoryStatus.HasBeenWon ? `<h1>${nationsById.get(victoryStatus.winner_nation_id).usual_name} has won!</h1>` : "")
+                (victoryStatus.victory_status == VictoryStatus.HasBeenWon ? `<h1>${nationsById.get(victoryStatus.winner_nation_id).usual_name} has won!</h1>` + renderNationFlagFullSize(nationsById.get(victoryStatus.winner_nation_id)) : "")
                 + victoryStatus.goals.map((goal, index) =>
                     `<h4>Goal: ${goal.title}</h4>`
                     + '<table><tr><th>Rank</th><th>Nation</th><th>Progression</th></tr>'
@@ -1157,7 +1165,7 @@
             updateDetailsTabs();
             updateRankingsPane();
             updateNationPane(ownNation, $('#own-nation-details'));
-            $('#own-nation-flag').html(renderNationFlag(ownNation));
+            $('#own-nation-flag').html(renderNationFlagSection(ownNation));
             $('#own-nation-demographics').html(renderDemography(ownNation.stats));
             updateVictoryPane();
             updateBudgetPane();
