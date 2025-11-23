@@ -15,6 +15,7 @@ readonly class TerritoryBasePublicInfo {
         public float $usable_land_ratio,
         public string $name,
         public bool $has_sea_access,
+        public array $connected_land_territory_ids,
         public array $connected_territory_ids,
         public array $stats,
     ) {}

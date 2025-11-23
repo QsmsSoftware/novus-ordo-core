@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Domain\StatUnit;
 use App\Domain\TerrainType;
+use App\Domain\TerritoryConnection;
 use App\Domain\TerritoryData;
 use App\ReadModels\DemographicStat;
 use App\ReadModels\TerritoryBasePublicInfo;
@@ -31,6 +32,8 @@ class Territory extends Model
     public const string FIELD_TERRAIN_TYPE = 'terrain_type';
 
     public const int MAX_POPULATION_SIZE_PER_TERRITORY = 10_000_000;
+
+    public const string FIELD_TERRITORY_CONNEXION_TERRITORY_ID = 'connected_territory_id';
 
     public function game(): BelongsTo {
         return $this->belongsTo(Game::class);
@@ -63,6 +66,11 @@ class Territory extends Model
         }
 
         return $this->getGame()->territories()->limit(0);
+    }
+
+    public function connectedSeas(): BelongsToMany {
+        return $this->connectedTerritories()
+            ->where('is_connected_by_land', false);
     }
 
     public function connectedLands(): BelongsToMany {
@@ -209,9 +217,22 @@ class Territory extends Model
             usable_land_ratio: $this->getUsableLandRatio(),
             name: $this->getName(),
             has_sea_access: $this->hasSeaAccess(),
-            connected_territory_ids: $this->connectedTerritories()->pluck('connected_territory_id')->all(),
+            connected_land_territory_ids: $this->connectedLands()
+                ->pluck('connected_territory_id')
+                ->all(),
+            connected_territory_ids: $this->connectedTerritories()
+                ->pluck('connected_territory_id')
+                ->all(),
             stats: $this->getStats(),
         );
+    }
+
+    public static function getTerritoryConnections(Game $game): Collection {
+        return DB::table('territory_connections')
+        ->where('game_id', $game->getId())
+        ->get()
+        ->map(fn ($c) => new TerritoryConnection($c->territory_id, $c->connected_territory_id, $c->is_connected_by_land))
+        ->groupBy(fn (TerritoryConnection $c) => $c->territoryId);
     }
 
     public static function exportAllBasePublicInfo(Game $game): array {
@@ -219,10 +240,7 @@ class Territory extends Model
             ->where('game_id', $game->getId())
             ->get()->all();
 
-        $connections = DB::table('territory_connections')
-            ->where('game_id', $game->getId())
-            ->get()
-            ->groupBy('territory_id');
+        $connections = Territory::getTerritoryConnections($game);
 
         $terrainInfoByType = TerrainType::getMetas();
 
@@ -235,9 +253,13 @@ class Territory extends Model
         return array_map(fn ($t) => TerritoryBasePublicInfo::fromObject($t, [
             'territory_id' => $t->id,
             'terrain_type' => TerrainType::from($t->terrain_type)->name,
+            'connected_land_territory_ids' => collect($connections[$t->id])
+                ->filter(fn (TerritoryConnection $c) => $c->isConnectedByLand)
+                ->map(fn (TerritoryConnection $c) => $c->connectedTerritoryId)
+                ->values()
+                ->all(),
             'connected_territory_ids' => collect($connections[$t->id])
-                ->filter(fn ($c) => $c->is_connected_by_land)
-                ->map(fn ($c) => $c->connected_territory_id)
+                ->map(fn (TerritoryConnection $c) => $c->connectedTerritoryId)
                 ->values()
                 ->all(),
             'stats' => array_merge(Territory::statsFromRow($t), [

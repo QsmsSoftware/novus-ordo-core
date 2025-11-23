@@ -70,9 +70,7 @@ class DivisionController extends Controller
                 abort(HttpStatusCode::UnprocessableContent, "Division ID {$order->division_id} can't reach Territory ID {$order->destination_territory_id}.");
             }
         }
-
         
-
         foreach($request->getMoveOrders() as $order) {
             assert($order instanceof SentMoveOrder);
             $division = $detail->getActiveDivisionWithId($order->division_id);

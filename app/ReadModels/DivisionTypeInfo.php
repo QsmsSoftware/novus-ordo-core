@@ -14,5 +14,6 @@ readonly class DivisionTypeInfo
         public int $defense_power,
         public int $moves,
         public bool $can_take_territory,
+        public bool $can_fly,
     ) {}
 }

@@ -439,7 +439,7 @@
                     ? "Sea"
                     : (selectedTerritory.has_sea_access ? "Coastal" : "No sea access")
                 )
-                + (selectedTerritory.connected_territory_ids.length > 0 ? '. Land access to ' + selectedTerritory.connected_territory_ids.map(ctid => territoriesById.get(ctid)).map(t => renderActionLink(t.name, `selectTerritory(${t.territory_id})`)).join(', ') : '')
+                + (selectedTerritory.connected_land_territory_ids.length > 0 ? '. Land access to ' + selectedTerritory.connected_land_territory_ids.map(ctid => territoriesById.get(ctid)).map(t => renderActionLink(t.name, `selectTerritory(${t.territory_id})`)).join(', ') : '')
                 + `<span id="territory-info-owner">` + (selectedTerritory.owner_nation_id != null ? `<p>Owned by ${nationsById.get(selectedTerritory.owner_nation_id).usual_name}</p>` : '') + "</span>"
             );
 
@@ -603,7 +603,7 @@
             remarks = [];
 
             if (!divisionTypeInfo.can_take_territory) {
-                remarks.push("Won't capture a territory if last unit.");
+                remarks.push("Won't capture a territory if last unit standing.");
             }
             
             return remarks.join(", ");
@@ -667,11 +667,15 @@
             return Math.min(...getAllSelectedDivisionsInTerritory().map(d => divisionTypeInfoByType.get(d.division_type).moves));
         }
 
+        function canSelectedDivisionsFly() {
+            return !getAllSelectedDivisionsInTerritory().some(d => !divisionTypeInfoByType.get(d.division_type).can_fly);
+        }
+
         function territoryAllowsSafePassage(territory) {
             return territory.owner_nation_id == ownNation.nation_id;
         }
 
-        function filterReacheableTerritories(originTerritory, moves) {
+        function filterReacheableTerritories(originTerritory, moves, canFly) {
             var territoriesToExplore = [originTerritory.territory_id];
             let reacheableTerritories = new Map();
             var remainingMoves = moves;
@@ -683,12 +687,22 @@
                 while (territoriesToExplore.length > 0) {
                     let territory = territoriesById.get(territoriesToExplore.pop());
 
-                    territory.connected_territory_ids.forEach(tid => {
-                        if (territoryAllowsSafePassage(territory) && !reacheableTerritories.has(tid)) {
-                            reacheableTerritories.set(tid, tid);
-                            territoriesToExploreNext.push(tid);
-                        }
-                    });
+                    if (canFly && territory.terrain_type == TerrainType.Water) {
+                        territory.connected_territory_ids.forEach(tid => {
+                            if (!reacheableTerritories.has(tid)) {
+                                reacheableTerritories.set(tid, tid);
+                                territoriesToExploreNext.push(tid);
+                            }
+                        });
+                    }
+                    else if (territoryAllowsSafePassage(territory)) {
+                        territory.connected_land_territory_ids.forEach(tid => {
+                            if (!reacheableTerritories.has(tid)) {
+                                reacheableTerritories.set(tid, tid);
+                                territoriesToExploreNext.push(tid);
+                            }
+                        });
+                    }
                 }
 
                 territoriesToExplore = territoriesToExploreNext;
@@ -1031,7 +1045,7 @@
                 case MapMode.SelectMoveDestinationTerritory: {
                     let origin = selectedTerritory;
                     let moves = getSelectedDivisionsMoves();
-                    let legalDestinations = filterReacheableTerritories(selectedTerritory, moves)
+                    let legalDestinations = filterReacheableTerritories(selectedTerritory, moves, canSelectedDivisionsFly())
                         .filter(t => t.owner_nation_id == ownNation.nation_id)
                         .toArray();
                     territoriesById.values().forEach(t => mapDisplay.setClickable(t.territory_id, legalDestinations.some(dest => dest.territory_id == t.territory_id)));
@@ -1047,7 +1061,7 @@
                 case MapMode.SelectAttackTargetTerritory: {
                     let origin = selectedTerritory;
                     let moves = getSelectedDivisionsMoves();
-                    let legalDestinations = filterReacheableTerritories(selectedTerritory, moves)
+                    let legalDestinations = filterReacheableTerritories(selectedTerritory, moves, canSelectedDivisionsFly())
                         .filter(t => t.owner_nation_id != ownNation.nation_id)
                         .toArray();
                     territoriesById.values().forEach(t => mapDisplay.setClickable(t.territory_id, legalDestinations.some(dest => dest.territory_id == t.territory_id)));

@@ -50,16 +50,18 @@ enum DivisionType :int {
                 defensePower: 80,
                 moves: 6,
                 canTakeTerritory: false,
+                canFly: true,
             ),
             DivisionType::Bomber => new DivisionTypeMeta(
                 description: "Bomber squadron",
                 deploymentCosts: [ResourceType::Capital->value => 15, ResourceType::RecruitmentPool->value => 1, ResourceType::Ore->value => 1],
                 upkeepCosts: [ResourceType::Capital->value => 1, ResourceType::RecruitmentPool->value => 1],
                 attackCosts: [ResourceType::Oil->value => 1],
-                attackPower: 100,
+                attackPower: 80,
                 defensePower: 15,
                 moves: 8,
                 canTakeTerritory: false,
+                canFly: true,
             ),
         };
     }
@@ -164,6 +166,7 @@ enum DivisionType :int {
                 defense_power: $meta->defensePower,
                 moves: $meta->moves,
                 can_take_territory: $meta->canTakeTerritory,
+                can_fly: $meta->canFly,
             );
         }
 

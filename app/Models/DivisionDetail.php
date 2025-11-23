@@ -5,6 +5,8 @@ namespace App\Models;
 use App\Domain\DivisionType;
 use App\Domain\OrderType;
 use App\Domain\ResourceType;
+use App\Domain\TerrainType;
+use App\Domain\TerritoryConnection;
 use App\ModelTraits\ReplicatesForTurns;
 use App\ReadModels\OwnedDivisionInfo;
 use Closure;
@@ -61,24 +63,43 @@ class DivisionDetail extends Model
 
     public function canReach(Territory $destination): bool {
         $nationDetail = $this->getNation()->getDetail($this->getTurn());
+        $meta = DivisionType::getMeta($this->getDivision()->getDivisionType());
         $origin = $this->getTerritory();
-        $newTerritoriesToExplore = collect([$origin, $origin]);
-        $moves = DivisionType::getMeta($this->getDivision()->getDivisionType())->moves;
+        $newTerritoriesToExplore = collect([$origin]);
+        $remainingMoves = $meta->moves;
+        $connections = Territory::getTerritoryConnections($this->getGame());
+        $exploredTerritoryIds[$origin->getId()] = $origin;
 
-        while($moves > 0) {
-            $moves--;
+        if ($destination->getTerrainType() == TerrainType::Water) {
+            return false;
+        }
+
+        while($remainingMoves > 0) {
+            $remainingMoves--;
             $territoriesToExplore = $newTerritoriesToExplore->unique();
             $newTerritoriesToExplore = collect();
             while (!$territoriesToExplore->isEmpty()) {
                 $territory = Territory::notNull($territoriesToExplore->pop());
-                $accessibleTerritoriesIds = $territory->connectedLands()->pluck('connected_territory_id');
-                if ($accessibleTerritoriesIds->contains($destination->getId())) {
+                $accessibleTerritoryIds = $meta->canFly
+                    ? $connections[$territory->getId()]
+                        ->map(fn (TerritoryConnection $c) => $c->connectedTerritoryId)
+                    : $connections[$territory->getId()]
+                        ->filter(fn (TerritoryConnection $c) => $c->isConnectedByLand)
+                        ->map(fn (TerritoryConnection $c) => $c->connectedTerritoryId);
+                if ($accessibleTerritoryIds->contains($destination->getId())) {
                     return true;
                 }
-                $newTerritoriesToExplore->push(...$accessibleTerritoriesIds
-                    ->map(fn (int $territoryId) => Territory::notNull(Territory::find($territoryId)))
-                    ->filter(fn (Territory $territory) => $nationDetail->hasSafePassageThrough($territory))
+                $newNeighbors = $accessibleTerritoryIds
+                    ->filter(fn (int $territoryId) => !isset($exploredTerritoryIds[$territoryId]))
+                    ->map(fn (int $territoryId) => Territory::notNull(Territory::find($territoryId)));
+                $newTerritoriesToExplore->push(...$newNeighbors
+                    ->filter(fn (Territory $territory) => ($meta->canFly && $territory->getTerrainType() == TerrainType::Water)
+                        || $nationDetail->hasSafePassageThrough($territory)
+                    )
                 );
+                $newNeighbors->each(function (Territory $territory) use (&$exploredTerritoryIds) {
+                    $exploredTerritoryIds[$territory->getId()] = $territory;
+                });
             }
         }
 
