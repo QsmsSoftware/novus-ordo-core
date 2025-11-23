@@ -603,10 +603,14 @@
             remarks = [];
 
             if (!divisionTypeInfo.can_take_territory) {
-                remarks.push("Won't capture a territory if last unit standing.");
+                remarks.push("Won't capture a territory if last unit standing");
+            }
+
+            if (divisionTypeInfo.can_fly) {
+                remarks.push("Will remain in their current territory when done attacking");
             }
             
-            return remarks.join(", ");
+            return remarks.join("; ");
         }
 
         function updateDeploymentsPane() {
