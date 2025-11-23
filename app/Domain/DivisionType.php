@@ -35,7 +35,7 @@ enum DivisionType :int {
             ),
             DivisionType::Artillery => new DivisionTypeMeta(
                 description: "Artillery brigade",
-                deploymentCosts: [ResourceType::Capital->value => 4, ResourceType::RecruitmentPool->value => 1, ResourceType::Ore->value => 1],
+                deploymentCosts: [ResourceType::Capital->value => 4, ResourceType::RecruitmentPool->value => 1],
                 upkeepCosts: [ResourceType::Capital->value => 1, ResourceType::RecruitmentPool->value => 1],
                 attackCosts: [],
                 attackPower: 30,
