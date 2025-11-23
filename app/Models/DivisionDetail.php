@@ -53,25 +53,41 @@ class DivisionDetail extends Model
         return $this->territory;
     }
 
-    public function accessibleTerritories(): HasMany {
-        $territory = $this->getTerritory();
-        $accessibleTerritoryIds = $territory->connectedLands()->pluck('connected_territory_id');
-        if ($territory->hasSeaAccess()) {
-            $accessibleTerritoryIds = $accessibleTerritoryIds->concat($this->getGame()->territories()
-                ->where(Territory::whereIsControllable())
-                ->where(Territory::whereHasSeaAccess())
-                ->whereNot('id', $territory->getId())
-                ->pluck('id')
-            );
-        }
-
-        return $this->getGame()->territories()->whereIn('id', $accessibleTerritoryIds);
-    }
-
     public function getOrderOrNull(): ?Order {
         return $this->getDivision()->orders()
             ->where('turn_id', $this->turn_id)
             ->first();
+    }
+
+    public function canReach(Territory $destination): bool {
+        $nationDetail = $this->getNation()->getDetail($this->getTurn());
+        $origin = $this->getTerritory();
+        $newTerritoriesToExplore = collect([$origin, $origin]);
+        $moves = DivisionType::getMeta($this->getDivision()->getDivisionType())->moves;
+
+        while($moves > 0) {
+            $moves--;
+            $territoriesToExplore = $newTerritoriesToExplore->unique();
+            $newTerritoriesToExplore = collect();
+            while (!$territoriesToExplore->isEmpty()) {
+                $territory = Territory::notNull($territoriesToExplore->pop());
+                $accessibleTerritoriesIds = $territory->connectedLands()->pluck('connected_territory_id');
+                if ($accessibleTerritoriesIds->contains($destination->getId())) {
+                    return true;
+                }
+                $newTerritoriesToExplore->push(...$accessibleTerritoriesIds
+                    ->map(fn (int $territoryId) => Territory::notNull(Territory::find($territoryId)))
+                    ->filter(fn (Territory $territory) => $nationDetail->hasSafePassageThrough($territory))
+                );
+            }
+        }
+
+        $accessibleTerritoryIds = $origin->connectedBySea()->pluck('id');
+        if ($accessibleTerritoryIds->contains($destination->getId())) {
+            return true;
+        }
+
+        return false;
     }
 
     public function getOrder(): Order {

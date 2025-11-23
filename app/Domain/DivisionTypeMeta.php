@@ -9,6 +9,8 @@ readonly class DivisionTypeMeta {
         public array $attackCosts,
         public int $attackPower,
         public int $defensePower,
+        public int $moves = 1,
+        public bool $canTakeTerritory = true,
     )
     {
         

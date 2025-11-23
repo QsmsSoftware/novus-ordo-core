@@ -599,17 +599,30 @@
             return Object.keys(divisionType.deployment_costs).reduce((min, resource) => Math.min(Math.floor(availableResources[resource] / divisionType.deployment_costs[resource]), min), Number.MAX_SAFE_INTEGER);
         }
 
+        function renderDivisionTypeRemarks(divisionTypeInfo) {
+            remarks = [];
+
+            if (!divisionTypeInfo.can_take_territory) {
+                remarks.push("Won't capture a territory if last unit.");
+            }
+            
+            return remarks.join(", ");
+        }
+
         function updateDeploymentsPane() {
             var html = "";
 
             html += '<p>You can still deploy (select the type of division you want to deploy):<br><table>'
-            html += '<tr><th>Quantity</th><th>Type</th><th>Attack Power</th><th>Defense Power</th><th>Cost</th></tr>'
+            html += '<tr><th>Quantity</th><th>Type</th><th>Attack Power</th><th>Defense Power</th><th>Moves</th><th>Production Cost</th><th>Attack Cost</th><th>Remarks</th></tr>'
             html += divisionTypeInfoByType.values().map(divisionTypeInfo => '<tr>'
                 + `<td>${getRemainingDeployments(divisionTypeInfo.division_type)}x</td>`
                 + `<td>${renderActionLink(divisionTypeInfo.description, `startDeploying('${divisionTypeInfo.division_type}')`, divisionTypeInfo.division_type == selectedDivisionType)}</td>`
-                + `<td>${formatValue(divisionTypeInfo.attack_power / 100, StatUnit.Percent)}</td>`
-                + `<td>${formatValue(divisionTypeInfo.defense_power / 100, StatUnit.Percent)}</td>`
+                + `<td class="stat-value">${formatValue(divisionTypeInfo.attack_power / 100, StatUnit.Percent)}</td>`
+                + `<td class="stat-value">${formatValue(divisionTypeInfo.defense_power / 100, StatUnit.Percent)}</td>`
+                + `<td>${formatValue(divisionTypeInfo.moves, StatUnit.WholeNumber)}</td>`
                 + `<td>${renderResourceCosts(mapExportedObject(divisionTypeInfo.deployment_costs))}</td>`
+                + `<td class="stat-value">${renderResourceCosts(mapExportedObject(divisionTypeInfo.attack_costs))}</td>`
+                + `<td>${renderDivisionTypeRemarks(divisionTypeInfo)}</td>`
                 + '</tr>')
                 .toArray()
                 .join("")
@@ -619,7 +632,7 @@
             if (pendingDeployments.length > 0) {
                 html += '<p>Pending deployments (<a href="javascript:void(0)" onclick="confirmAllPendingDeployment()">confirm all</a> or <a href="javascript:void(0)" onclick="cancelAllPendingDeployment()">cancel all</a>): '
                     + '<p>'
-                    + `<ul>${pendingDeployments.map(d => `<li>${divisionTypeInfoByType.get(d.divisionType).description} on <a href="javascript:void(0)" onclick="selectTerritory(${d.territoryId})">${territoriesById.get(d.territoryId).name}</a> - <a href="javascript:void(0)" onclick="removeDeployment(${d.territoryId})">cancel</a></li>`).join("")}</ul>`
+                    + `<ul>${pendingDeployments.map(d => `<li>${divisionTypeInfoByType.get(d.divisionType).description} on <a href="javascript:void(0)" onclick="selectTerritory(${d.territoryId})">${territoriesById.get(d.territoryId).name}</a> - <a href="javascript:void(0)" onclick="removeDeployment(${d.territoryId}, '${d.divisionType}')">cancel</a></li>`).join("")}</ul>`
                     + '</p>';
             }
 
@@ -648,6 +661,45 @@
             
             $("#divisions-details").html(html);
             onDivisionSelectionChange();
+        }
+
+        function getSelectedDivisionsMoves() {
+            return Math.min(...getAllSelectedDivisionsInTerritory().map(d => divisionTypeInfoByType.get(d.division_type).moves));
+        }
+
+        function territoryAllowsSafePassage(territory) {
+            return territory.owner_nation_id == ownNation.nation_id;
+        }
+
+        function filterReacheableTerritories(originTerritory, moves) {
+            var territoriesToExplore = [originTerritory.territory_id];
+            let reacheableTerritories = new Map();
+            var remainingMoves = moves;
+
+            while (moves > 0 && territoriesToExplore.length > 0) {
+                moves--;
+                let territoriesToExploreNext = [];
+
+                while (territoriesToExplore.length > 0) {
+                    let territory = territoriesById.get(territoriesToExplore.pop());
+
+                    territory.connected_territory_ids.forEach(tid => {
+                        if (territoryAllowsSafePassage(territory) && !reacheableTerritories.has(tid)) {
+                            reacheableTerritories.set(tid, tid);
+                            territoriesToExploreNext.push(tid);
+                        }
+                    });
+                }
+
+                territoriesToExplore = territoriesToExploreNext;
+            }
+
+            return territoriesById.values()
+                .filter(t => t.terrain_type != TerrainType.Water && t.territory_id != originTerritory.territory_id)
+                .filter(t =>
+                    reacheableTerritories.has(t.territory_id)
+                    || t.has_sea_access && originTerritory.has_sea_access
+                );
         }
 
         function canAffordAttackWithSelectedDivisions() {
@@ -701,7 +753,7 @@
 
                 $("#send-order-link").html([MapMode.SelectMoveDestinationTerritory, MapMode.SelectAttackTargetTerritory].includes(currentMapMode)
                     ? `Select the destination territory to move to attack with the ${numberOfSelectedDivisions} selected divisions or <a href="javascript:void(0)" onclick="cancelSelectDestinationForDivisions()">cancel</a>`
-                    : `With ${numberOfSelectedDivisions} selected divisions: <a href="javascript:void(0)" onclick="selectMoveDestinationForDivisions()">move</a> - ${attackLink} - <a href="javascript:void(0)" onclick="sendDisbandOrdersToSelectedDivisions()">disband</a>`
+                    : `With ${numberOfSelectedDivisions} selected divisions (max range is ${getSelectedDivisionsMoves()}): <a href="javascript:void(0)" onclick="selectMoveDestinationForDivisions()">move</a> - ${attackLink} - <a href="javascript:void(0)" onclick="sendDisbandOrdersToSelectedDivisions()">disband</a>`
                 );
             }
             else {
@@ -859,8 +911,8 @@
             mapDisplay.refresh();
         }
 
-        function removeDeployment(tid) {
-            var index = pendingDeployments.findIndex(d => d.territoryId == tid && d.divisionType == selectedDivisionType);
+        function removeDeployment(tid, divisionType) {
+            var index = pendingDeployments.findIndex(d => d.territoryId == tid && d.divisionType == divisionType);
             if (index === -1) {
                 index = pendingDeployments.findIndex(d => d.territoryId == tid);
             }
@@ -954,7 +1006,7 @@
                     territoriesById.values().forEach(t => mapDisplay.setClickable(t.territory_id, deployableTerritoryIds.includes(t.territory_id)));
                     mapDisplay.onClick = addDeployment;
                     mapDisplay.onContextMenu = (tid) => {
-                        removeDeployment(tid);
+                        removeDeployment(tid, selectedDivisionType);
                     }
                     mapDisplay.setLayers([politicalMapLayer, ownNationHighlightMapLayer]);
                     mapDisplay.setTopLayers([(ctx, md) => {
@@ -978,12 +1030,8 @@
                     break;
                 case MapMode.SelectMoveDestinationTerritory: {
                     let origin = selectedTerritory;
-                    let legalDestinations = territoriesById.values()
-                        .filter(t => t.terrain_type != TerrainType.Water && t.territory_id != origin.territory_id)
-                        .filter(t =>
-                            t.connected_territory_ids.includes(origin.territory_id)
-                            || t.has_sea_access && origin.has_sea_access
-                        )
+                    let moves = getSelectedDivisionsMoves();
+                    let legalDestinations = filterReacheableTerritories(selectedTerritory, moves)
                         .filter(t => t.owner_nation_id == ownNation.nation_id)
                         .toArray();
                     territoriesById.values().forEach(t => mapDisplay.setClickable(t.territory_id, legalDestinations.some(dest => dest.territory_id == t.territory_id)));
@@ -998,12 +1046,8 @@
                 }
                 case MapMode.SelectAttackTargetTerritory: {
                     let origin = selectedTerritory;
-                    let legalDestinations = territoriesById.values()
-                        .filter(t => t.terrain_type != TerrainType.Water && t.territory_id != origin.territory_id)
-                        .filter(t =>
-                            t.connected_territory_ids.includes(origin.territory_id)
-                            || t.has_sea_access && origin.has_sea_access
-                        )
+                    let moves = getSelectedDivisionsMoves();
+                    let legalDestinations = filterReacheableTerritories(selectedTerritory, moves)
                         .filter(t => t.owner_nation_id != ownNation.nation_id)
                         .toArray();
                     territoriesById.values().forEach(t => mapDisplay.setClickable(t.territory_id, legalDestinations.some(dest => dest.territory_id == t.territory_id)));

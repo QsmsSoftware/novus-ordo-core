@@ -10,6 +10,9 @@ enum DivisionType :int {
     
     case Infantry = 0;
     case Armored = 1;
+    case Artillery = 2;
+    case Fighter = 3;
+    case Bomber = 4;
 
     public static function getMeta(DivisionType $type): DivisionTypeMeta {
         return match($type) {
@@ -18,16 +21,45 @@ enum DivisionType :int {
                 deploymentCosts: [ResourceType::Capital->value => 3, ResourceType::RecruitmentPool->value => 1],
                 upkeepCosts: [ResourceType::Capital->value => 1, ResourceType::RecruitmentPool->value => 1],
                 attackCosts: [],
-                attackPower: 20,
-                defensePower: 30
+                attackPower: 15,
+                defensePower: 30,
             ),
             DivisionType::Armored => new DivisionTypeMeta(
                 description: "Armored division",
-                deploymentCosts: [ResourceType::Capital->value => 5, ResourceType::RecruitmentPool->value => 1, ResourceType::Ore->value => 1],
+                deploymentCosts: [ResourceType::Capital->value => 5, ResourceType::RecruitmentPool->value => 1, ResourceType::Ore->value => 2],
                 upkeepCosts: [ResourceType::Capital->value => 1, ResourceType::RecruitmentPool->value => 1],
                 attackCosts: [ResourceType::Oil->value => 1],
                 attackPower: 50,
-                defensePower: 30
+                defensePower: 30,
+                moves: 2,
+            ),
+            DivisionType::Artillery => new DivisionTypeMeta(
+                description: "Artillery brigade",
+                deploymentCosts: [ResourceType::Capital->value => 4, ResourceType::RecruitmentPool->value => 1, ResourceType::Ore->value => 1],
+                upkeepCosts: [ResourceType::Capital->value => 1, ResourceType::RecruitmentPool->value => 1],
+                attackCosts: [],
+                attackPower: 30,
+                defensePower: 30,
+            ),
+            DivisionType::Fighter => new DivisionTypeMeta(
+                description: "Fighter squadron",
+                deploymentCosts: [ResourceType::Capital->value => 10, ResourceType::RecruitmentPool->value => 1, ResourceType::Ore->value => 1],
+                upkeepCosts: [ResourceType::Capital->value => 1, ResourceType::RecruitmentPool->value => 1],
+                attackCosts: [ResourceType::Oil->value => 1],
+                attackPower: 50,
+                defensePower: 70,
+                moves: 4,
+                canTakeTerritory: false,
+            ),
+            DivisionType::Bomber => new DivisionTypeMeta(
+                description: "Bomber squadron",
+                deploymentCosts: [ResourceType::Capital->value => 15, ResourceType::RecruitmentPool->value => 1, ResourceType::Ore->value => 1],
+                upkeepCosts: [ResourceType::Capital->value => 1, ResourceType::RecruitmentPool->value => 1],
+                attackCosts: [ResourceType::Oil->value => 1],
+                attackPower: 70,
+                defensePower: 15,
+                moves: 6,
+                canTakeTerritory: false,
             ),
         };
     }
@@ -130,6 +162,8 @@ enum DivisionType :int {
                 attack_costs: DivisionType::exportCosts($meta->attackCosts),
                 attack_power: $meta->attackPower,
                 defense_power: $meta->defensePower,
+                moves: $meta->moves,
+                can_take_territory: $meta->canTakeTerritory,
             );
         }
 

@@ -12,5 +12,7 @@ readonly class DivisionTypeInfo
         public array $attack_costs,
         public int $attack_power,
         public int $defense_power,
+        public int $moves,
+        public bool $can_take_territory,
     ) {}
 }

@@ -26,6 +26,7 @@ class BattleFormation {
         public readonly string $description,
         public readonly int $power,
         public readonly int $value,
+        public readonly bool $canTakeTerritory,
         public readonly ?Division $linkedDivision = null,
     )
     {
@@ -35,20 +36,23 @@ class BattleFormation {
     public static function fromDivision(Division $division, NationDetail $ownerDetail, int $power): BattleFormation {
         $meta = DivisionType::getMeta($division->getDivisionType());
 
-        return new BattleFormation($meta->description . " ({$ownerDetail->getUsualName()})", $power, $meta->deploymentCosts[ResourceType::Capital->value], $division);
+        return new BattleFormation($meta->description . " ({$ownerDetail->getUsualName()})", $power, $meta->deploymentCosts[ResourceType::Capital->value],
+            canTakeTerritory: $meta->canTakeTerritory,
+            linkedDivision: $division
+        );
     }
 
     public static function newPartisans(NationDetail $ownerDetail, int $power) {
         $description = "Partisans ({$ownerDetail->getUsualName()})";
 
-        return new BattleFormation($description, $power, 0);
+        return new BattleFormation($description, $power, 0, canTakeTerritory: true);
     }
 
     public static function newMilitia(?NationDetail $ownerDetail, int $power) {
         $faction = is_null($ownerDetail) ? "neutral" : $ownerDetail->getUsualName();
         $description = "Militia ($faction)";
 
-        return new BattleFormation($description, $power, 0);
+        return new BattleFormation($description, $power, 0, canTakeTerritory: true);
     }
 }
 
@@ -299,8 +303,13 @@ class Battle extends Model
         $log .= "\n\n";
 
         if ($defendingFormations->count() < 1) {
-            Battle::finalizeAttackerVictory($territory, $attacker, $attackingDivisions);
-            return Battle::create($territory, $attacker, $defenderOrNull, $attacker, "No active formation able to defend the territory. Territory conquered by attacker.");
+            if ($attackingFormations->some(fn (BattleFormation $f) => $f->canTakeTerritory)) {
+                Battle::finalizeAttackerVictory($territory, $attacker, $attackingDivisions);
+                return Battle::create($territory, $attacker, $defenderOrNull, $attacker, $log . "No active formation was able to defend the territory. Territory conquered by attacker.");
+            }
+            else {
+                return Battle::create($territory, $attacker, $defenderOrNull, $defenderOrNull, $log . "No active formation was able to defend the territory but no active attacking formation is able to take the territory. Territory couldn't be conquered by attacker.");
+            }
         }
 
         $log .= Battle::describeFormations('Defending forces (' . ($defenderIsNeutral ? 'neutral' : NationDetail::notNull($defenderDetail)->getUsualName()) . ')', $defendingFormations);
@@ -333,9 +342,15 @@ class Battle extends Model
         $someDefendersRemain = $defenderLosses->anySurvivors;
 
         if ($someAttackersRemain && !$someDefendersRemain) {
-            $winnerOrNull = $attacker;
-            Battle::finalizeAttackerVictory($territory, $attacker, $attackingDivisions);
-            $log .= "Attacker won. Territory conquered.";
+            if ($attackingFormations->some(fn (BattleFormation $f) => $f->canTakeTerritory)) {
+                $winnerOrNull = $attacker;
+                Battle::finalizeAttackerVictory($territory, $attacker, $attackingDivisions);
+                $log .= "Attacker won. Territory conquered.";
+            }
+            else {
+                $winnerOrNull = $defenderOrNull;
+                $log .= "Attacker won the battle but no remaining formation could take the territory. Territory could not be conquered by attacker.";
+            }
         }
         else {
             $winnerOrNull = $defenderOrNull;

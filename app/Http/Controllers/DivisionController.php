@@ -66,6 +66,17 @@ class DivisionController extends Controller
             assert($order instanceof SentMoveOrder);
             $division = $detail->getActiveDivisionWithId($order->division_id);
             $destination = $game->getTerritoryWithId($order->destination_territory_id);
+            if (!$division->getDetail()->canReach($destination)) {
+                abort(HttpStatusCode::UnprocessableContent, "Division ID {$order->division_id} can't reach Territory ID {$order->destination_territory_id}.");
+            }
+        }
+
+        
+
+        foreach($request->getMoveOrders() as $order) {
+            assert($order instanceof SentMoveOrder);
+            $division = $detail->getActiveDivisionWithId($order->division_id);
+            $destination = $game->getTerritoryWithId($order->destination_territory_id);
             $sentOrders[] = $division->sendMoveAttackOrder($destination);
         };
         

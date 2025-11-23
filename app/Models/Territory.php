@@ -54,6 +54,17 @@ class Territory extends Model
             ->withTimestamps();
     }
 
+    public function connectedBySea(): HasMany {
+        if ($this->hasSeaAccess()) {
+            return $this->getGame()->territories()
+                ->where(Territory::whereIsControllable())
+                ->where(Territory::whereHasSeaAccess())
+                ->whereNot('id', $this->getId());
+        }
+
+        return $this->getGame()->territories()->limit(0);
+    }
+
     public function connectedLands(): BelongsToMany {
         return $this->connectedTerritories()
             ->where('is_connected_by_land', true);

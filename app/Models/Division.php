@@ -75,8 +75,8 @@ class Division extends Model
             throw new LogicException("Can't give a move order to inactive division {$this->getId()}");
         }
         
-        if (!$this->getDetail()->accessibleTerritories()->pluck('id')->contains($destination->getId())) {
-            throw new LogicException("Division ID {$this->getId()} can't reach territory with ID {$destination->getId()}");
+        if (!$this->getDetail()->canReach($destination)) {
+            throw new LogicException("Division ID {$this->getId()} can't reach territory ID {$destination->getId()}");
         }
 
         $attacking = $this->getNation()->getDetail()->isHostileTerritory($destination);

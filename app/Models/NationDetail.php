@@ -361,6 +361,12 @@ class NationDetail extends Model
         $this->save();
     }
 
+    public function hasSafePassageThrough(Territory $territory) {
+        return $this->territories()
+            ->where('id', $territory->getId())
+            ->exists();
+    }
+
     public static function whereUsualNameIgnoreCase(string $usualName): Closure {
         return fn (Builder $builder) => $builder->whereRaw('LOWER(usual_name) = ?', strtolower($usualName));
     }
