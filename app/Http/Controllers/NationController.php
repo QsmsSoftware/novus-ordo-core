@@ -45,7 +45,7 @@ class NationController extends Controller
         }
         $newNation = $context->getNewNation();
 
-        $newNation->finishSetup(...$request->territory_ids);
+        $newNation->finishSetup($request->territory_ids);
 
         return response()->json(null, HttpStatusCode::NoContent);
     }

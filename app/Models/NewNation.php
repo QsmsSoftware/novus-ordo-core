@@ -60,12 +60,12 @@ class NewNation extends Model
             ->exists();
     }
 
-    public function finishSetup(int ...$homeTerritoryIds): Nation {
+    public function finishSetup(array $homeTerritoryIds, $flagSrc = null): Nation {
         if (count($homeTerritoryIds) != Game::NUMBER_OF_STARTING_TERRITORIES) {
             throw new LogicException("Parameter homeTerritoryIds: expecting " . Game::NUMBER_OF_STARTING_TERRITORIES . " IDs, " . count($homeTerritoryIds) . " specified");
         }
 
-        $nation = Cache::lock(NewNation::CRITICAL_SECTION_HOME_TERRITORIES_SELECT_CACHE_NAME, 10)->block(2, function () use ($homeTerritoryIds) {
+        $nation = Cache::lock(NewNation::CRITICAL_SECTION_HOME_TERRITORIES_SELECT_CACHE_NAME, 10)->block(2, function () use ($flagSrc, $homeTerritoryIds) {
             $nation = Nation::notNull(Nation::withoutGlobalScopes()->find($this->getId()));
             
             $homeTerritories = $nation->getGame()->freeSuitableTerritoriesInTurn()->whereIn('id', $homeTerritoryIds)->get();
@@ -83,10 +83,12 @@ class NewNation extends Model
 
             $nation->nation_setup_status = NationSetupStatus::FinishedSetup;
 
-            $flag = $nation->getGame()->availableSharedAssetsOfType(SharedAssetType::Flag)
-                ->inRandomOrder()->first();
+            if (is_null($flagSrc)) {
+                $flagSrc = $nation->getGame()->availableSharedAssetsOfType(SharedAssetType::Flag)
+                    ->inRandomOrder()->first();
+            }
 
-            NationDetail::create($nation, "Empire of {$nation->getInternalName()}", $flag);
+            NationDetail::create($nation, "Empire of {$nation->getInternalName()}", $flagSrc);
             $nation->save();
 
             Metacache::expireAllforTurn($nation->getGame()->getCurrentTurn());

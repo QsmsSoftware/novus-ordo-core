@@ -121,8 +121,16 @@
         <div>
             <form method="post" enctype="multipart/form-data" action="{{route('nation.store')}}">
                 @csrf
-                Nation's name:
-                <input type="text" id="name" name="name" class="form-control" value="{{ old('name') }}">
+                <table>
+                    <tr>
+                        <td>Nation's name:</td>
+                        <td><input type="text" id="name" name="name" class="form-control" value="{{ old('name') }}"></td>
+                    </tr>
+                    <tr>
+                        <td>Nation's flag (a random flag will be assigned if not provided):</td>
+                        <td><input name="flag" type="file" class="form-control"></td>
+                    </tr>
+                </table>
                 <input type="hidden" name="territory_ids_as_json" id="territory_ids_as_json">
                 <br>
                 <button id="submit" class="btn btn-primary" type="submit">Create nation</button>

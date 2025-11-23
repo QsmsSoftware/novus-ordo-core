@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Domain\VictoryStatus;
 use App\Models\Battle;
 use App\Models\Deployment;
 use App\Models\Division;
@@ -24,13 +23,16 @@ use App\Services\LoggedInGameContext;
 use App\Services\NationContext;
 use App\Services\StaticJavascriptResource;
 use App\Utils\Annotations\Summary;
+use App\Utils\HttpStatusCode;
 use App\Utils\MapsValidatedDataToFormRequest;
 use App\Utils\MapsValidatorToInstance;
+use GdImage;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -46,6 +48,16 @@ class CreateNationUiRequest extends FormRequest {
     )
     {
         
+    }
+
+    public function getFlagFileOrNull(): ?UploadedFile {
+        $fileOrFiles = $this->file('flag');
+
+        return match(true) {
+            is_array($fileOrFiles) => reset($fileOrFiles),
+            $fileOrFiles instanceof UploadedFile => $fileOrFiles,
+            null => null,
+        };
     }
 
     protected function prepareForValidation(): void
@@ -143,7 +155,40 @@ class UiController extends Controller
             $newNation->rename($request->name);
         }
 
-        $newNation->finishSetup(...$request->territory_ids);
+        $flagFileOrNull = $request->getFlagFileOrNull();
+        $flagSrc = null;
+
+        if (!is_null($flagFileOrNull)) {
+            $tmpFilePath = $flagFileOrNull->getRealPath();
+            if ($tmpFilePath === false) {
+                abort(HttpStatusCode::UnprocessableContent, 'Unable to read uploaded flag.');
+            }
+            $imageSize = getimagesize($tmpFilePath);
+            if ($imageSize === false) {
+                abort(HttpStatusCode::UnprocessableContent, 'Unable to read uploaded flag.');
+            }
+            list($originalWidthPixels, $originalHeightPixels) = $imageSize;
+            $originalImage = imagecreatefromstring($flagFileOrNull->getContent());
+            if ($originalImage === false) {
+                abort(HttpStatusCode::UnprocessableContent, 'Unable to read uploaded flag.');
+            }
+            $targetImageWidthPixels = 300;
+            $targetImageHeightPixels = 200;
+            $destinationImage = imagecreatetruecolor($targetImageWidthPixels, $targetImageHeightPixels);
+            asset($originalImage instanceof GdImage);
+            asset($destinationImage instanceof GdImage);
+            $resizeResult = imagecopyresampled($destinationImage, $originalImage, 0, 0, 0, 0, $targetImageWidthPixels, $targetImageHeightPixels, $originalWidthPixels, $originalHeightPixels);
+            if ($resizeResult === false) {
+                abort(HttpStatusCode::UnprocessableContent, 'Unable to resize uploaded flag.');
+            }
+            $flagSrc = "var/game_{$context->getGame()->getId()}-nation_{$newNation->getId()}-initial_flag.png";
+            $saveResult = imagepng($destinationImage, public_path($flagSrc));
+            if ($saveResult === false) {
+                abort(HttpStatusCode::UnprocessableContent, 'Unable to store uploaded flag.');
+            }
+        }
+
+        $newNation->finishSetup($request->territory_ids, $flagSrc);
 
         return redirect()->route('dashboard');
     }
