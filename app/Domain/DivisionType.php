@@ -47,8 +47,8 @@ enum DivisionType :int {
                 upkeepCosts: [ResourceType::Capital->value => 1, ResourceType::RecruitmentPool->value => 1],
                 attackCosts: [ResourceType::Oil->value => 1],
                 attackPower: 50,
-                defensePower: 70,
-                moves: 4,
+                defensePower: 80,
+                moves: 6,
                 canTakeTerritory: false,
             ),
             DivisionType::Bomber => new DivisionTypeMeta(
@@ -56,9 +56,9 @@ enum DivisionType :int {
                 deploymentCosts: [ResourceType::Capital->value => 15, ResourceType::RecruitmentPool->value => 1, ResourceType::Ore->value => 1],
                 upkeepCosts: [ResourceType::Capital->value => 1, ResourceType::RecruitmentPool->value => 1],
                 attackCosts: [ResourceType::Oil->value => 1],
-                attackPower: 70,
+                attackPower: 100,
                 defensePower: 15,
-                moves: 6,
+                moves: 8,
                 canTakeTerritory: false,
             ),
         };
