@@ -57,7 +57,7 @@ class CreateNationUiRequest extends FormRequest {
         return match(true) {
             is_array($fileOrFiles) => reset($fileOrFiles),
             $fileOrFiles instanceof UploadedFile => $fileOrFiles,
-            null => null,
+            is_null($fileOrFiles) => null,
         };
     }
 
@@ -79,7 +79,7 @@ class CreateNationUiRequest extends FormRequest {
                 NewNation::createRuleNoNationWithSameNameInGameUnlessItsOwner($this->context->getGame(), $this->context->getUser())
             ],
             'formal_name' => [
-                'required',
+                'nullable',
                 'string',
                 'min:2',
                 'max:1024',

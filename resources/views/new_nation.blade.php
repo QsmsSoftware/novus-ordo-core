@@ -75,7 +75,7 @@
                 selectedTerritoriesIds.forEach(function(tid) {
                     let territory = territoriesById.get(tid);
 
-                    territory.connected_territory_ids.forEach(function (connectedId) {
+                    territory.connected_land_territory_ids.forEach(function (connectedId) {
                         if (!selectedTerritoriesIds.includes(connectedId) && !selectableTerritoriesIds.includes(connectedId) && suitableAsHomeIds.includes(connectedId)) {
                             selectableTerritoriesIds.push(connectedId);
                         }

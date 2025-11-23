@@ -36,35 +36,39 @@ final class GenerationData {
                 $connections = [];
 
                 if (isset($map[$x][$y - 1])) {
-                    $connections[] = new TerritoryConnectionData($x, $y - 1, $terrainType != TerrainType::Water && $coasts[$x][$y][GenerationData::Top] != 1);
+                    $connectedTerrainType = $usable[$x][$y - 1] < GenerationData::MinimumUsableLandRatio ? TerrainType::Water : TerrainType::from($map[$x][$y - 1]);
+                    $connections[] = new TerritoryConnectionData($x, $y - 1, isConnectedByLand: $connectedTerrainType != TerrainType::Water && $terrainType != TerrainType::Water && $coasts[$x][$y][GenerationData::Top] != 1);
                 }
                 if (isset($map[$x + 1][$y - 1])) {
-                    $connections[] = new TerritoryConnectionData($x + 1, $y - 1, $terrainType != TerrainType::Water && $coasts[$x][$y][GenerationData::TopRight] != 1);
+                    $connectedTerrainType = $usable[$x + 1][$y - 1] < GenerationData::MinimumUsableLandRatio ? TerrainType::Water : TerrainType::from($map[$x + 1][$y - 1]);
+                    $connections[] = new TerritoryConnectionData($x + 1, $y - 1, isConnectedByLand: $connectedTerrainType != TerrainType::Water && $terrainType != TerrainType::Water && $coasts[$x][$y][GenerationData::TopRight] != 1);
                 }
                 if (isset($map[$x + 1][$y])) {
-                    $connections[] = new TerritoryConnectionData($x + 1, $y, $terrainType != TerrainType::Water && $coasts[$x][$y][GenerationData::Right] != 1);
+                    $connectedTerrainType = $usable[$x + 1][$y] < GenerationData::MinimumUsableLandRatio ? TerrainType::Water : TerrainType::from($map[$x + 1][$y]);
+                    $connections[] = new TerritoryConnectionData($x + 1, $y, isConnectedByLand: $connectedTerrainType != TerrainType::Water && $terrainType != TerrainType::Water && $coasts[$x][$y][GenerationData::Right] != 1);
                 }
                 if (isset($map[$x + 1][$y + 1])) {
-                    $connections[] = new TerritoryConnectionData($x + 1, $y + 1, $terrainType != TerrainType::Water && $coasts[$x][$y][GenerationData::BottomRight] != 1);
+                    $connectedTerrainType = $usable[$x + 1][$y + 1] < GenerationData::MinimumUsableLandRatio ? TerrainType::Water : TerrainType::from($map[$x + 1][$y + 1]);
+                    $connections[] = new TerritoryConnectionData($x + 1, $y + 1, isConnectedByLand: $connectedTerrainType != TerrainType::Water && $terrainType != TerrainType::Water && $coasts[$x][$y][GenerationData::BottomRight] != 1);
                 }
                 if (isset($map[$x][$y + 1])) {
-                    $connections[] = new TerritoryConnectionData($x, $y + 1, $terrainType != TerrainType::Water && $coasts[$x][$y][GenerationData::Bottom] != 1);
+                    $connectedTerrainType = $usable[$x][$y + 1] < GenerationData::MinimumUsableLandRatio ? TerrainType::Water : TerrainType::from($map[$x][$y + 1]);
+                    $connections[] = new TerritoryConnectionData($x, $y + 1, isConnectedByLand: $connectedTerrainType != TerrainType::Water && $terrainType != TerrainType::Water && $coasts[$x][$y][GenerationData::Bottom] != 1);
                 }
                 if (isset($map[$x - 1][$y + 1])) {
-                    $connections[] = new TerritoryConnectionData($x - 1, $y + 1, $terrainType != TerrainType::Water && $coasts[$x][$y][GenerationData::BottomLeft] != 1);
+                    $connectedTerrainType = $usable[$x - 1][$y + 1] < GenerationData::MinimumUsableLandRatio ? TerrainType::Water : TerrainType::from($map[$x - 1][$y + 1]);
+                    $connections[] = new TerritoryConnectionData($x - 1, $y + 1, isConnectedByLand: $connectedTerrainType != TerrainType::Water && $terrainType != TerrainType::Water && $coasts[$x][$y][GenerationData::BottomLeft] != 1);
                 }
                 if (isset($map[$x - 1][$y])) {
-                    $connections[] = new TerritoryConnectionData($x - 1, $y, $terrainType != TerrainType::Water && $coasts[$x][$y][GenerationData::Left] != 1);
+                    $connectedTerrainType = $usable[$x - 1][$y] < GenerationData::MinimumUsableLandRatio ? TerrainType::Water : TerrainType::from($map[$x - 1][$y]);
+                    $connections[] = new TerritoryConnectionData($x - 1, $y, isConnectedByLand: $connectedTerrainType != TerrainType::Water && $terrainType != TerrainType::Water && $coasts[$x][$y][GenerationData::Left] != 1);
                 }
                 if (isset($map[$x - 1][$y - 1])) {
-                    $connections[] = new TerritoryConnectionData($x - 1, $y - 1, $terrainType != TerrainType::Water && $coasts[$x][$y][GenerationData::TopLeft] != 1);
+                    $connectedTerrainType = $usable[$x - 1][$y - 1] < GenerationData::MinimumUsableLandRatio ? TerrainType::Water : TerrainType::from($map[$x - 1][$y - 1]);
+                    $connections[] = new TerritoryConnectionData($x - 1, $y - 1, isConnectedByLand: $connectedTerrainType != TerrainType::Water && $terrainType != TerrainType::Water && $coasts[$x][$y][GenerationData::TopLeft] != 1);
                 }
 
-                // $hasSeaAccess = $terrainType == TerrainType::Water
-                //     || (  $map[$x - 1][$y - 1] ?? $map[$x][$y - 1] ?? $map[$x + 1][$y - 1]
-                //        ?? $map[$x - 1][$y]                         ?? $map[$x + 1][$y]
-                //        ?? $map[$x - 1][$y + 1] ?? $map[$x][$y + 1] ?? $map[$x + 1][$y + 1] ?? null) === TerrainType::Water->value;
-                $hasSeaAccess = $terrainType == TerrainType::Water || (array_search(1, $coasts[$x][$y]) !== false);
+                $hasSeaAccess = $terrainType == TerrainType::Water || (array_find($connections, fn (TerritoryConnectionData $tcd) => !$tcd->isConnectedByLand) !== null);
                 $territoriesData[] = new TerritoryData(
                     x: $x,
                     y: $y,
