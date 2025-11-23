@@ -43,7 +43,7 @@ enum DivisionType :int {
             ),
             DivisionType::Fighter => new DivisionTypeMeta(
                 description: "Fighter squadron",
-                deploymentCosts: [ResourceType::Capital->value => 10, ResourceType::RecruitmentPool->value => 1, ResourceType::Ore->value => 3],
+                deploymentCosts: [ResourceType::Capital->value => 10, ResourceType::RecruitmentPool->value => 1, ResourceType::Ore->value => 1],
                 upkeepCosts: [ResourceType::Capital->value => 1, ResourceType::RecruitmentPool->value => 1],
                 attackCosts: [ResourceType::Oil->value => 1],
                 attackPower: 50,
@@ -54,7 +54,7 @@ enum DivisionType :int {
             ),
             DivisionType::Bomber => new DivisionTypeMeta(
                 description: "Bomber squadron",
-                deploymentCosts: [ResourceType::Capital->value => 15, ResourceType::RecruitmentPool->value => 1, ResourceType::Ore->value => 3],
+                deploymentCosts: [ResourceType::Capital->value => 15, ResourceType::RecruitmentPool->value => 1, ResourceType::Ore->value => 1],
                 upkeepCosts: [ResourceType::Capital->value => 1, ResourceType::RecruitmentPool->value => 1],
                 attackCosts: [ResourceType::Oil->value => 1],
                 attackPower: 80,
