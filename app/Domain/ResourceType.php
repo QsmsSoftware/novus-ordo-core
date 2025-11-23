@@ -17,7 +17,7 @@ enum ResourceType :int {
             ResourceType::RecruitmentPool => new ResourceTypeMeta(description: "Recruitement pool", canBeStocked: false, startingStock: 0),
             ResourceType::Food => new ResourceTypeMeta(description: "Food", canBeStocked: true, startingStock: 0),
             ResourceType::Material => new ResourceTypeMeta(description: "Raw materials", canBeStocked: true, startingStock: 0),
-            ResourceType::Ore => new ResourceTypeMeta(description: "Ores", canBeStocked: true, startingStock: 5),
+            ResourceType::Ore => new ResourceTypeMeta(description: "Ores", canBeStocked: true, startingStock: 10),
             ResourceType::Oil => new ResourceTypeMeta(description: "Oil", canBeStocked: true, startingStock: 10),
         };
     }

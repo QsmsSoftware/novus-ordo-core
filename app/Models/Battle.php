@@ -27,6 +27,7 @@ class BattleFormation {
         public readonly int $power,
         public readonly int $value,
         public readonly bool $canTakeTerritory,
+        public readonly bool $canFly,
         public readonly ?Division $linkedDivision = null,
     )
     {
@@ -38,6 +39,7 @@ class BattleFormation {
 
         return new BattleFormation($meta->description . " ({$ownerDetail->getUsualName()})", $power, $meta->deploymentCosts[ResourceType::Capital->value],
             canTakeTerritory: $meta->canTakeTerritory,
+            canFly: $meta->canFly,
             linkedDivision: $division
         );
     }
@@ -45,14 +47,14 @@ class BattleFormation {
     public static function newPartisans(NationDetail $ownerDetail, int $power) {
         $description = "Partisans ({$ownerDetail->getUsualName()})";
 
-        return new BattleFormation($description, $power, 0, canTakeTerritory: true);
+        return new BattleFormation($description, $power, 0, canTakeTerritory: true, canFly: false);
     }
 
     public static function newMilitia(?NationDetail $ownerDetail, int $power) {
         $faction = is_null($ownerDetail) ? "neutral" : $ownerDetail->getUsualName();
         $description = "Militia ($faction)";
 
-        return new BattleFormation($description, $power, 0, canTakeTerritory: true);
+        return new BattleFormation($description, $power, 0, canTakeTerritory: true, canFly: false);
     }
 }
 
@@ -344,7 +346,7 @@ class Battle extends Model
         if ($someAttackersRemain && !$someDefendersRemain) {
             if ($attackingFormations->some(fn (BattleFormation $f) => $f->canTakeTerritory)) {
                 $winnerOrNull = $attacker;
-                Battle::finalizeAttackerVictory($territory, $attacker, $attackingDivisions);
+                Battle::finalizeAttackerVictory($territory, $attacker, $attackingFormations);
                 $log .= "Attacker won. Territory conquered.";
             }
             else {
@@ -360,10 +362,16 @@ class Battle extends Model
         return Battle::create($territory, $attacker, $defenderOrNull, $winnerOrNull, $log);
     }
 
-    private static function finalizeAttackerVictory(Territory $territory, Nation $attacker, Collection $attackingDivisions): void {
+    private static function finalizeAttackerVictory(Territory $territory, Nation $attacker, Collection $attackingFormations): void {
         $territory->getDetail()->conquer($attacker);
 
-        $attackingDivisions->each(function (Division $division) use ($territory) {
+        $attackingFormations->each(function (BattleFormation $formation) use ($territory) {
+                if (is_null($formation->linkedDivision) || $formation->canFly) {
+                    return;
+                }
+
+                $division = Division::notNull($formation->linkedDivision);
+
                 if ($division->getDetail()->isActive()) {
                     $division->getDetail()->moveTo($territory);
                 }
