@@ -7,6 +7,7 @@ Novus Ordo Core is a rationalization effort of earlier reboot attempts of the No
 #### Prerequisites
 - MariaDB
 - PHP, Composer, and the Laravel installer (see: https://laravel.com/docs/12.x/installation#creating-a-laravel-project)
+- These packages must be installed along with PHP (when not using artisan's Web server): php-mysql php-cli php-mbstring php-xml php-bcmath php-tokenizer php-json php-curl  php-zip php-mysql libapache2-mod-php php-gd
 
 #### Create the database
 Log in as the MySQL/MariaDB DB adminstrator:
