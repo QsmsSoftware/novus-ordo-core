@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Unique;
 use LogicException;
@@ -60,12 +61,20 @@ class NewNation extends Model
             ->exists();
     }
 
-    public function finishSetup(array $homeTerritoryIds, $flagSrc = null): Nation {
+    public function finishSetup(array $homeTerritoryIds, ?string $flagSrc = null, ?string $formalName = null): Nation {
+        if (!is_null($formalName)) {
+            $formalName = Str::trim($formalName);
+
+            if (strlen($formalName) < 2 || strlen($formalName) > 1024) {
+                throw new LogicException('The formal name must be between 2 and 1024 characters long.');
+            }
+        }
+
         if (count($homeTerritoryIds) != Game::NUMBER_OF_STARTING_TERRITORIES) {
             throw new LogicException("Parameter homeTerritoryIds: expecting " . Game::NUMBER_OF_STARTING_TERRITORIES . " IDs, " . count($homeTerritoryIds) . " specified");
         }
 
-        $nation = Cache::lock(NewNation::CRITICAL_SECTION_HOME_TERRITORIES_SELECT_CACHE_NAME, 10)->block(2, function () use ($flagSrc, $homeTerritoryIds) {
+        $nation = Cache::lock(NewNation::CRITICAL_SECTION_HOME_TERRITORIES_SELECT_CACHE_NAME, 10)->block(2, function () use ($flagSrc, $formalName, $homeTerritoryIds) {
             $nation = Nation::notNull(Nation::withoutGlobalScopes()->find($this->getId()));
             
             $homeTerritories = $nation->getGame()->freeSuitableTerritoriesInTurn()->whereIn('id', $homeTerritoryIds)->get();
@@ -88,7 +97,9 @@ class NewNation extends Model
                     ->inRandomOrder()->first();
             }
 
-            NationDetail::create($nation, "Empire of {$nation->getInternalName()}", $flagSrc);
+            $formalName = $formalName ?? "Empire of {$nation->getInternalName()}";
+
+            NationDetail::create($nation, $formalName, $flagSrc);
             $nation->save();
 
             Metacache::expireAllforTurn($nation->getGame()->getCurrentTurn());
@@ -152,6 +163,12 @@ class NewNation extends Model
     }
 
     public static function tryCreate(Game $game, User $user, string $usualName): NewNation|NationWithSameNameAlreadyExists {
+        $usualName = Str::trim($usualName);
+
+        if (strlen($usualName) < 2 || strlen($usualName) > 100) {
+            throw new LogicException('The usual name must be between 2 and 100 characters long.');
+        }
+
         if (NewNation::userAlreadyHasANationInGame($game, $user)) {
             throw new LogicException("User ID '{$user->getId()}' already has a nation in game ID '{$game->getId()}'");
         }

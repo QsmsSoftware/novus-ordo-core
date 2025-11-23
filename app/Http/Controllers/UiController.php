@@ -41,6 +41,7 @@ class CreateNationUiRequest extends FormRequest {
     use MapsValidatedDataToFormRequest;
 
     public string $name;
+    public ?string $formal_name;
     public readonly array $territory_ids;
 
     public function __construct(
@@ -74,6 +75,14 @@ class CreateNationUiRequest extends FormRequest {
                 'required',
                 'string',
                 'min:2',
+                'max:100',
+                NewNation::createRuleNoNationWithSameNameInGameUnlessItsOwner($this->context->getGame(), $this->context->getUser())
+            ],
+            'formal_name' => [
+                'required',
+                'string',
+                'min:2',
+                'max:1024',
                 NewNation::createRuleNoNationWithSameNameInGameUnlessItsOwner($this->context->getGame(), $this->context->getUser())
             ],
             'territory_ids' => [
@@ -155,8 +164,10 @@ class UiController extends Controller
             $newNation->rename($request->name);
         }
 
+        $formalNameOrNull = empty($request->formal_name) ? null : $request->formal_name;
+
         $flagFileOrNull = $request->getFlagFileOrNull();
-        $flagSrc = null;
+        $flagSrcOrNull = null;
 
         if (!is_null($flagFileOrNull)) {
             $tmpFilePath = $flagFileOrNull->getRealPath();
@@ -186,9 +197,10 @@ class UiController extends Controller
             if ($saveResult === false) {
                 abort(HttpStatusCode::UnprocessableContent, 'Unable to store uploaded flag.');
             }
+            $flagSrcOrNull = $flagSrc;
         }
 
-        $newNation->finishSetup($request->territory_ids, $flagSrc);
+        $newNation->finishSetup($request->territory_ids, flagSrc: $flagSrcOrNull, formalName: $formalNameOrNull);
 
         return redirect()->route('dashboard');
     }

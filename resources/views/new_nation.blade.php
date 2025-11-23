@@ -127,6 +127,10 @@
                         <td><input type="text" id="name" name="name" class="form-control" value="{{ old('name') }}"></td>
                     </tr>
                     <tr>
+                        <td>Nation's formal name (a default one will be generated if left blank):</td>
+                        <td><input type="text" id="formal-name" name="formal_name" class="form-control" value="{{ old('formal_name') }}"></td>
+                    </tr>
+                    <tr>
                         <td>Nation's flag (a random flag will be assigned if not provided):</td>
                         <td><input name="flag" type="file" class="form-control"></td>
                     </tr>
