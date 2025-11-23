@@ -92,9 +92,6 @@ class Deployment extends Model
     }
 
     public function cancel() :void {
-        if ($this->hasBeenDeployed()) {
-            throw new LogicException("Deployment {$this->getId()} can't be cancelled because it has been deployed.");
-        }
         $this->delete();
     }
 
