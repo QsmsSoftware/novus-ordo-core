@@ -70,6 +70,13 @@
             SelectMoveDestinationTerritory: 2,
             SelectAttackTargetTerritory: 3,
         };
+        const MapView = {
+            Political: 0,
+            OwnNation: 1,
+            Battles: 2,
+            Armies: 3,
+            Deployments: 4,
+        };
 
         let victoryStatus = @json($victory_status);
         let budgetItems = mapExportedObject(@json($budget_items));
@@ -111,11 +118,26 @@
         
         var selectedDetailsTab = null;
         const DetailsTabs = {
-            Info: 'info',
-            Owner: 'owner',
-            Divisions: 'divisions',
-            BattleLogs: 'battle-logs',
-            Deployments: 'deployments',
+            Info: {
+                id: 'info',
+                mapView: MapView.Political,
+            },
+            Owner: {
+                id: 'owner',
+                mapView: MapView.Political,
+            },
+            Divisions: {
+                id: 'divisions',
+                mapView: MapView.Armies,
+            },
+            BattleLogs: {
+                id: 'battle-logs',
+                mapView: MapView.Battles,
+            },
+            Deployments: {
+                id: 'deployments',
+                mapView: MapView.Deployments,
+            },
         };
         
         var selectedDivisionType;
@@ -152,6 +174,28 @@
                 if (nationOrNull.nation_id == t.owner_nation_id) {
                     md.fillTerritory(t, "black");
                 }
+            });
+        }
+
+        function getTerritoryIdsWithBattles() {
+            return [...new Set(allBattleLogs.map(l => l.territory_id))];
+        }
+
+        function battlesHighlightMapLayer(ctx, md) {
+            getTerritoryIdsWithBattles().forEach(tid => {
+                md.fillTerritory(territoriesById.get(tid), "black");
+            });
+        }
+
+        function armiesHighlightMapLayer(ctx, md) {
+            [...new Set(divisionsById.values().map(d => d.territory_id))].forEach(tid => {
+                md.fillTerritory(territoriesById.get(tid), "black");
+            });
+        }
+
+        function deploymentsHighlightMapLayer(ctx, md) {
+            [...new Set(deploymentsById.values().map(d => d.territory_id))].forEach(tid => {
+                md.fillTerritory(territoriesById.get(tid), "black");
             });
         }
 
@@ -892,17 +936,18 @@
             selectMainTab(null);
             let detailsPanes = $("#details-panes > div");
             detailsPanes.hide();
-            $(`#${pane}-details`).show();
+            $(`#${DetailsTabs[pane].id}-details`).show();
             if (selectedDetailsTab == 'owner') {
                 $("#territory-info-owner").hide();
             }
             else {
                 $("#territory-info-owner").show();
             }
+            setMapMode(MapMode.QueryTerritory)
         }
 
         function updateDetailsTabs() {
-            $("#details-tabs").html(Object.keys(DetailsTabs).map(pane => renderActionLink(pane, `selectDetailsPane('${DetailsTabs[pane]}')`, DetailsTabs[pane] == selectedDetailsTab)).join(" "));
+            $("#details-tabs").html(Object.keys(DetailsTabs).map(pane => renderActionLink(pane, `selectDetailsPane('${pane}')`, pane == selectedDetailsTab)).join(" "));
         }
 
         function renderActionLink(title, onclick, selected = false) {
@@ -1003,16 +1048,54 @@
             currentMapMode = mode;
             switch(mode) {
                 case MapMode.QueryTerritory:
-                    mapDisplay.setAllClickable(true);
-                    mapDisplay.onClick = selectTerritory;
-                    mapDisplay.onContextMenu = undefined;
-                    mapDisplay.setLayers([politicalMapLayer, nationHighlightMapLayer]);
-                    mapDisplay.setTopLayers([(ctx, md) => {
+                    let view = selectedDetailsTab ? DetailsTabs[selectedDetailsTab].mapView : MapView.Political;
+                    var highlightMapLayer;
+                    var topLayer = (ctx, md) => {
                         if (selectedTerritory) {
                             md.fillTerritory(selectedTerritory, "black");
                             md.labelTerritory(selectedTerritory, "?", "white");
                         }
-                    }]);
+                    };
+                    switch (view) {
+                        case MapView.Political: {
+                            highlightMapLayer = nationHighlightMapLayer;
+                            break;
+                        }
+                        case MapView.OwnNation: {
+                            highlightMapLayer = ownNationHighlightMapLayer;
+                            break;
+                        }
+                        case MapView.Battles: {
+                            highlightMapLayer = battlesHighlightMapLayer;
+                            topLayer = (ctx, md) => {
+                                if (selectedTerritory) {
+                                    md.fillTerritory(selectedTerritory, "black");
+                                    md.labelTerritory(selectedTerritory, "?", "white");
+                                }
+                                
+                                getTerritoryIdsWithBattles().filter(tid => tid != selectedTerritory.territory_id).forEach(tid => {
+                                    md.labelTerritory(territoriesById.get(tid), "!", "white");
+                                });
+                            };
+                            break;
+                        }
+                        case MapView.Armies: {
+                            highlightMapLayer = armiesHighlightMapLayer;
+                            break;
+                        }
+                        case MapView.Deployments: {
+                            highlightMapLayer = deploymentsHighlightMapLayer;
+                            break;
+                        }
+                        default: {
+                            throw new Error('Unreacheable.');
+                        }
+                    }
+                    mapDisplay.setAllClickable(true);
+                    mapDisplay.onClick = selectTerritory;
+                    mapDisplay.onContextMenu = undefined;
+                    mapDisplay.setLayers([politicalMapLayer, highlightMapLayer]);
+                    mapDisplay.setTopLayers([topLayer]);
                     break;
                 case MapMode.DeployDivisions:
                     let deployableTerritoryIds = [];
