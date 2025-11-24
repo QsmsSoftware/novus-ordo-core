@@ -1212,6 +1212,25 @@
             }
         }
 
+        let windowTitle = @json(config('app.name', 'Laravel'));
+        let flashInterval;
+        let flashDelayMiliseconds = 700;
+
+        function startFlash() {
+            notificationText = "🔔 " + windowTitle;
+            if (flashInterval) {
+                clearInterval(flashInterval);
+            }
+            flashInterval = setInterval(() => {
+                document.title = (document.title === windowTitle) ? notificationText : windowTitle;
+            }, flashDelayMiliseconds);
+        }
+
+        function stopFlash() {
+            clearInterval(flashInterval);
+            document.title = windowTitle;
+        }
+
         window.addEventListener("load", function() {
             let selectedTerritoryIdFromStorage = getSelectedTerritoryIdFromStorage();
             let selectedMainTabFromStorage = getSelectedMainTabFromStorage();
@@ -1261,6 +1280,10 @@
             }
             else if (selectedMainTabFromStorage) {
                 selectMainTab(selectedMainTabFromStorage);
+            }
+            window.addEventListener("focus", stopFlash);
+            if (!document.hasFocus()) {
+                startFlash();
             }
         });
     </script>
