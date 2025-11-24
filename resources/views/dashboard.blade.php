@@ -1048,7 +1048,7 @@
             currentMapMode = mode;
             switch(mode) {
                 case MapMode.QueryTerritory:
-                    let view = selectedDetailsTab && DetailsTabs[selectedDetailsTab] ? DetailsTabs[selectedDetailsTab].mapView : MapView.Political;
+                    let view = selectedDetailsTab ? DetailsTabs[selectedDetailsTab].mapView : MapView.Political;
                     var highlightMapLayer;
                     var topLayer = (ctx, md) => {
                         if (selectedTerritory) {
@@ -1351,7 +1351,7 @@
                 });
             }
             startUpdatingTimeRemaining();
-            if(selectedDetailsTabFromStorage) {
+            if(selectedDetailsTabFromStorage && DetailsTabs[selectedDetailsTabFromStorage]) {
                 selectedDetailsTab = selectedDetailsTabFromStorage;
             }
             if (selectedTerritoryIdFromStorage && territoriesById.has(selectedTerritoryIdFromStorage)) {
@@ -1361,7 +1361,7 @@
                 $('#gameover-message').html(`Game is over, ${nationsById.get(victoryStatus.winner_nation_id).usual_name} is the winner!`);
                 selectMainTab(MainTabs.Goals);
             }
-            else if (selectedMainTabFromStorage) {
+            else if (selectedMainTabFromStorage && MainTabs[selectedMainTabFromStorage]) {
                 selectMainTab(selectedMainTabFromStorage);
             }
             window.addEventListener("focus", stopFlash);
