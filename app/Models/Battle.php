@@ -306,7 +306,7 @@ class Battle extends Model
 
         if ($defendingFormations->count() < 1) {
             if ($attackingFormations->some(fn (BattleFormation $f) => $f->canTakeTerritory)) {
-                Battle::finalizeAttackerVictory($territory, $attacker, $attackingDivisions);
+                Battle::finalizeAttackerVictory($territory, $attacker, $attackingFormations);
                 return Battle::create($territory, $attacker, $defenderOrNull, $attacker, $log . "No active formation was able to defend the territory. Territory conquered by attacker.");
             }
             else {
