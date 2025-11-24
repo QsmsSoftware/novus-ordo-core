@@ -1048,7 +1048,7 @@
             currentMapMode = mode;
             switch(mode) {
                 case MapMode.QueryTerritory:
-                    let view = selectedDetailsTab ? DetailsTabs[selectedDetailsTab].mapView : MapView.Political;
+                    let view = selectedDetailsTab && DetailsTabs[selectedDetailsTab] ? DetailsTabs[selectedDetailsTab].mapView : MapView.Political;
                     var highlightMapLayer;
                     var topLayer = (ctx, md) => {
                         if (selectedTerritory) {
