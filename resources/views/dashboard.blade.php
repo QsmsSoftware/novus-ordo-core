@@ -322,7 +322,7 @@
             updateDivisionsPane();
             updateTerritoryDeployments();
             updateBattleLogsPane(allBattleLogs.filter(b => b.territory_id == selectedTerritory.territory_id), $('#battle-logs-details'));
-            selectDetailsPane(selectedDetailsTab ? selectedDetailsTab : 'info');
+            selectDetailsPane(selectedDetailsTab ? selectedDetailsTab : 'Info');
         }
 
         function storeSelectedMainTabToStorage(tab) {
