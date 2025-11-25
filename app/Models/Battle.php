@@ -180,7 +180,7 @@ class Battle extends Model
             $value = $firstFormation->value;
             $cumulatedValue = $value * $count;
             
-            $described[] =  "{$count}x " . str_pad($desc, $longestDescLength) . $info(['count' => $count, 'power' => $power, 'cumulatedPower' => $cumulatedPower, 'value' => $value, 'cumulatedValue' => $cumulatedValue]);
+            $described[] =  "{$count}x " . str_pad($desc, $longestDescLength) . " " . $info(['count' => $count, 'power' => $power, 'cumulatedPower' => $cumulatedPower, 'value' => $value, 'cumulatedValue' => $cumulatedValue]);
         }
 
         return join("\n", $described);
