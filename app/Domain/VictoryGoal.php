@@ -90,8 +90,7 @@ readonly class VictoryGoal {
                 valueGetter: fn (NationDetail $d) => Metacache::remember($d->getPopulationSize(...)),
                 sortOrder: SORT_DESC,
                 goal: floor(Metacache::remember($turn->getPopulationSize(...)) / 2) + 1,
-                unit: StatUnit::ApproximateNumber,
-                valuePostProcessing: fn (int $v) => VictoryGoal::approximate($v),
+                unit: StatUnit::WholeNumber,
             ),
         ];
     }
