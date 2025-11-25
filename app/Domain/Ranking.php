@@ -44,7 +44,7 @@ readonly class Ranking {
 
     public static function getRankings(): array {
         return [
-            new Ranking('Area', fn (NationDetail $d) => Metacache::remember($d->getUsableLandKm2(...)), SORT_DESC, StatUnit::Km2),
+            new Ranking('Land area', fn (NationDetail $d) => Metacache::remember($d->getUsableLandKm2(...)), SORT_DESC, StatUnit::Km2),
             new Ranking('Number of territories', fn (NationDetail $d) => $d->territories()->count(), SORT_DESC, StatUnit::WholeNumber),
             new Ranking('Population', fn (NationDetail $d) => $d->getPopulationSize(), SORT_DESC, StatUnit::WholeNumber),
             new Ranking('Army size (number of divisions)', fn (NationDetail $d) => $d->activeDivisions()->count(), SORT_DESC, StatUnit::ApproximateNumber, valuePostProcessing: fn (int $count) => Division::approximateNumberOfDivisions($count)),

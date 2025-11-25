@@ -124,12 +124,16 @@ class NationDetail extends Model
     }
 
     public function exportForOwner(): NationTurnOwnerInfo {
+        $nation = $this->getNation();
+        $turn = $this->getTurn();
         return new NationTurnOwnerInfo(
-            nation_id: $this->getNation()->getId(),
-            turn_number: $this->getTurn()->getNumber(),
+            nation_id: $nation->getId(),
+            turn_number: $turn->getNumber(),
             is_ready_for_next_turn: $this->getNation()->isReadyForNextTurn(),
             stats: [
-                new DemographicStat('Population growth rate', Metacache::remember($this->getPopulationGrowthRate(...)) , StatUnit::DetailedPercent->name)
+                new DemographicStat('Population growth rate', Metacache::remember($this->getPopulationGrowthRate(...)) , StatUnit::DetailedPercent->name),
+                new DemographicStat('Population loyalty', TerritoryDetail::getPopulationLoyaltyForNation($nation, $turn), StatUnit::DetailedPercent->name),
+                new DemographicStat('Number of divisions', $this->getNumberOfDivisions() , StatUnit::WholeNumber->name),
             ],
         );
     }

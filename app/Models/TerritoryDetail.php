@@ -93,6 +93,22 @@ class TerritoryDetail extends Model
             ->getOrElse(0.00);
     }
 
+    public static function getPopulationLoyaltyForNation(Nation $nation, Turn $turn): float {
+        $populationsAndLoyalties = DB::table('territory_details')
+            ->where('territory_details.owner_nation_id', $nation->getId())
+            ->where('territory_details.turn_id', $turn->getId())
+            ->join('nation_territory_loyalties', fn ($join) => $join
+                ->on('territory_details.territory_id', '=', 'nation_territory_loyalties.territory_id')
+                ->on('nation_territory_loyalties.turn_id', '=', 'territory_details.turn_id')
+                ->on('nation_territory_loyalties.nation_id', '=', 'territory_details.owner_nation_id')
+            )
+            ->select(TerritoryDetail::FIELD_POPULATION_SIZE . ' as population_size', NationTerritoryLoyalty::FIELD_LOYALTY . ' as raw_loyalty')
+            ->get();
+
+        $populationSize = $populationsAndLoyalties->sum('population_size');
+        return $populationSize > 0 ? $populationsAndLoyalties->reduce(fn (float $sum, $info) => $sum + $info->population_size * $info->raw_loyalty, 0) / $populationSize / 100 : 0;
+    }
+
     public function getOwnerDivisions(): Collection {
         $ownerOrNull = $this->getOwnerOrNull();
         if ($ownerOrNull === null) {
