@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Domain\DivisionType;
 use App\Domain\ResourceType;
 use App\ReadModels\ParticipantBattleLog;
+use Closure;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Collection;
@@ -142,6 +143,11 @@ class Battle extends Model
         return $formations->sum(fn (BattleFormation $f) => $f->power);
     }
 
+    private static function calculateTotalValue(Collection $formations): int {
+        return $formations->sum(fn (BattleFormation $f) => $f->value);
+    }
+
+
     private static function processSide(Collection $formations): BattleKills {
         $totalPower = Battle::calculateTotalPower($formations);
 
@@ -161,17 +167,20 @@ class Battle extends Model
         );
     }
 
-    private static function listFormations(Collection $formations): string {
+    private static function listFormations(Collection $formations, Closure $info): string {
         $formationsByType = $formations->groupBy(fn (BattleFormation $f) => $f->description)->sortBy(fn (Collection $formations) => $formations->first()->value);
         $described = [];
         $longestDescLength = $formationsByType->max(fn (Collection $formations) => strlen($formations->first()->description));
 
         foreach ($formationsByType->keys() as $desc) {
             $count = $formationsByType->get($desc)->count();
-            $power = $formationsByType->get($desc)->first()->power;
+            $firstFormation = $formationsByType->get($desc)->first();
+            $power = $firstFormation->power;
             $cumulatedPower = $power * $count;
+            $value = $firstFormation->value;
+            $cumulatedValue = $value * $count;
             
-            $described[] =  "{$count}x " . str_pad($desc, $longestDescLength) . " [power: $power, cumulated power: $cumulatedPower]";
+            $described[] =  "{$count}x " . str_pad($desc, $longestDescLength) . $info(['count' => $count, 'power' => $power, 'cumulatedPower' => $cumulatedPower, 'value' => $value, 'cumulatedValue' => $cumulatedValue]);
         }
 
         return join("\n", $described);
@@ -179,7 +188,7 @@ class Battle extends Model
 
     private static function describeFormations(string $side, Collection $formations): string {
         $totalPower = Battle::calculateTotalPower($formations);
-        return "$side [{$formations->count()} formations, $totalPower total power]:\n" . Battle::listFormations($formations);
+        return "$side [{$formations->count()} formations, $totalPower total power]:\n" . Battle::listFormations($formations, fn (array $stats) => "[power: {$stats['power']}, cumulated power: {$stats['cumulatedPower']}]");
     }
 
     private static function describeKills(string $side, BattleKills $kills): string {
@@ -225,7 +234,8 @@ class Battle extends Model
 
     public static function describeLosses(string $side, BattleLosses $losses): string {
         $numberOfDestroyedDivisions = count($losses->destroyedDivisions);
-        return "$side lost {$losses->totalLosses} formations, among them $numberOfDestroyedDivisions divisions:\n" . Battle::listFormations($losses->destroyedFormations);
+        $totalValue = Battle::calculateTotalValue($losses->destroyedFormations);
+        return "$side lost {$losses->totalLosses} formations, among them $numberOfDestroyedDivisions divisions ($totalValue total value):\n" . Battle::listFormations($losses->destroyedFormations, fn (array $stats) => "[cumulated value: {$stats['cumulatedValue']}]");
     }
 
     public static function resolveBattle(Territory $territory, Turn $currentTurn, Turn $nextTurn, Collection $attackingDivisions): Battle {
