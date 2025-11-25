@@ -689,19 +689,23 @@
             $('#deployments-display').html(html);
         }
 
+        function getDivisionsInSelectedTerritory() {
+            return divisionsById.values().filter(d => d.territory_id == selectedTerritory.territory_id).toArray();
+        }
+
         function updateDivisionsPane() {
             var html = "";
 
-            divisionsInTerritory = divisionsById.values().filter(d => d.territory_id == selectedTerritory.territory_id).toArray();
+            divisionsInTerritory = getDivisionsInSelectedTerritory();
             
             if (divisionsInTerritory.length < 1) {
                 html += "<p>There is no divisions in this territory.</p>";
             }
             else {
-                html += `<p>Divisions in territory<span id="select-divisions-links"></span>:</p>`;
+                html += `<p>Divisions in territory:<br><span id="select-divisions-by-type-links"></span></p>`;
                 html += `<span id="send-order-link">&nbsp;</span>`
                 html += '<div id="territory-division-list"><ul>'
-                    + divisionsInTerritory.map(d => `<li><input type="checkbox" onchange="onDivisionSelectionChange()" value=${d.division_id}>${d.division_type} division #${d.division_id}`
+                    + divisionsInTerritory.map(d => `<li><input type="checkbox" onchange="onDivisionSelectionChange()" value=${d.division_id}>${divisionTypeInfoByType.get(d.division_type).description} #${d.division_id}`
                     + (d.order ? ` <i> ${describeOrder(d.order)}</i>` : "")
                     + ` ${d.order ? `<a href="javascript:void(0)" onclick="cancelOrder(${d.division_id})">cancel order</a></li>`: ""}`).join("")
                     + '</ul></div>';
@@ -823,10 +827,10 @@
             }
 
             if ([MapMode.SelectMoveDestinationTerritory, MapMode.SelectAttackTargetTerritory].includes(currentMapMode)) {
-                $("#select-divisions-links").html("");
+                $("#select-divisions-by-type-links").html("");
             }
             else {
-                $("#select-divisions-links").html(` (<a href="javascript:void(0)" onclick="selectAllDivisionsInTerritory(true)">select</a> / <a href="javascript:void(0)" onclick="selectAllDivisionsInTerritory(false)">deselect</a> all)`);
+                $("#select-divisions-by-type-links").html(getDivisionsInSelectedTerritory().length > 0 ? "Select/unselect " + renderActionLink('all', `selectAllDivisionsInTerritory()`) + " " + (new Set([...getDivisionsInSelectedTerritory().map(d => d.division_type)])).values().map(divisionType => renderActionLink(divisionType, `selectAllDivisionsInTerritoryWithType('${divisionType}')`)).toArray().join(" ") : "");
             }
         }
 
@@ -924,8 +928,19 @@
                 .map(cb => divisionsById.get(parseInt(cb.value)));
         }
 
-        function selectAllDivisionsInTerritory(checked) {
-            [...document.getElementById('territory-division-list').getElementsByTagName("input")].forEach(cb => cb.checked = checked);
+        function selectAllDivisionsInTerritory() {
+            [...document.getElementById('territory-division-list').getElementsByTagName("input")].forEach(cb => cb.checked = !cb.checked);
+            onDivisionSelectionChange();
+        }
+
+        function selectAllDivisionsInTerritoryWithType(divisionType) {
+            [...document.getElementById('territory-division-list').getElementsByTagName("input")]
+                .forEach(cb => {
+                    let division = divisionsById.get(parseInt(cb.value));
+                    if (division.division_type == divisionType) {
+                        cb.checked = !cb.checked;
+                    }
+                });
             onDivisionSelectionChange();
         }
 
