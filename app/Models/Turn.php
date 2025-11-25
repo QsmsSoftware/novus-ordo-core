@@ -37,6 +37,11 @@ class Turn extends Model
         return $this->hasMany(NationDetail::class);
     }
 
+    public function divisionDetails(): HasMany {
+        return $this->hasMany(DivisionDetail::class)
+            ->where(DivisionDetail::FIELD_IS_ACTIVE, true);
+    }
+
     public function getId(): int {
         return $this->getKey();
     }
@@ -49,6 +54,10 @@ class Turn extends Model
         return DB::table('territory_details')
             ->where('turn_id', $this->id)
             ->sum(TerritoryDetail::FIELD_POPULATION_SIZE);
+    }
+
+    public function getNumberOfDivisions(): int {
+        return $this->divisionDetails()->count();
     }
 
     private static function calculateUltimatum(int $timeLimitMinutes): CarbonImmutable {

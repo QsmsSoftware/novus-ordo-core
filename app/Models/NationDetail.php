@@ -73,6 +73,10 @@ class NationDetail extends Model
             );
     }
 
+    public function getNumberOfDivisions(): int {
+        return $this->activeDivisions()->count();
+    }
+
     public function getActiveDivisionWithId(int $divisionId): Division {
         return $this->activeDivisions()->find($divisionId);
     }

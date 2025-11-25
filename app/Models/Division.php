@@ -141,4 +141,28 @@ class Division extends Model
         
         return $division;
     }
+
+    public static function approximateNumberOfDivisions(int $value): int {
+        if ($value < 5) {
+            return 5;
+        }
+
+        if ($value < 50) {
+            return round($value / 10) * 10;
+        }
+
+        if ($value < 100) {
+            return round($value / 20) * 20;
+        }
+
+        if ($value < 200) {
+            return round ($value / 40) * 40;
+        }
+
+        if ($value < 400) {
+            return round ($value / 80) * 80;
+        }
+
+        return round($value / 100) * 100;
+    }
 }

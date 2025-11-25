@@ -3,6 +3,7 @@
 namespace App\Domain;
 
 use App\Facades\Metacache;
+use App\Models\Division;
 use App\Models\Game;
 use App\Models\NationDetail;
 use App\Models\Turn;
@@ -70,7 +71,7 @@ readonly class VictoryGoal {
         return $progressions;
     }
 
-    private static function approximate(int $value): int {
+    private static function guessScaleAndApproximate(int $value): int {
         $scale = pow(10, max(1, floor(log($value, 10))));
 
         return round($value / $scale) * $scale;
@@ -79,18 +80,26 @@ readonly class VictoryGoal {
     public static function getGoals(Game $game, Turn $turn): array {
         return [
             new VictoryGoal(
-                title: 'Majority of usable land area',
+                title: 'Largest land area',
                 valueGetter: fn (NationDetail $d) => Metacache::remember($d->getUsableLandKm2(...)),
                 sortOrder: SORT_DESC,
                 goal: floor(Metacache::remember($game->getUsableLandKm2(...)) / 2) + 1,
                 unit: StatUnit::Km2,
             ),
             new VictoryGoal(
-                title: 'Majority of population',
+                title: 'Largest population',
                 valueGetter: fn (NationDetail $d) => Metacache::remember($d->getPopulationSize(...)),
                 sortOrder: SORT_DESC,
                 goal: floor(Metacache::remember($turn->getPopulationSize(...)) / 2) + 1,
                 unit: StatUnit::WholeNumber,
+            ),
+            new VictoryGoal(
+                title: 'Largest military',
+                valueGetter: fn (NationDetail $d) => $d->getNumberOfDivisions(),
+                sortOrder: SORT_DESC,
+                goal: floor($turn->getNumberOfDivisions() / 2) + 1,
+                unit: StatUnit::ApproximateNumber,
+                valuePostProcessing: fn(int $count) => Division::approximateNumberOfDivisions($count),
             ),
         ];
     }
