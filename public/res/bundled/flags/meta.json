@@ -24,6 +24,14 @@
         "license_uri": "https://creativecommons.org/licenses/by/4.0/"
     },
     {
+        "file": "flag_orange.png",
+        "title": "Solid orange flag",
+        "description": "An orange flag.",
+        "attribution": "Novus Ordo core project",
+        "license": "CC BY 4.0",
+        "license_uri": "https://creativecommons.org/licenses/by/4.0/"
+    },
+    {
         "file": "flag_purple.png",
         "title": "Solid purple flag",
         "description": "A purple flag.",
