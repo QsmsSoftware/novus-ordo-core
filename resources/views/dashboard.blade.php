@@ -705,9 +705,15 @@
                 html += `<p>Divisions in territory:<br><span id="select-divisions-by-type-links"></span></p>`;
                 html += `<span id="send-order-link">&nbsp;</span>`
                 html += '<div id="territory-division-list"><ul>'
-                    + divisionsInTerritory.map(d => `<li><input type="checkbox" onchange="onDivisionSelectionChange()" value=${d.division_id}>${divisionTypeInfoByType.get(d.division_type).description} #${d.division_id}`
-                    + (d.order ? ` <i> ${describeOrder(d.order)}</i>` : "")
-                    + ` ${d.order ? `<a href="javascript:void(0)" onclick="cancelOrder(${d.division_id})">cancel order</a></li>`: ""}`).join("")
+                    + divisionsInTerritory.map(d => {
+                        let cbId = `territory-division-list-cb-${d.division_id}`;
+                        let existingCbOrNull = document.getElementById(cbId);
+                        return `<li><input id="${cbId}" type="checkbox" onchange="onDivisionSelectionChange()" value="${d.division_id}"`
+                            + (existingCbOrNull && existingCbOrNull.checked ? ' checked' : '')
+                            + `>${divisionTypeInfoByType.get(d.division_type).description} #${d.division_id}`
+                            + (d.order ? ` <i> ${describeOrder(d.order)}</i>` : "")
+                            + ` ${d.order ? `<a href="javascript:void(0)" onclick="cancelOrder(${d.division_id})">cancel order</a></li>`: ""}`
+                    }).join("")
                     + '</ul></div>';
             }
             
@@ -830,7 +836,7 @@
                 $("#select-divisions-by-type-links").html("");
             }
             else {
-                $("#select-divisions-by-type-links").html(getDivisionsInSelectedTerritory().length > 0 ? "Select/unselect " + renderActionLink('all', `selectAllDivisionsInTerritory()`) + " " + (new Set([...getDivisionsInSelectedTerritory().map(d => d.division_type)])).values().map(divisionType => renderActionLink(divisionType, `selectAllDivisionsInTerritoryWithType('${divisionType}')`)).toArray().join(" ") : "");
+                $("#select-divisions-by-type-links").html(getDivisionsInSelectedTerritory().length > 0 ? "Select/unselect " + [renderActionLink('all', `selectAllDivisionsInTerritory(true)`), renderActionLink('none', `selectAllDivisionsInTerritory(false)`), renderActionLink('invert', `selectAllDivisionsInTerritory()`)].join(" ") + " " + (new Set([...getDivisionsInSelectedTerritory().map(d => d.division_type)])).values().map(divisionType => renderActionLink(divisionType, `selectAllDivisionsInTerritoryWithType('${divisionType}')`)).toArray().join(" ") : "");
             }
         }
 
@@ -928,8 +934,8 @@
                 .map(cb => divisionsById.get(parseInt(cb.value)));
         }
 
-        function selectAllDivisionsInTerritory() {
-            [...document.getElementById('territory-division-list').getElementsByTagName("input")].forEach(cb => cb.checked = !cb.checked);
+        function selectAllDivisionsInTerritory(check) {
+            [...document.getElementById('territory-division-list').getElementsByTagName("input")].forEach(cb => cb.checked = check === undefined ? !cb.checked : check);
             onDivisionSelectionChange();
         }
 
