@@ -51,6 +51,16 @@ class NationDetail extends Model
         return $this->nation_id;
     }
 
+    public function getPreviousDetail(): NationDetail {
+        $previousDetailId = DB::table('nation_details')
+            ->where('nation_id', $this->nation_id)
+            ->where('turn_id', '<', $this->turn_id)
+            ->latest('turn_id')
+            ->value('id');
+        
+        return is_null($previousDetailId) ? $this : NationDetail::find($previousDetailId);
+    }
+
     public function territories(): HasMany {
         $nation = $this->getNation();
 

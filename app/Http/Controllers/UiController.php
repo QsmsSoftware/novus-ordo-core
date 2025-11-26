@@ -243,6 +243,7 @@ class UiController extends Controller
         $turn = $game->getCurrentTurn();
         $previousTurn = $turn->getPreviousTurn();
         $nationDetail = $nation->getDetail($turn);
+        $previousDetailTurn = $nationDetail->getPreviousDetail()->getTurn();
         $nationsById = $game->nations()->get()->mapWithKeys(fn (Nation $nation) => [$nation->getId() => $nation->getDetail()->export()]);
 
         return view('dashboard', [
@@ -250,7 +251,7 @@ class UiController extends Controller
             'territories_last_turn_info' => TerritoryDetail::exportAllTurnPublicInfo($previousTurn),
             'own_nation' => $nationDetail->exportForOwner(),
             'own_territories_turn_info' => TerritoryDetail::exportAllTurnOwnerInfo($nation, $turn),
-            'own_territories_last_turn_info' => TerritoryDetail::exportAllTurnOwnerInfo($nation, $previousTurn),
+            'own_territories_last_turn_info' => TerritoryDetail::exportAllTurnOwnerInfo($nation, $previousDetailTurn),
             'ready_status' => $game->exportReadyStatus(),
             'nations' => $nationsById->values(),
             'deployments' => $nationDetail->deployments()->get()
