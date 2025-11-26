@@ -81,12 +81,18 @@
         let victoryStatus = @json($victory_status);
         let budgetItems = mapExportedObject(@json($budget_items));
         let ownTerritoriesTurnInfo = @json($own_territories_turn_info);
+        let ownTerritoriesLastTurnInfo = @json($own_territories_turn_info);
+        let allTerritoriesLastTurnInfo = @json($territories_last_turn_info);
         let territoriesById = mergeMappedObjects(
             mergeMappedObjects(
                 mapExportedArray(allTerritoriesBaseInfo, t => t.territory_id),
                 mapExportedArray(allTerritoriesTurnInfo, t => t.territory_id)
             ),
             mapExportedArray(ownTerritoriesTurnInfo, t => t.territory_id)
+        );
+        let lastTurnInfoByTerritoryId = mergeMappedObjects(
+            mapExportedArray(allTerritoriesLastTurnInfo, t => t.territory_id),
+            mapExportedArray(ownTerritoriesLastTurnInfo, t => t.territory_id),
         );
         let nationsById = mapExportedArray(@json($nations), n => n.nation_id);
         let allBattleLogs = @json($battle_logs);
@@ -713,6 +719,10 @@
             $('#deployments-display').html(html);
         }
 
+        function getDivisionsMovingToSelectedTerritory() {
+            return divisionsById.values().filter(d => d.order && d.order.destination_territory_id == selectedTerritory.territory_id).toArray()
+        }
+
         function getDivisionsInSelectedTerritory() {
             return divisionsById.values().filter(d => d.territory_id == selectedTerritory.territory_id).toArray();
         }
@@ -720,7 +730,12 @@
         function updateDivisionsPane() {
             var html = "";
 
+            divisionsMovingToTerritory = getDivisionsMovingToSelectedTerritory();
             divisionsInTerritory = getDivisionsInSelectedTerritory();
+
+            function cancelOrderOf(division) {
+                return renderActionLink('cancel order', `cancelOrder(${division.division_id})`);
+            }
             
             if (divisionsInTerritory.length < 1) {
                 html += "<p>There is no divisions in this territory.</p>";
@@ -736,9 +751,16 @@
                             + (existingCbOrNull && existingCbOrNull.checked ? ' checked' : '')
                             + `>${divisionTypeInfoByType.get(d.division_type).description} #${d.division_id}`
                             + (d.order ? ` <i> ${describeOrder(d.order)}</i>` : "")
-                            + ` ${d.order ? `<a href="javascript:void(0)" onclick="cancelOrder(${d.division_id})">cancel order</a></li>`: ""}`
+                            + ` ${d.order ? `${cancelOrderOf(d)}</li>`: ""}`
                     }).join("")
                     + '</ul></div>';
+            }
+
+            if (divisionsMovingToTerritory.length > 0) {
+                html += 'Divisions heading towards this territory: '
+                    + '<ul>'
+                    + divisionsMovingToTerritory.map(d => `<li>${divisionTypeInfoByType.get(d.division_type).description} #${d.division_id} from ${renderActionLink(territoriesById.get(d.territory_id).name, `selectTerritory(${d.territory_id})`)} ${cancelOrderOf(d)}</li>`).join(", ")
+                    + '</ul>';
             }
             
             $("#divisions-details").html(html);
@@ -1115,19 +1137,35 @@
                         case MapView.Battles: {
                             highlightMapLayer = battlesHighlightMapLayer;
                             topLayer = (ctx, md) => {
+                                let territoryIdsWithBattles = getTerritoryIdsWithBattles();
                                 if (selectedTerritory) {
                                     md.fillTerritory(selectedTerritory, "black");
+                                }
+                                if (!territoryIdsWithBattles.some(tid => tid == selectedTerritory.territory_id)) {
                                     md.labelTerritory(selectedTerritory, "?", "white");
                                 }
 
                                 const BattlesIcon = {
-                                    Lost: "☠",
-                                    Conquered: "⚔",
                                     Defended: "⛊",
+                                    Lost: "☠️", // "☠",
+                                    Conquered: "⚔️", // "⚔",
+                                    WasRepelled: "⛊",
                                 };
                                 
-                                getTerritoryIdsWithBattles().filter(tid => tid != selectedTerritory.territory_id).forEach(tid => {
-                                    md.labelTerritory(territoriesById.get(tid), "!", "white");
+                                territoryIdsWithBattles.forEach(tid => {
+                                    let territory = territoriesById.get(tid);
+                                    let ownId = ownNation.nation_id;
+                                    let currentOwnerId = territory.owner_nation_id;
+                                    let lastOwnerId = lastTurnInfoByTerritoryId.get(tid).owner_nation_id;
+                                    let territoryIsUnderNationControlThisTurn = currentOwnerId == ownId;
+                                    let territoryWasUnderNationControlLastTurn = lastOwnerId == ownId;
+
+                                    if (territoryIsUnderNationControlThisTurn) {
+                                        md.labelTerritory(territory, territoryWasUnderNationControlLastTurn ? BattlesIcon.Defended : BattlesIcon.Conquered, "white");
+                                    }
+                                    else {
+                                        md.labelTerritory(territory, territoryWasUnderNationControlLastTurn ? BattlesIcon.Lost : BattlesIcon.WasRepelled, "white");
+                                    }
                                 });
                             };
                             break;
@@ -1135,16 +1173,12 @@
                         case MapView.Armies: {
                             highlightMapLayer = armiesHighlightMapLayer;
                             topLayer = (ctx, md) => {
-                                if (selectedTerritory) {
-                                    md.fillTerritory(selectedTerritory, "black");
-                                    md.labelTerritory(selectedTerritory, "?", "white");
-                                }
-
                                 const ArmiesIcon = {
-                                    SomeIdle: "☐",
-                                    AllSet: "☑",
-                                    MovingTo: "►",
-                                    Attacking: "⚔",
+                                    AllIdle: "◻",
+                                    SomeIdle: "▣", // "☐",
+                                    AllSet: "◼", // "☑",
+                                    MovingTo: "►", // "➨", // "⇒", // "►",
+                                    Attacking: "⚔️", //"⚔",
                                 };
 
                                 let labelsByTerritoryIds = new Map();
@@ -1174,7 +1208,10 @@
                                     if (!divisionsOnTerritory.some(d => !d.order)) {
                                         addLabel(t.territory_id, ArmiesIcon.AllSet);
                                     }
-                                    else if (divisionsOnTerritory.some(d => d.order)) {
+                                    else if (!divisionsOnTerritory.some(d => d.order)) {
+                                        addLabel(t.territory_id, ArmiesIcon.AllIdle);
+                                    }
+                                    else {
                                         addLabel(t.territory_id, ArmiesIcon.SomeIdle);
                                     }
                                 });
@@ -1182,6 +1219,11 @@
                                 labelsByTerritoryIds.keys()
                                     .filter(tid => tid != selectedTerritory.territory_id)
                                     .forEach(tid => md.labelTerritory(territoriesById.get(tid), labelsByTerritoryIds.get(tid), "white"));
+
+                                if (selectedTerritory) {
+                                    md.fillTerritory(selectedTerritory, "black");
+                                    md.labelTerritory(selectedTerritory, labelsByTerritoryIds.keys().some(tid => tid == selectedTerritory.territory_id) ? labelsByTerritoryIds.get(selectedTerritory.territory_id) : "?", "white");
+                                }
                             };
                             break;
                         }

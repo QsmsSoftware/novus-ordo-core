@@ -17,6 +17,16 @@ class Turn extends Model
     public const string FIELD_TURN_NUMBER = 'number';
     public const string FIELD_TURN_ACTIVATED_AT = 'activated_at';
 
+    public function getPreviousTurn(): Turn {
+        if ($this->number == 1) {
+            return $this;
+        }
+
+        return Turn::where('game_id', $this->game_id)
+            ->where('number', $this->number - 1)
+            ->first();
+    }
+
     public function game(): BelongsTo {
         return $this->belongsTo(Game::class);
     }
