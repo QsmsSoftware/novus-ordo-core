@@ -21,6 +21,7 @@ return new class extends Migration
             $table->foreignId('turn_id')->constrained('turns')->onDelete('cascade');
             $table->integer('type');
             $table->foreignId('destination_territory_id')->nullable()->constrained('territories')->onDelete('cascade');
+            $table->foreignId('target_territory_id')->nullable()->constrained('territories')->onDelete('cascade');
         });
     }
 
