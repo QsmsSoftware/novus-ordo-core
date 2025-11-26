@@ -14,6 +14,8 @@ return new class extends Migration
         Schema::create('news', function (Blueprint $table) {
             $table->id();
             $table->timestamps();
+            $table->foreignId('game_id')->constrained('games')->cascadeOnDelete();
+            $table->foreignId('turn_id')->constrained('turns')->cascadeOnDelete();
             $table->text('content');
         });
     }
