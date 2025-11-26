@@ -9,6 +9,7 @@ readonly class TerritoryTurnOwnerInfo {
 
     public function __construct(
         public int $territory_id,
+        public bool $can_deploy,
         public array $stats
     ) {}
 }

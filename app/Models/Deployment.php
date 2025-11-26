@@ -21,6 +21,8 @@ class Deployment extends Model
     use SoftDeletes;
     use GuardsForAssertions;
 
+    public const float REQUIRED_LOYALTY_TO_DEPLOY = 0.50;
+
     public function game() :BelongsTo {
         return $this->belongsTo(Game::class);
     }
@@ -77,6 +79,10 @@ class Deployment extends Model
             ->whereNull('deleted_at');
     }
 
+    public static function isLoyaltyHighEnoughToDeployOnTerritory(float $ownerLoyalty): bool {
+        return $ownerLoyalty > Deployment::REQUIRED_LOYALTY_TO_DEPLOY;
+    }
+
     public function export() :DeploymentInfo {
         return new DeploymentInfo(
             deployment_id: $this->getId(),
@@ -96,6 +102,10 @@ class Deployment extends Model
     }
 
     public static function Create(Nation $nation, DivisionType $type, Territory $territory) :Deployment {
+        if (!Deployment::isLoyaltyHighEnoughToDeployOnTerritory(NationTerritoryLoyalty::getLoyaltyRatioForNation($nation, $territory, $nation->getGame()->getCurrentTurn()))) {
+            throw new LogicException("Loyalty of Nation ID {$nation->getId()} on Territory ID {$territory->getId()} is too low to deploy.");
+        }
+
         $deployment = new Deployment();
         $deployment->game_id = $nation->getGame()->getId();
         $deployment->nation_id = $nation->getId();

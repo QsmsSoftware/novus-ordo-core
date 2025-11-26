@@ -177,6 +177,16 @@
             });
         }
 
+        function getDeployableTerritories() {
+            return territoriesById.values().filter(t => t.owner_nation_id == ownNation.nation_id && t.can_deploy).toArray();
+        }
+
+        function deployableTerritoriesHighlightMapLayer(ctx, md) {
+            getDeployableTerritories().forEach(t => {
+                md.fillTerritory(t, "black");
+            });
+        }
+
         function getTerritoryIdsWithBattles() {
             return [...new Set(allBattleLogs.map(l => l.territory_id))];
         }
@@ -1119,18 +1129,13 @@
                     mapDisplay.setTopLayers([topLayer]);
                     break;
                 case MapMode.DeployDivisions:
-                    let deployableTerritoryIds = [];
-                    territoriesById.values().forEach(t => {
-                        if (t.owner_nation_id == ownNation.nation_id) {
-                            deployableTerritoryIds.push(t.territory_id);
-                        }
-                    })
+                    let deployableTerritoryIds = getDeployableTerritories().map(t => t.territory_id);
                     territoriesById.values().forEach(t => mapDisplay.setClickable(t.territory_id, deployableTerritoryIds.includes(t.territory_id)));
                     mapDisplay.onClick = addDeployment;
                     mapDisplay.onContextMenu = (tid) => {
                         removeDeployment(tid, selectedDivisionType);
                     }
-                    mapDisplay.setLayers([politicalMapLayer, ownNationHighlightMapLayer]);
+                    mapDisplay.setLayers([politicalMapLayer, deployableTerritoriesHighlightMapLayer]);
                     mapDisplay.setTopLayers([(ctx, md) => {
                         currentDeploymentsByTerritoryId = Map.groupBy(deploymentsById.values(), d => d.territory_id);
                         pendingDeploymentsByTerritoryId = Map.groupBy(pendingDeployments, d => d.territoryId);

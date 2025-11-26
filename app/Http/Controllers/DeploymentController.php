@@ -8,6 +8,7 @@ use App\Http\Requests\CancelDeploymentsRequest;
 use App\Http\Requests\DeployRequest;
 use App\Http\Requests\SentDeploymentOrder;
 use App\Models\Deployment;
+use App\Models\NationTerritoryLoyalty;
 use App\Models\Territory;
 use App\ReadModels\DeploymentInfo;
 use App\Services\NationContext;
@@ -51,10 +52,21 @@ class DeploymentController extends Controller
     #[ResponseCollection('data', DeploymentInfo::class, 'A list of all the new deployments.')]
     public function deploy(DeployRequest $request, NationContext $context): JsonResponse {
         $nation = $context->getNation();
+        $turn = $context->getCurrentTurn();
+        $nationDetail = $nation->getDetail($turn);
 
-        $deploymentCommands = array_map(fn (SentDeploymentOrder $do) => new DeploymentCommand($do->territory_id, DivisionType::fromName($do->division_type)), $request->getDeployments());
+        $deploymentCommands = collect($request->getDeployments())->map(fn (SentDeploymentOrder $do) => new DeploymentCommand($do->territory_id, DivisionType::fromName($do->division_type)));
 
-        $deployedTypes = array_map(fn (DeploymentCommand $dc) => $dc->divisionType, $deploymentCommands);
+        $deploymentCommands->map(fn (DeploymentCommand $dc) => $dc->territoryId)
+            ->unique()
+            ->each(function (int $territoryId) use ($nation, $nationDetail, $turn) {
+                $territory = Territory::notNull($nationDetail->territories()->find($territoryId));
+                if (!Deployment::isLoyaltyHighEnoughToDeployOnTerritory(NationTerritoryLoyalty::getLoyaltyRatioForNation($nation, $territory, $turn))) {
+                    abort(HttpStatusCode::UnprocessableContent, "Nation can't deploy on Territory ID {$territory->getId()}.");
+                }
+            });
+
+        $deployedTypes = $deploymentCommands->map(fn (DeploymentCommand $dc) => $dc->divisionType);
 
         if (!$nation->getDetail()->canAffordCosts(DivisionType::calculateTotalDeploymentCostsByResourceType(...$deployedTypes))) {
             abort(HttpStatusCode::UnprocessableContent, "Nation doesn't have enough resources to afford deployment costs.");

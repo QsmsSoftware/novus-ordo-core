@@ -175,16 +175,21 @@ class TerritoryDetail extends Model
     public static function exportAllTurnOwnerInfo(Nation $owner, Turn $turn): array {
         $populationGrowthMultiplier = $owner->getDetail($turn)->getPopulationGrowthMultiplier();
 
-        //dd($populationGrowthMultiplier);
         $territories = DB::table('territory_details')
             ->where('territory_details.game_id', $turn->getGame()->getId())
             ->where('territory_details.owner_nation_id', $owner->getId())
             ->where('territory_details.turn_id', $turn->getId())
             ->join('territories', 'territories.id', '=', 'territory_details.territory_id')
-            ->select('territory_details.territory_id')
+            ->join('nation_territory_loyalties', fn ($join) => $join
+                ->on('territory_details.territory_id', '=', 'nation_territory_loyalties.territory_id')
+                ->on('nation_territory_loyalties.turn_id', '=', 'territory_details.turn_id')
+                ->on('nation_territory_loyalties.nation_id', '=', 'territory_details.owner_nation_id')
+            )
+            ->select('territory_details.territory_id', NationTerritoryLoyalty::FIELD_LOYALTY . ' as raw_loyalty')
             ->get();
 
             return $territories->map(fn ($t) => TerritoryTurnOwnerInfo::fromObject($t, [
+                'can_deploy' => Deployment::isLoyaltyHighEnoughToDeployOnTerritory($t->raw_loyalty / 100),
                 'stats' => [
                     new DemographicStat('Population growth rate', TerritoryDetail::calculatePopulationGrowthRate($populationGrowthMultiplier), StatUnit::DetailedPercent->name)
                 ]
