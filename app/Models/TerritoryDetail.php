@@ -152,6 +152,9 @@ class TerritoryDetail extends Model
     }
 
     public static function calculateEffectiveProduction(float $baseProduction, int $populationSize, float $loyaltyRatio): float {
+        if ($loyaltyRatio == 0) {
+            return 0;
+        }
         return $baseProduction * $populationSize / TerritoryDetail::UNIT_OF_POPULATION_SIZE * $loyaltyRatio;
     }
 
@@ -161,13 +164,15 @@ class TerritoryDetail extends Model
         $productionByResource = TerrainType::getResourceProductionByResource($this->getTerritory()->getTerrainType());
         $loyalties = $this->allLoyalties()->get();
 
+        $ownerLoyaltyRatio = $loyalties->mapWithKeys(fn (NationTerritoryLoyalty $l) => [$l->getNationId() => $l->getLoyaltyRatio()])->get($this->owner_nation_id) ?? 0;
+
         return new TerritoryTurnPublicInfo(
             territory_id: $territory->getId(),
             turn_number: $this->getTurn()->getNumber(),
             owner_nation_id: $ownerOrNull?->getId(),
             stats: [is_null($this->owner_nation_id) ? new DemographicStat('Population', 0, StatUnit::Unknown->name) : new DemographicStat('Population', $this->getPopulationSize(), StatUnit::WholeNumber->name)],
             owner_production: is_null($this->owner_nation_id) ? null : collect(array_keys($productionByResource))
-                ->mapWithKeys(fn (int $resource) => [ResourceType::from($resource)->name => TerritoryDetail::calculateEffectiveProduction($productionByResource[$resource], $this->getPopulationSize(), $loyalties->get($this->owner_nation_id)->getLoyaltyRatio())])->all(),
+                ->mapWithKeys(fn (int $resource) => [ResourceType::from($resource)->name => TerritoryDetail::calculateEffectiveProduction($productionByResource[$resource], $this->getPopulationSize(), $ownerLoyaltyRatio)])->all(),
             loyalties: $loyalties->map(fn (NationTerritoryLoyalty $l) => $l->export())->all()
         );
     }

@@ -18,7 +18,7 @@ final class RuntimeInfo {
         return ini_get('max_execution_time');
     }
 
-    public static function readGitCommitHashOrNull(): ?string {
+    private static function _readGitCommitHashOrNull(): ?string {
         $gitFilePath = base_path('.git/FETCH_HEAD');
         if (!file_exists($gitFilePath)) {
             return null;
@@ -32,5 +32,11 @@ final class RuntimeInfo {
         assert(count($matches) > 0);
 
         return $matches[1];
+    }
+
+    public static function readGitCommitHashOrNull(): ?string {
+        static $gitCommitHash = RuntimeInfo::_readGitCommitHashOrNull();
+
+        return $gitCommitHash;
     }
 }

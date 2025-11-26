@@ -92,17 +92,47 @@ class TerritoryController extends Controller
     }
 
     #[Summary('Get turn specific (public) information on all territories.')]
+    #[QueryParameter('turn_number', 'int', 'Optional. Turn number for which to return information.')]
     #[ResponseCollection("data", TerritoryTurnPublicInfo::class, "Turn specific information on all territories.")]
-    public function allTerritoriesTurnInfo(PublicGameContext $context) :JsonResponse {
-        $territories = TerritoryDetail::exportAllTurnPublicInfo($context->getGame()->getCurrentTurn());
+    public function allTerritoriesTurnInfo(Request $request, PublicGameContext $context) :JsonResponse {
+        $validated = $request->validate([
+            'turn_number' => 'nullable|integer',
+        ]);
+
+        $game = $context->getGame();
+
+        if (isset($validated['turn_number'])) {
+            $params = TerritoryForTurnParams::fromArray($validated);
+
+            $turn = Turn::asOrNotFound(Turn::getForGameByNumberOrNull($context->getGame(), $params->turn_number), "Invalid turn number for the current game: {$params->turn_number}");
+        }
+        else {
+            $turn = $game->getCurrentTurn();
+        }
+
+        $territories = TerritoryDetail::exportAllTurnPublicInfo($turn);
 
         return response()->json(['data' => $territories]);
     }
     
     #[Summary('Get turn specific (privileged) information on the nation\' territories.')]
+    #[QueryParameter('turn_number', 'int', 'Optional. Turn number for which to return information.')]
     #[ResponseCollection("data", TerritoryTurnPublicInfo::class, "Turn specific information on all territories.")]
-    public function nationTerritoriesTurnInfo(NationContext $context) :JsonResponse {
-        $territories = TerritoryDetail::exportAllTurnOwnerInfo($context->getNation(), $context->getCurrentTurn());
+    public function nationTerritoriesTurnInfo(Request $request, NationContext $context) :JsonResponse {
+        $validated = $request->validate([
+            'turn_number' => 'nullable|integer',
+        ]);
+
+        if (isset($validated['turn_number'])) {
+            $params = TerritoryForTurnParams::fromArray($validated);
+
+            $turn = Turn::asOrNotFound(Turn::getForGameByNumberOrNull($context->getGame(), $params->turn_number), "Invalid turn number for the current game: {$params->turn_number}");
+        }
+        else {
+            $turn = $context->getCurrentTurn();
+        }
+        
+        $territories = TerritoryDetail::exportAllTurnOwnerInfo($context->getNation(), $turn);
 
         return response()->json(['data' => $territories]);
     }
@@ -119,7 +149,7 @@ class TerritoryController extends Controller
 
     #[Summary('Turn information on a territory')]
     #[RouteParameter('territoryId', 'Territory ID')]
-    #[QueryParameter('turn_number', 'int', 'Turn number for which to return information.')]
+    #[QueryParameter('turn_number', 'int', 'Optional. Turn number for which to return information.')]
     #[Response(TerritoryTurnPublicInfo::class)]
     public function turnInfo(PublicGameContext $context, Request $request, int $territoryId) :JsonResponse {
         $validated = $request->validate([
@@ -132,11 +162,7 @@ class TerritoryController extends Controller
         if (isset($validated['turn_number'])) {
             $params = TerritoryForTurnParams::fromArray($validated);
 
-            $turnOrNull = Turn::getForGameByNumberOrNull($game, $params->turn_number);
-            if ($turnOrNull === null) {
-                return response()->json(['errors' => ['turn_number' => "Invalid turn number for the current game."]], HttpStatusCode::UnprocessableContent);
-            }
-            $turn = $turnOrNull;
+            $turn = Turn::asOrNotFound(Turn::getForGameByNumberOrNull($context->getGame(), $params->turn_number), "Invalid turn number for the current game: {$params->turn_number}");
         }
         else {
             $turn = $game->getCurrentTurn();

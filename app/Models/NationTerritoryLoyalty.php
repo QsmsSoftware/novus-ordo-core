@@ -23,6 +23,10 @@ class NationTerritoryLoyalty extends Model
         return $this->belongsTo(Territory::class);
     }
 
+    public function getNationId(): int {
+        return $this->nation_id;
+    }
+
     private function isLoyaltyOfOwner(): bool {
         return DB::table('territory_details')
             ->where('territory_details.territory_id', $this->territory_id)
