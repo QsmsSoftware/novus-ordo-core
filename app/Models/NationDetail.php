@@ -132,13 +132,14 @@ class NationDetail extends Model
             is_ready_for_next_turn: $this->getNation()->isReadyForNextTurn(),
             stats: [
                 new DemographicStat('Population growth rate', Metacache::remember($this->getPopulationGrowthRate(...)) , StatUnit::DetailedPercent->name),
-                new DemographicStat('Population loyalty', TerritoryDetail::getPopulationLoyaltyForNation($nation, $turn), StatUnit::DetailedPercent->name),
                 new DemographicStat('Number of divisions', $this->getNumberOfDivisions() , StatUnit::WholeNumber->name),
             ],
         );
     }
 
     public function export(): NationTurnPublicInfo {
+        $nation = $this->getNation();
+        $turn = $this->getTurn();
         return new NationTurnPublicInfo(
             nation_id: $this->getNation()->getId(),
             turn_number: $this->getTurn()->getNumber(),
@@ -147,7 +148,8 @@ class NationDetail extends Model
             flag_src: $this->getFlagSrcOrNull(),
             stats: [
                 new DemographicStat('Total land area', Metacache::remember($this->getUsableLandKm2(...)), StatUnit::Km2->name),
-                new DemographicStat('Total population', Metacache::remember($this->getPopulationSize(...)), StatUnit::WholeNumber->name)
+                new DemographicStat('Total population', Metacache::remember($this->getPopulationSize(...)), StatUnit::WholeNumber->name),
+                new DemographicStat('Population loyalty', TerritoryDetail::getPopulationLoyaltyForNation($nation, $turn), StatUnit::DetailedPercent->name),
             ],
         );
     }
