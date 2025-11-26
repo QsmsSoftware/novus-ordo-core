@@ -197,8 +197,22 @@
             });
         }
 
+        function getTerritoryIdsWithArmiesOrDestination() {
+            return [...new Set(getTerritoryIdsWithArmies().concat(getDestinationTerritoriesIds()))];
+        }
+
+        function getTerritoryIdsWithArmies() {
+            return [...new Set(divisionsById.values().map(d => d.territory_id))];
+        }
+
+        function getDestinationTerritoriesIds() {
+            return [...new Set(divisionsById.values()
+                .filter(d => d.order && d.order.destination_territory_id)
+                .map(d => d.order.destination_territory_id))];
+        }
+
         function armiesHighlightMapLayer(ctx, md) {
-            [...new Set(divisionsById.values().map(d => d.territory_id))].forEach(tid => {
+            getTerritoryIdsWithArmiesOrDestination().forEach(tid => {
                 md.fillTerritory(territoriesById.get(tid), "black");
             });
         }
@@ -909,6 +923,7 @@
             services.sendMoveOrders({orders: selectedDivisions.map(d => ({ division_id: d.division_id, destination_territory_id: tid }))})
                 .then(response => patchOrders(response.data))
                 .then(refreshBudget)
+                .then(() => mapDisplay.refresh())
                 .catch(error => {
                     $("#error_messages").html(`<li style="color: crimson">${JSON.stringify(error.responseJSON)}}</li>`);
                 });
@@ -927,6 +942,7 @@
             .then(() => {
                 divisionsById.get(did).order = null;
                 updateDivisionsPane();
+                mapDisplay.refresh();
             })
             .then(refreshBudget)
             .catch(error => {
@@ -1103,6 +1119,12 @@
                                     md.fillTerritory(selectedTerritory, "black");
                                     md.labelTerritory(selectedTerritory, "?", "white");
                                 }
+
+                                const BattlesIcon = {
+                                    Lost: "☠",
+                                    Conquered: "⚔",
+                                    Defended: "⛊",
+                                };
                                 
                                 getTerritoryIdsWithBattles().filter(tid => tid != selectedTerritory.territory_id).forEach(tid => {
                                     md.labelTerritory(territoriesById.get(tid), "!", "white");
@@ -1112,6 +1134,55 @@
                         }
                         case MapView.Armies: {
                             highlightMapLayer = armiesHighlightMapLayer;
+                            topLayer = (ctx, md) => {
+                                if (selectedTerritory) {
+                                    md.fillTerritory(selectedTerritory, "black");
+                                    md.labelTerritory(selectedTerritory, "?", "white");
+                                }
+
+                                const ArmiesIcon = {
+                                    SomeIdle: "☐",
+                                    AllSet: "☑",
+                                    MovingTo: "►",
+                                    Attacking: "⚔",
+                                };
+
+                                let labelsByTerritoryIds = new Map();
+
+                                function addLabel(tid, label) {
+                                    labelsByTerritoryIds.set(tid, labelsByTerritoryIds.has(tid) ? labelsByTerritoryIds.get(tid) + label : label);
+                                }
+
+                                getDestinationTerritoriesIds()
+                                    .map(tid => territoriesById.get(tid))
+                                    .forEach(t => {
+                                        if (t.owner_nation_id == ownNation.nation_id) {
+                                            addLabel(t.territory_id, ArmiesIcon.MovingTo);
+                                        }
+                                        else {
+                                            addLabel(t.territory_id, ArmiesIcon.Attacking);
+                                        }
+                                    });
+
+                                territoriesById.values().forEach(t => {
+                                    let divisionsOnTerritory = divisionsById.values().filter(d => d.territory_id == t.territory_id).toArray();
+
+                                    if (divisionsOnTerritory.length < 1) {
+                                        return;
+                                    }
+
+                                    if (!divisionsOnTerritory.some(d => !d.order)) {
+                                        addLabel(t.territory_id, ArmiesIcon.AllSet);
+                                    }
+                                    else if (divisionsOnTerritory.some(d => d.order)) {
+                                        addLabel(t.territory_id, ArmiesIcon.SomeIdle);
+                                    }
+                                });
+
+                                labelsByTerritoryIds.keys()
+                                    .filter(tid => tid != selectedTerritory.territory_id)
+                                    .forEach(tid => md.labelTerritory(territoriesById.get(tid), labelsByTerritoryIds.get(tid), "white"));
+                            };
                             break;
                         }
                         case MapView.Deployments: {
