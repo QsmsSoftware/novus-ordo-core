@@ -4,15 +4,14 @@ namespace App\Models;
 
 use App\Domain\DivisionType;
 use App\Domain\OrderType;
-use App\Domain\ResourceType;
 use App\Models\Division;
 use App\Models\Territory;
 use App\Models\Turn;
+use App\ReadModels\AttackOrderInfo;
 use App\ReadModels\DisbandOrderInfo;
-use App\ReadModels\MoveAttackOrderInfo;
+use App\ReadModels\MoveOrderInfo;
+use App\ReadModels\RaidOrderInfo;
 use App\Utils\GuardsForAssertions;
-use Illuminate\Database\Eloquent\Attributes\Scope;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -32,11 +31,19 @@ class Order extends Model
     }
 
     public function destinationTerritory(): BelongsTo {
-        return $this->belongsTo(Territory::class);
+        return $this->belongsTo(Territory::class, 'destination_territory_id');
+    }
+
+    public function targetTerritory(): BelongsTo {
+        return $this->belongsTo(Territory::class, 'target_territory_id');
     }
 
     public function getDestinationTerritory(): Territory {
         return $this->destinationTerritory;
+    }
+
+    public function getTargetTerritory(): Territory {
+        return $this->targetTerritory;
     }
 
     public function onExecution(): void {
@@ -58,19 +65,29 @@ class Order extends Model
 
     public function exportForOwner(): object {
         return match($this->getType()) {
-            OrderType::Move => new MoveAttackOrderInfo(
+            OrderType::Move => new MoveOrderInfo(
                 $this->division_id,
                 order_type: OrderType::Move->name,
                 destination_territory_id: $this->getDestinationTerritory()->getId(),
+                is_operating: false,
             ),
-            OrderType::Attack => new MoveAttackOrderInfo(
+            OrderType::Attack => new AttackOrderInfo(
                 $this->division_id,
                 order_type: OrderType::Attack->name,
-                destination_territory_id: $this->getDestinationTerritory()->getId(),
+                rebase_territory_id: $this->getDestinationTerritory()->getId(),
+                target_territory_id: $this->getTargetTerritory()->getId(),
+                is_operating: true,
+            ),
+            OrderType::Raid => new RaidOrderInfo(
+                $this->division_id,
+                order_type: OrderType::Raid->name,
+                target_territory_id: $this->getTargetTerritory()->getId(),
+                is_operating: true,
             ),
             OrderType::Disband => new DisbandOrderInfo(
                 $this->division_id,
                 order_type: OrderType::Disband->name,
+                is_operating: false,
             ),
         };
     }
@@ -101,9 +118,19 @@ class Order extends Model
         return $order;
     }
 
-    public static function createAttackOrder(Division $division, Territory $destinationTerritory): Order {
+    public static function createAttackOrder(Division $division, Territory $targetTerritory, Territory $rebaseTerritory): Order {
         $order = Order::prepareBaseOrder($division, OrderType::Attack);
-        $order->destination_territory_id = $destinationTerritory->getId();
+        $order->destination_territory_id = $rebaseTerritory->getId();
+        $order->target_territory_id = $targetTerritory->getId();
+        $order->save();
+
+        return $order;
+    }
+
+    public static function createRaidOrder(Division $division, Territory $targetTerritory): Order {
+        $order = Order::prepareBaseOrder($division, OrderType::Raid);
+        $order->destination_territory_id = null;
+        $order->target_territory_id = $targetTerritory->getId();
         $order->save();
 
         return $order;

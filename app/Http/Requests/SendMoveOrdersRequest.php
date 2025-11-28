@@ -15,7 +15,15 @@ class SendMoveOrdersRequest extends FormRequest {
     public function passedValidation(): void {
         $orders = $this->validated('orders');
 
-        $this->moveOrders = array_map(fn (array $data) => SentMoveOrder::fromArray($data), $orders);
+        $this->moveOrders = array_map(function (array $data) {
+                if (!isset($data['path_territory_ids'])) {
+                    $data['path_territory_ids'] = [];
+                }
+
+                return SentMoveOrder::fromArray($data);
+            },
+            $orders
+        );
     }
 
     public function getMoveOrders(): array {
@@ -40,6 +48,14 @@ class SendMoveOrdersRequest extends FormRequest {
             ],
             'orders.*.destination_territory_id' => [
                 'required',
+                'integer',
+                Territory::createRuleExistsInGame($this->context->getGame()),
+            ],
+            'orders.*.path_territory_ids' => [
+                'nullable',
+                'array',
+            ],
+            'orders.*.path_territory_ids.*' => [
                 'integer',
                 Territory::createRuleExistsInGame($this->context->getGame()),
             ],

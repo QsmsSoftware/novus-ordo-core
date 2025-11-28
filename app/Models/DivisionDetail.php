@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Exists;
+use LogicException;
 
 class DivisionDetail extends Model
 {
@@ -61,55 +62,104 @@ class DivisionDetail extends Model
             ->first();
     }
 
-    public function canReach(Territory $destination): bool {
+    public function canMoveTo(Territory $destination, Territory ...$pathOfTerritories): bool {
         $nationDetail = $this->getNation()->getDetail($this->getTurn());
         $meta = DivisionType::getMeta($this->getDivision()->getDivisionType());
-        $origin = $this->getTerritory();
-        $newTerritoriesToExplore = collect([$origin]);
         $remainingMoves = $meta->moves;
+        $origin = $this->getTerritory();
         $connections = Territory::getTerritoryConnections($this->getGame());
-        $exploredTerritoryIds[$origin->getId()] = $origin;
 
         if ($destination->getTerrainType() == TerrainType::Water) {
             return false;
         }
 
-        while($remainingMoves > 0) {
-            $remainingMoves--;
-            $territoriesToExplore = $newTerritoriesToExplore->unique();
-            $newTerritoriesToExplore = collect();
-            while (!$territoriesToExplore->isEmpty()) {
-                $territory = Territory::notNull($territoriesToExplore->pop());
-                $accessibleTerritoryIds = $meta->canFly
-                    ? $connections[$territory->getId()]
-                        ->map(fn (TerritoryConnection $c) => $c->connectedTerritoryId)
-                    : $connections[$territory->getId()]
-                        ->filter(fn (TerritoryConnection $c) => $c->isConnectedByLand)
-                        ->map(fn (TerritoryConnection $c) => $c->connectedTerritoryId);
-                if ($accessibleTerritoryIds->contains($destination->getId())) {
-                    return true;
-                }
-                $newNeighbors = $accessibleTerritoryIds
-                    ->filter(fn (int $territoryId) => !isset($exploredTerritoryIds[$territoryId]))
-                    ->map(fn (int $territoryId) => Territory::notNull(Territory::find($territoryId)));
-                $newTerritoriesToExplore->push(...$newNeighbors
-                    ->filter(fn (Territory $territory) => ($meta->canFly && $territory->getTerrainType() == TerrainType::Water)
-                        || $nationDetail->hasSafePassageThrough($territory)
-                    )
-                );
-                $newNeighbors->each(function (Territory $territory) use (&$exploredTerritoryIds) {
-                    $exploredTerritoryIds[$territory->getId()] = $territory;
-                });
+        if (count($pathOfTerritories) > $remainingMoves - 1) {
+            return false;
+        }
+
+        if (empty($pathOfTerritories) && $origin->hasSeaAccess() && $destination->hasSeaAccess()) {
+            return $destination->getTerrainType() != TerrainType::Water && $destination->hasSeaAccess();
+        }
+
+        $currentTerritory = $origin;
+
+        foreach ($pathOfTerritories as $nextTerritory) {
+            $connectedToNext = $meta->canFly
+                ? $connections[$currentTerritory->getId()]
+                    ->contains(fn (TerritoryConnection $c) => $c->connectedTerritoryId == $nextTerritory->getId())
+                : $connections[$currentTerritory->getId()]
+                    ->filter(fn (TerritoryConnection $c) => $c->isConnectedByLand)
+                    ->contains(fn (TerritoryConnection $c) => $c->connectedTerritoryId == $nextTerritory->getId());
+
+            if (!$connectedToNext) {
+                return false;
             }
+
+            $canGoThrough = ($meta->canFly && $nextTerritory->getTerrainType() == TerrainType::Water)
+                || $nationDetail->hasSafePassageThrough($nextTerritory);
+
+            if (!$canGoThrough) {
+                return false;
+            }
+
+            $currentTerritory = $nextTerritory;
         }
 
-        $accessibleTerritoryIds = $origin->connectedBySea()->pluck('id');
-        if ($accessibleTerritoryIds->contains($destination->getId())) {
-            return true;
-        }
-
-        return false;
+        $connectedToDestination = $connections[$currentTerritory->getId()]
+            ->contains(fn (TerritoryConnection $c) => $c->connectedTerritoryId == $destination->getId());
+        
+        return $connectedToDestination;
     }
+    
+    //     public function canReach(Territory $destination): bool {
+    //     $nationDetail = $this->getNation()->getDetail($this->getTurn());
+    //     $meta = DivisionType::getMeta($this->getDivision()->getDivisionType());
+    //     $origin = $this->getTerritory();
+    //     $newTerritoriesToExplore = collect([$origin]);
+    //     $remainingMoves = $meta->moves;
+    //     $connections = Territory::getTerritoryConnections($this->getGame());
+    //     $exploredTerritoryIds[$origin->getId()] = $origin;
+
+    //     if ($destination->getTerrainType() == TerrainType::Water) {
+    //         return false;
+    //     }
+
+    //     while($remainingMoves > 0) {
+    //         $remainingMoves--;
+    //         $territoriesToExplore = $newTerritoriesToExplore->unique();
+    //         $newTerritoriesToExplore = collect();
+    //         while (!$territoriesToExplore->isEmpty()) {
+    //             $territory = Territory::notNull($territoriesToExplore->pop());
+    //             $accessibleTerritoryIds = $meta->canFly
+    //                 ? $connections[$territory->getId()]
+    //                     ->map(fn (TerritoryConnection $c) => $c->connectedTerritoryId)
+    //                 : $connections[$territory->getId()]
+    //                     ->filter(fn (TerritoryConnection $c) => $c->isConnectedByLand)
+    //                     ->map(fn (TerritoryConnection $c) => $c->connectedTerritoryId);
+    //             if ($accessibleTerritoryIds->contains($destination->getId())) {
+    //                 return true;
+    //             }
+    //             $newNeighbors = $accessibleTerritoryIds
+    //                 ->filter(fn (int $territoryId) => !isset($exploredTerritoryIds[$territoryId]))
+    //                 ->map(fn (int $territoryId) => Territory::notNull(Territory::find($territoryId)));
+    //             $newTerritoriesToExplore->push(...$newNeighbors
+    //                 ->filter(fn (Territory $territory) => ($meta->canFly && $territory->getTerrainType() == TerrainType::Water)
+    //                     || $nationDetail->hasSafePassageThrough($territory)
+    //                 )
+    //             );
+    //             $newNeighbors->each(function (Territory $territory) use (&$exploredTerritoryIds) {
+    //                 $exploredTerritoryIds[$territory->getId()] = $territory;
+    //             });
+    //         }
+    //     }
+
+    //     $accessibleTerritoryIds = $origin->connectedBySea()->pluck('id');
+    //     if ($accessibleTerritoryIds->contains($destination->getId())) {
+    //         return true;
+    //     }
+
+    //     return false;
+    // }
 
     public function getOrder(): Order {
         return $this->getOrderOrNull();
@@ -145,6 +195,41 @@ class DivisionDetail extends Model
             && $order->getType() == OrderType::Move;
     }
 
+    public function isAttacking(): bool {
+        $orderOrNull = $this->getOrderOrNull();
+
+        return ($order = $orderOrNull??false)
+            && $order->getType() == OrderType::Attack;
+    }
+
+    public function isRaiding(): bool {
+        $orderOrNull = $this->getOrderOrNull();
+
+        return ($order = $orderOrNull??false)
+            && $order->getType() == OrderType::Raid;
+    }
+
+    public function isRebasing(): bool {
+        $orderOrNull = $this->getOrderOrNull();
+
+        return ($order = $orderOrNull??false)
+            && ($order->getType() == OrderType::Move || $order->getType() == OrderType::Attack);
+    }
+
+    public function isEngaging(): bool {
+        $orderOrNull = $this->getOrderOrNull();
+
+        return ($order = $orderOrNull??false)
+            && ($order->getType() == OrderType::Attack || $order->getType() == OrderType::Raid);
+    }
+
+    public function isOperating(): bool {
+        $orderOrNull = $this->getOrderOrNull();
+
+        return ($order = $orderOrNull??false)
+            && ($order->getType() == OrderType::Attack || $order->getType() == OrderType::Raid);
+    }
+
     public static function getTotalUpkeepCostsByResourceType(Nation $nation, Turn $turn): array {
         $divisionTypes = DB::table('division_details')
             ->where('division_details.nation_id', $nation->getId())
@@ -155,13 +240,6 @@ class DivisionDetail extends Model
             ->map(fn (int $type) => DivisionType::from($type));
 
         return DivisionType::calculateTotalUpkeepCostsByResourceType(...$divisionTypes);
-    }
-    
-    public function isAttacking(): bool {
-        $orderOrNull = $this->getOrderOrNull();
-
-        return ($order = $orderOrNull??false)
-            && $order->getType() == OrderType::Attack;
     }
 
     public function exportForOwner(): OwnedDivisionInfo {

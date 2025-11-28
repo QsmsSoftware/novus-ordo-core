@@ -2,6 +2,7 @@
 namespace App\Services;
 
 use App\Domain\DivisionType;
+use App\Domain\MapData;
 use App\Domain\OrderType;
 use App\Domain\ResourceType;
 use App\Domain\StatUnit;
@@ -16,6 +17,7 @@ class JavascriptStaticServicesGenerator {
     {
         
     }
+    
     public function getStaticJsServices(): StaticJavascriptResource {
         return StaticJavascriptResource::permanent('clientservices', fn () => join(PHP_EOL, [
                 $this->servicesGenerator->generateClientEnum(ResourceType::class, true),
@@ -29,6 +31,16 @@ class JavascriptStaticServicesGenerator {
                 "const allResourceTypes = " . json_encode(ResourceType::exportMetas()) . ";",
                 "const allDivisionTypes = " . json_encode(DivisionType::exportMetas()) . ";",
                 "const allTerrainTypes = " . json_encode(TerrainType::exportMetas()) . ";",
+                $this->generateMapData(),
         ]));
+    }
+
+    private function generateMapData(): string {
+        return "const MapData = " . json_encode(new class {
+            public int $MapTileWidthPixels = MapData::WIDTH_PIXELS_PER_TILE;
+            public int $MapTileHeightPixels = MapData::HEIGHT_PIXELS_PER_TILE;
+            public int $MapWidthPixels = MapData::WIDTH * MapData::WIDTH_PIXELS_PER_TILE;
+            public int $MapHeightPixels = MapData::HEIGHT * MapData::HEIGHT_PIXELS_PER_TILE;
+        });
     }
 }

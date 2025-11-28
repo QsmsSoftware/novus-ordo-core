@@ -68,22 +68,26 @@ class Division extends Model
         return Order::createDisbandOrder($this);
     }
 
-    public function sendMoveAttackOrder(Territory $destination): Order {
+    public function sendMoveAttackOrder(Territory $destination, Territory ...$pathOfTerritories): Order {
         $detail = $this->getMostRecentDetail();
 
         if (!$detail->isActive()) {
             throw new LogicException("Can't give a move order to inactive division {$this->getId()}");
         }
         
-        if (!$this->getDetail()->canReach($destination)) {
+        if (!$this->getDetail()->canMoveTo($destination, ...$pathOfTerritories)) {
             throw new LogicException("Division ID {$this->getId()} can't reach territory ID {$destination->getId()}");
         }
 
-        $attacking = $this->getNation()->getDetail()->isHostileTerritory($destination);
+        $engaging = $this->getNation()->getDetail()->isHostileTerritory($destination);
 
-        if ($attacking && !$this->getDetail()->isAttacking() && !$this->getNation()->getDetail()->canAffordCosts(DivisionType::calculateTotalAttackCostsByResourceType($this->getDivisionType()))) {
+        if ($engaging && !$this->getDetail()->isOperating() && !$this->getNation()->getDetail()->canAffordCosts(DivisionType::calculateTotalAttackCostsByResourceType($this->getDivisionType()))) {
             throw new LogicException("Can't afford the resources for an extra attack by a division of type {$this->getDivisionType()->name}");
         }
+
+        $meta = DivisionType::getMeta($this->getDivisionType());
+
+        $rebaseTerritoryOrNull = $meta->canFly ? null : array_last($pathOfTerritories);
 
         $previousOrderOrNull = $detail->getOrderOrNull();
 
@@ -91,7 +95,15 @@ class Division extends Model
             $previousOrderOrNull->delete();
         }
 
-        return $attacking ? Order::createAttackOrder($this, $destination) : Order::createMoveOrder($this, $destination);
+        if ($engaging && !is_null($rebaseTerritoryOrNull)) {
+            return Order::createAttackOrder($this, $destination, $rebaseTerritoryOrNull);
+        }
+        else if ($engaging) {
+            return Order::createRaidOrder($this, $destination);
+        }
+        else {
+            return Order::createMoveOrder($this, $destination);
+        }
     }
 
     public function cancelOrder(): void {
@@ -117,7 +129,7 @@ class Division extends Model
     }
 
     public function onMovePhase(Turn $currentTurn, Turn $nextTurn): void {
-        if ($this->getDetail($currentTurn)->isMoving()) {
+        if ($this->getDetail($currentTurn)->isRebasing()) {
             $this->getDetail($nextTurn)->moveTo($this->getDetail($currentTurn)->getOrder()->getDestinationTerritory());
             $this->getDetail($currentTurn)->getOrder()->onExecution();
         }

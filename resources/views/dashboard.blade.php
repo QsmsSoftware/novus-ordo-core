@@ -62,6 +62,9 @@
     <script>
         let services = new NovusOrdoServices(@json(url("")), @json(csrf_token()));
 
+        let NextTurnCheckDelayWhenTurnOverMiliseconds = 2000;
+        let GameReadyStatusRefreshDelayMiliseconds = 5 * 60 * 1000;
+
         var currentMapMode;
         const MapMode = {
             Default: 0,
@@ -204,7 +207,11 @@
         }
 
         function getTerritoryIdsWithArmiesOrDestination() {
-            return [...new Set(getTerritoryIdsWithArmies().concat(getDestinationTerritoriesIds()))];
+            return [...new Set(getTerritoryIdsWithArmies()
+                .concat(getDestinationTerritoriesIds())
+                .concat(getTargetTerritoriesIds())
+                .concat(getRebaseTerritoriesIds())
+            )];
         }
 
         function getTerritoryIdsWithArmies() {
@@ -213,8 +220,20 @@
 
         function getDestinationTerritoriesIds() {
             return [...new Set(divisionsById.values()
-                .filter(d => d.order && d.order.destination_territory_id)
+                .filter(d => d.order && (d.order.destination_territory_id))
                 .map(d => d.order.destination_territory_id))];
+        }
+
+        function getRebaseTerritoriesIds() {
+            return [...new Set(divisionsById.values()
+                .filter(d => d.order && (d.order.rebase_territory_id))
+                .map(d => d.order.rebase_territory_id))];
+        }
+
+        function getTargetTerritoriesIds() {
+            return [...new Set(divisionsById.values()
+                .filter(d => d.order && (d.order.target_territory_id))
+                .map(d => d.order.target_territory_id))];
         }
 
         function armiesHighlightMapLayer(ctx, md) {
@@ -677,11 +696,11 @@
             remarks = [];
 
             if (!divisionTypeInfo.can_take_territory) {
-                remarks.push("Won't capture a territory if last unit standing");
+                remarks.push("Can't capture a territory if last unit standing");
             }
 
             if (divisionTypeInfo.can_fly) {
-                remarks.push("Will remain in their current territory when done attacking");
+                remarks.push("Will raid when attacking (won't move if the territory is captured)");
             }
             
             return remarks.join("; ");
@@ -719,29 +738,89 @@
             $('#deployments-display').html(html);
         }
 
-        function getDivisionsMovingToSelectedTerritory() {
-            return divisionsById.values().filter(d => d.order && d.order.destination_territory_id == selectedTerritory.territory_id).toArray()
-        }
-
         function getDivisionsInSelectedTerritory() {
             return divisionsById.values().filter(d => d.territory_id == selectedTerritory.territory_id).toArray();
+        }
+
+        function calculateTotalAttackPower(divisions) {
+            return divisions.reduce((sum, d) => sum + divisionTypeInfoByType.get(d.division_type).attack_power, 0);
+        }
+
+        function sumDeployedDefensePowerForTerritory(territory) {
+            return deploymentsById.values().filter(d => d.territory_id == territory.territory_id).toArray().reduce((sum, d) => sum + divisionTypeInfoByType.get(d.division_type).defense_power, 0);
+        }
+
+        function calculateTotalDefensePower(divisions) {
+            return divisions.reduce((sum, d) => sum + divisionTypeInfoByType.get(d.division_type).defense_power, 0);
+        }
+
+        function getDivisionsDefendingTerritory(territory) {
+            function getProjectedTerritoryId(division) {
+                if (division.order && division.order.order_type == OrderType.Disband) {
+                    return null;
+                }
+
+                if (!division.order) {
+                    return division.territory_id;
+                }
+
+                let info = divisionTypeInfoByType.get(division.division_type);
+
+                if (!info.can_take_territory) {
+                    if (division.order.destination_territory_id) {
+                        return division.order.destination_territory_id;
+                    }
+                    else if (division.order.rebase_territory_id) {
+                        return division.order.rebase_territory_id
+                    }
+                    else {
+                        return division.territory_id;
+                    }
+                }
+
+                if (division.order.destination_territory_id) {
+                    return division.order.destination_territory_id;
+                }
+                else if (division.order.target_territory_id) {
+                    return division.order.target_territory_id
+                }
+                else if (division.order.rebase_territory_id) {
+                    return division.order.rebase_territory_id
+                }
+                else {
+                    return divisionivision.territory_id;
+                }
+            }
+            return divisionsById.values()
+                .filter(d => getProjectedTerritoryId(d) == territory.territory_id)
+                .toArray();
         }
 
         function updateDivisionsPane() {
             var html = "";
 
-            divisionsMovingToTerritory = getDivisionsMovingToSelectedTerritory();
+            divisionsMovingToTerritory = divisionsById.values()
+                .filter(d => d.order && (
+                    d.order.destination_territory_id == selectedTerritory.territory_id
+                    || d.order.rebase_territory_id == selectedTerritory.territory_id
+                    || d.order.target_territory_id == selectedTerritory.territory_id
+                )).toArray();
             divisionsInTerritory = getDivisionsInSelectedTerritory();
 
             function cancelOrderOf(division) {
                 return renderActionLink('cancel order', `cancelOrder(${division.division_id})`);
             }
+
+            let deployedDefensePower = sumDeployedDefensePowerForTerritory(selectedTerritory);
+            let remainingDefensePower = deployedDefensePower + calculateTotalDefensePower(getDivisionsDefendingTerritory(selectedTerritory));
             
             if (divisionsInTerritory.length < 1) {
-                html += "<p>There is no divisions in this territory.</p>";
+                if (selectedTerritory.owner_nation_id == ownNation.nation_id) {
+                    html += `<p>There is no divisions in this territory.${remainingDefensePower > 0 ? ` Total remaining defense power: ${remainingDefensePower} ${deployedDefensePower > 0 ? `(of which ${deployedDefensePower} is from deployments)` : ""}` : ""}</p>`;
+                }
             }
             else {
-                html += `<p>Divisions in territory:<br><span id="select-divisions-by-type-links"></span></p>`;
+                html += `<p>Divisions in territory (remaining defense power: ${remainingDefensePower}${deployedDefensePower > 0 ? `, of which ${deployedDefensePower} is from deployments` : ""}):<br><span id="select-divisions-by-type-links"></span></p>`;
                 html += `<span id="send-order-link">&nbsp;</span>`
                 html += '<div id="territory-division-list"><ul>'
                     + divisionsInTerritory.map(d => {
@@ -750,16 +829,19 @@
                         return `<li><input id="${cbId}" type="checkbox" onchange="onDivisionSelectionChange()" value="${d.division_id}"`
                             + (existingCbOrNull && existingCbOrNull.checked ? ' checked' : '')
                             + `>${divisionTypeInfoByType.get(d.division_type).description} #${d.division_id}`
-                            + (d.order ? ` <i> ${describeOrder(d.order)}</i>` : "")
+                            + (d.order ? ` <i> ${describeOrder(d, d.order)}</i>` : "")
                             + ` ${d.order ? `${cancelOrderOf(d)}</li>`: ""}`
                     }).join("")
                     + '</ul></div>';
             }
 
             if (divisionsMovingToTerritory.length > 0) {
-                html += 'Divisions heading towards this territory: '
+                let powerLabel = selectedTerritory.owner_nation_id == ownNation.nation_id
+                    ? 'cumulated defense power: ' + calculateTotalDefensePower(divisionsMovingToTerritory)
+                    : 'cumulated attack power: ' + calculateTotalAttackPower(divisionsMovingToTerritory);
+                html += `Divisions heading towards this territory (${powerLabel}): `
                     + '<ul>'
-                    + divisionsMovingToTerritory.map(d => `<li>${divisionTypeInfoByType.get(d.division_type).description} #${d.division_id} from ${renderActionLink(territoriesById.get(d.territory_id).name, `selectTerritory(${d.territory_id})`)} ${cancelOrderOf(d)}</li>`).join(", ")
+                    + divisionsMovingToTerritory.map(d => `<li>${divisionTypeInfoByType.get(d.division_type).description} #${d.division_id} from ${renderActionLink(territoriesById.get(d.territory_id).name, `selectTerritory(${d.territory_id})`)} ${cancelOrderOf(d)}</li>`).join("")
                     + '</ul>';
             }
             
@@ -779,10 +861,127 @@
             return territory.owner_nation_id == ownNation.nation_id;
         }
 
+        function returnLandingPathOrNull(originTerritory, destinationTerritory) {
+            return originTerritory.has_sea_access && destinationTerritory.has_sea_access
+                ? []
+                : null;
+        }
+
+        function findPathBetween(originTerritory, destinationTerritory, moves, canFly) {
+            function hChebyshev(startNode) { // Estimation function for the shortest possible distance between a starting and destination nodes. Using Chebyshev distance formula because the map is a cartesian plan.
+                return Math.max(Math.abs(startNode.x - destinationTerritory.x), Math.abs(startNode.y - destinationTerritory.y));
+            }
+
+            if (moves < hChebyshev(originTerritory)) {
+                return returnLandingPathOrNull(originTerritory, destinationTerritory);
+            }
+
+            function nodeKey(node) {
+                return node.territory_id;
+            }
+
+            function getNode(nodeKey) {
+                return territoriesById.get(nodeKey);
+            }
+
+            let openNodes = new Set();
+            openNodes.add(nodeKey(originTerritory));
+            let fromNodes = new Map();
+            let gScores = new Map();
+            gScores.set(nodeKey(originTerritory), 0);
+            let fScores = new Map();
+            fScores.set(nodeKey(originTerritory), hChebyshev(originTerritory));
+
+            let destinationTerritoryId = destinationTerritory.territory_id;
+
+            function isDestination(nodeKey) {
+                return nodeKey == destinationTerritoryId;
+            }
+
+            function gScore(nodeKey) {
+                return gScores.has(nodeKey) ? gScores.get(nodeKey) : Number.MAX_SAFE_INTEGER;
+            }
+
+            function fScore(nodeKey) {
+                return fScores.has(nodeKey) ? fScores.get(nodeKey) : Number.MAX_SAFE_INTEGER;
+            }
+
+            function cost(fromNodeKey, toNodeKey) {
+                return 1;
+            }
+
+            function mostPromising() {
+                var best = null;
+                openNodes.forEach(k => {
+                    let score = fScore(k);
+                    if (best === null || score < best.score) {
+                        best = { k: k, score: score };
+                    }
+                });
+
+                return best.k;
+            }
+
+            function reconstructPathFrom(current) {
+                let path = [];
+
+                while (fromNodes.has(current)) {
+                    current = fromNodes.get(current);
+                    if (current != originTerritory.territory_id) {
+                        path.unshift(current);
+                    }
+                }
+
+                return path;
+            }
+            
+            while (openNodes.size > 0) {
+                let current = mostPromising();
+
+                if (isDestination(current)) {
+                    return reconstructPathFrom(current);
+                }
+
+                openNodes.delete(current);
+                let currentNode = getNode(current);
+
+                let flyingThroughWaterOrSafePassage = (canFly && currentNode.terrain_type == TerrainType.Water)
+                    || territoryAllowsSafePassage(currentNode);
+                
+                if (!flyingThroughWaterOrSafePassage) {
+                    continue;
+                }
+
+                let neighborNodes = (canFly ? currentNode.connected_territory_ids : currentNode.connected_land_territory_ids)
+                    .map(tid => getNode(tid));
+
+                neighborNodes.forEach(neighborNode => {
+                    let neighbor = nodeKey(neighborNode);
+                    let costToCurrent = gScores.get(current);
+                    let lowestPossibleCostToDestination = hChebyshev(neighborNode);
+                    let tentativeScore = costToCurrent + cost(current, neighbor);
+                    if (tentativeScore + lowestPossibleCostToDestination > moves) {
+                        return;
+                    }
+                    if (tentativeScore < gScore(neighbor)) {
+                        fromNodes.set(neighbor, current);
+                        gScores.set(neighbor, tentativeScore);
+                        fScores.set(neighbor, tentativeScore + lowestPossibleCostToDestination);
+                        if (!openNodes.has(neighbor)) {
+                            openNodes.add(neighbor);
+                        }
+                    }
+                });
+            }
+
+            return returnLandingPathOrNull(originTerritory, destinationTerritory);
+        }
+
         function filterReacheableTerritories(originTerritory, moves, canFly) {
             var territoriesToExplore = [originTerritory.territory_id];
             let reacheableTerritories = new Map();
-            var remainingMoves = moves;
+
+            reacheableTerritories.set(originTerritory.territory_id, originTerritory.territory_id);
 
             while (moves > 0 && territoriesToExplore.length > 0) {
                 moves--;
@@ -791,22 +990,21 @@
                 while (territoriesToExplore.length > 0) {
                     let territory = territoriesById.get(territoriesToExplore.pop());
 
-                    if (canFly && territory.terrain_type == TerrainType.Water) {
-                        territory.connected_territory_ids.forEach(tid => {
-                            if (!reacheableTerritories.has(tid)) {
-                                reacheableTerritories.set(tid, tid);
-                                territoriesToExploreNext.push(tid);
-                            }
-                        });
+                    let flyingThroughWaterOrSafePassage = (canFly && territory.terrain_type == TerrainType.Water)
+                        || territoryAllowsSafePassage(territory);
+                    
+                    if (!flyingThroughWaterOrSafePassage) {
+                        continue;
                     }
-                    else if (territoryAllowsSafePassage(territory)) {
-                        territory.connected_land_territory_ids.forEach(tid => {
-                            if (!reacheableTerritories.has(tid)) {
-                                reacheableTerritories.set(tid, tid);
-                                territoriesToExploreNext.push(tid);
-                            }
-                        });
-                    }
+
+                    let connectedTerritoriesIds = (canFly ? territory.connected_territory_ids : territory.connected_land_territory_ids);
+
+                    connectedTerritoriesIds.forEach(tid => {
+                        if (!reacheableTerritories.has(tid)) {
+                            reacheableTerritories.set(tid, tid);
+                            territoriesToExploreNext.push(tid);
+                        }
+                    });
                 }
 
                 territoriesToExplore = territoriesToExploreNext;
@@ -822,7 +1020,7 @@
 
         function canAffordAttackWithSelectedDivisions() {
             let costs = calculateResourceAttackConsomption(getAllSelectedDivisionsInTerritory());
-            let costsOfSelectedDivisions = calculateResourceAttackConsomption(getAllSelectedDivisionsInTerritory().filter(d => d.order && d.order.order_type == OrderType.Attack));
+            let costsOfSelectedDivisions = calculateResourceAttackConsomption(getAllSelectedDivisionsInTerritory().filter(d => d.order && d.order.is_operating));
             let netCosts = new Map();
 
             costs
@@ -868,10 +1066,24 @@
                 let attackLink = canAffordAttackWithSelectedDivisions()
                     ? `${renderActionLink('attack', 'selectAttackTargetForDivisions()')} ${renderedCosts.length > 0 ? `(${renderedCosts})` : ''}`
                     : `(too costly to attack: ${renderedCosts})`;
+                
+                let selectedDivisions = getAllSelectedDivisionsInTerritory();
+
+                function getRemainingUnselectedDivisions() {
+                    return [... new Set(
+                        getDivisionsDefendingTerritory(selectedTerritory)
+                        .filter(d => {
+                            let info = divisionTypeInfoByType.get(d.division_type);
+                            return !info.can_take_territory || !selectedDivisions.some(selectedDivision => d.division_id == selectedDivision.division_id);
+                        })
+                        .map(d => d.division_id)
+                    )]
+                    .map(did => divisionsById.get(did));
+                }
 
                 $("#send-order-link").html([MapMode.SelectMoveDestinationTerritory, MapMode.SelectAttackTargetTerritory].includes(currentMapMode)
                     ? `Select the destination territory to move to attack with the ${numberOfSelectedDivisions} selected divisions or <a href="javascript:void(0)" onclick="cancelSelectDestinationForDivisions()">cancel</a>`
-                    : `With ${numberOfSelectedDivisions} selected divisions (max range is ${getSelectedDivisionsMoves()}): <a href="javascript:void(0)" onclick="selectMoveDestinationForDivisions()">move</a> - ${attackLink} - <a href="javascript:void(0)" onclick="sendDisbandOrdersToSelectedDivisions()">disband</a>`
+                    : `With ${numberOfSelectedDivisions} selected divisions (selected attack power: ${calculateTotalAttackPower(getAllSelectedDivisionsInTerritory())}, remaining defense power: ${calculateTotalDefensePower(getRemainingUnselectedDivisions())}, max range: ${getSelectedDivisionsMoves()}): <a href="javascript:void(0)" onclick="selectMoveDestinationForDivisions()">move</a> - ${attackLink} - <a href="javascript:void(0)" onclick="sendDisbandOrdersToSelectedDivisions()">disband</a>`
                 );
             }
             else {
@@ -882,21 +1094,24 @@
                 $("#select-divisions-by-type-links").html("");
             }
             else {
-                $("#select-divisions-by-type-links").html(getDivisionsInSelectedTerritory().length > 0 ? "Select/unselect " + [renderActionLink('all', `selectAllDivisionsInTerritory(true)`), renderActionLink('none', `selectAllDivisionsInTerritory(false)`), renderActionLink('invert', `selectAllDivisionsInTerritory()`)].join(" ") + " " + (new Set([...getDivisionsInSelectedTerritory().map(d => d.division_type)])).values().map(divisionType => renderActionLink(divisionType, `selectAllDivisionsInTerritoryWithType('${divisionType}')`)).toArray().join(" ") : "");
+                $("#select-divisions-by-type-links").html(getDivisionsInSelectedTerritory().length > 0 ? "Select/unselect " + [renderActionLink('all', `selectAllDivisionsInTerritory(true)`), renderActionLink('none', `selectAllDivisionsInTerritory(false)`), renderActionLink('invert', `selectAllDivisionsInTerritory()`), renderActionLink('idle', `selectAllIdleDivisionsInTerritory()`), renderActionLink('busy', `selectAllBusyDivisionsInTerritory()`)].join(" ") + " " + (new Set([...getDivisionsInSelectedTerritory().map(d => d.division_type)])).values().map(divisionType => renderActionLink(divisionType, `selectAllDivisionsInTerritoryWithType('${divisionType}')`)).toArray().join(" ") : "");
             }
         }
 
-        function describeOrder(order) {
-            if (order.order_type == OrderType.Move || order.order_type == OrderType.Attack) {
-                let destination = territoriesById.get(order.destination_territory_id);
-                let destinationLink = renderActionLink(`${destination.name} (${destination.owner_nation_id ? nationsById.get(destination.owner_nation_id).usual_name : "neutral"})`, `selectTerritory(${destination.territory_id})`);
+        function renderDestinationLink(territoryId) {
+            let destination = territoriesById.get(territoryId);
+            return renderActionLink(`${destination.name} (${destination.owner_nation_id ? nationsById.get(destination.owner_nation_id).usual_name : "neutral"})`, `selectTerritory(${destination.territory_id})`);
+        }
 
-                if (order.order_type == OrderType.Move) {
-                    return `moving to ${destinationLink}`;
-                }
-                else {
-                    return `attacking ${destinationLink}`;
-                }
+        function describeOrder(division, order) {
+            if (order.order_type == OrderType.Move) {
+                return `moving to ${renderDestinationLink(order.destination_territory_id)}`;
+            }
+            else if (order.order_type == OrderType.Attack) {
+                return `attacking ${renderDestinationLink(order.target_territory_id)} through ${renderDestinationLink(order.rebase_territory_id)}`;
+            }
+            else if (order.order_type == OrderType.Raid) {
+                return `raiding ${renderDestinationLink(order.target_territory_id)}`;
             }
             else if (order.order_type == OrderType.Disband) {
                 return "disbanding";
@@ -942,7 +1157,10 @@
             }
             setMapMode(MapMode.Default);
             let selectedDivisions = getAllSelectedDivisionsInTerritory();
-            services.sendMoveOrders({orders: selectedDivisions.map(d => ({ division_id: d.division_id, destination_territory_id: tid }))})
+            services.sendMoveOrders({orders: selectedDivisions.map(d => {
+                    let info = divisionTypeInfoByType.get(d.division_type);
+                    return ({ division_id: d.division_id, destination_territory_id: tid, path_territory_ids: findPathBetween(territoriesById.get(d.territory_id), territoriesById.get(tid), info.moves, info.can_fly) })
+                })})
                 .then(response => patchOrders(response.data))
                 .then(refreshBudget)
                 .then(() => mapDisplay.refresh())
@@ -972,6 +1190,16 @@
             });
         }
 
+        function getAllUnSelectedDivisionsInTerritory() {
+            let thereAreDivisionsInTerritory = document.getElementById('territory-division-list');
+            if (!thereAreDivisionsInTerritory) {
+                return [];
+            }
+            return [...document.getElementById('territory-division-list').getElementsByTagName("input")]
+                .filter(cb => !cb.checked)
+                .map(cb => divisionsById.get(parseInt(cb.value)));
+        }
+
         function getAllSelectedDivisionsInTerritory() {
             let thereAreDivisionsInTerritory = document.getElementById('territory-division-list');
             if (!thereAreDivisionsInTerritory) {
@@ -980,6 +1208,26 @@
             return [...document.getElementById('territory-division-list').getElementsByTagName("input")]
                 .filter(cb => cb.checked)
                 .map(cb => divisionsById.get(parseInt(cb.value)));
+        }
+
+        function selectAllIdleDivisionsInTerritory(check) {
+            [...document.getElementById('territory-division-list').getElementsByTagName("input")].forEach(cb =>{
+                let division = divisionsById.get(parseInt(cb.value));
+                if (division.order === null) {
+                    cb.checked = check === undefined ? !cb.checked : check
+                }
+            });
+            onDivisionSelectionChange();
+        }
+
+        function selectAllBusyDivisionsInTerritory(check) {
+            [...document.getElementById('territory-division-list').getElementsByTagName("input")].forEach(cb =>{
+                let division = divisionsById.get(parseInt(cb.value));
+                if (division.order !== null) {
+                    cb.checked = check === undefined ? !cb.checked : check
+                }
+            });
+            onDivisionSelectionChange();
         }
 
         function selectAllDivisionsInTerritory(check) {
@@ -1069,6 +1317,7 @@
                 .then(updateTerritoryDeployments)
                 .then(refreshBudget)
                 .then(updateDeploymentsPane)
+                .then(updateDivisionsPane)
                 .then(() => mapDisplay.refresh())
                 .catch(error => {
                     $("#error_messages").html(`<li style="color: crimson">${JSON.stringify(error.responseJSON)}}</li>`);
@@ -1087,6 +1336,7 @@
                 })
                 .then(refreshBudget)
                 .then(updateDeploymentsPane)
+                .then(updateDivisionsPane)
                 .then(() => mapDisplay.refresh())
                 .catch(error => {
                     $("#error_messages").html(`<li style="color: crimson">${JSON.stringify(error.responseJSON)}}</li>`);
@@ -1178,6 +1428,7 @@
                                     SomeIdle: "▣", // "☐",
                                     AllSet: "◼", // "☑",
                                     MovingTo: "►", // "➨", // "⇒", // "►",
+                                    MovingThrough: "⇨",
                                     Attacking: "⚔️", //"⚔",
                                 };
 
@@ -1190,12 +1441,19 @@
                                 getDestinationTerritoriesIds()
                                     .map(tid => territoriesById.get(tid))
                                     .forEach(t => {
-                                        if (t.owner_nation_id == ownNation.nation_id) {
-                                            addLabel(t.territory_id, ArmiesIcon.MovingTo);
-                                        }
-                                        else {
-                                            addLabel(t.territory_id, ArmiesIcon.Attacking);
-                                        }
+                                        addLabel(t.territory_id, ArmiesIcon.MovingTo);
+                                    });
+
+                                getTargetTerritoriesIds()
+                                    .map(tid => territoriesById.get(tid))
+                                    .forEach(t => {
+                                        addLabel(t.territory_id, ArmiesIcon.Attacking);
+                                    });
+
+                                getRebaseTerritoriesIds()
+                                    .map(tid => territoriesById.get(tid))
+                                    .forEach(t => {
+                                        addLabel(t.territory_id, ArmiesIcon.MovingThrough);
                                     });
 
                                 territoriesById.values().forEach(t => {
@@ -1312,14 +1570,12 @@
             stopCheckingForNextTurn();
 
             devServices.forceNextTurn({ turn_number: ownNation.turn_number })
-                .then((data) => {
-                    if (ownNation.turn_number == data.turn_number) {
-                        throw new Error(`Force next turn failed: turn number is still ${ownNation.turn_number}`);
-                        return;
-                    }
-
-                    window.location.reload();
-                });
+                .then(
+                    data => {
+                        window.location.reload();
+                    },
+                    reloadWhenPageIsExpired
+                );
         }
 
         function readyForNextTurn() {
@@ -1328,22 +1584,36 @@
             updateReadyStatus();
 
             services.readyForNextTurn({ turn_number: ownNation.turn_number })
-                .then(data => {
-                    readyStatus = data;
-                    if (nextTurnHasArrived()) {
-                        window.location.reload();
-                    }
-                    else {
-                        updateReadyStatus();
-                        startCheckingForNextTurn();
-                    }
-                });
+                .then(
+                    data => {
+                        readyStatus = data;
+                        if (nextTurnHasArrived()) {
+                            window.location.reload();
+                        }
+                        else {
+                            updateReadyStatus();
+                            startCheckingForNextTurn(NextTurnCheckDelayWhenTurnOverMiliseconds);
+                        }
+                    },
+                    reloadWhenPageIsExpired
+                );
         }
 
-        function startCheckingForNextTurn() {
+        function reloadWhenPageIsExpired(jqXHR) {
+            let HttpStatusPageExpired = 419;
+            if (jqXHR.status == HttpStatusPageExpired) {
+                window.location.reload();
+            }
+        }
+
+        function startCheckingForNextTurn(delayMiliseconds) {
+            stopCheckingForNextTurn();
             refreshReadyStatusInterval = setInterval(() => {
                 services.getGameReadyStatus()
-                    .then(data => readyStatus = data)
+                    .then(
+                        data => readyStatus = data,
+                        reloadWhenPageIsExpired
+                    )
                     .then(() => {
                         if (nextTurnHasArrived()) {
                             window.location.reload();
@@ -1352,7 +1622,7 @@
                             updateReadyStatus();
                         }
                     });
-            }, 1000);
+            }, delayMiliseconds);
         }
 
         function stopCheckingForNextTurn() {
@@ -1397,10 +1667,11 @@
             if (!readyStatus.turn_expiration) {
                 $("#time-remaining").html("");
             }
+            startCheckingForNextTurn(GameReadyStatusRefreshDelayMiliseconds);
             updatingTimeRemainingInterval = setInterval(() => {
                 if (turnHasExpired()) {
                     stopUpdatingTimeRemaining();
-                    startCheckingForNextTurn();
+                    startCheckingForNextTurn(NextTurnCheckDelayWhenTurnOverMiliseconds);
                 }
                 updateTimeRemaining();
             }, 30000);
@@ -1478,7 +1749,7 @@
             selectMainTab(null);
             updateReadyStatus();
             if (ownNation.is_ready_for_next_turn) {
-                startCheckingForNextTurn();
+                startCheckingForNextTurn(NextTurnCheckDelayWhenTurnOverMiliseconds);
             }
             if (runningInDevelopment && readyForNextTurnButtonEnabled) {
                 document.getElementById("force-next-turn-button").disabled = true;

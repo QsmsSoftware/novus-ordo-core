@@ -99,7 +99,17 @@ class Game extends Model
             );
     }
 
-    public function getTerritoryWithId(int $territoryId): Territory {
+    public function getTerritoryWithId(int $territoryId, bool $cache = false): Territory {
+        if ($cache) {
+            static $cachedTerritoriesByGameIdTerritoryId = [];
+
+            if (!isset($cachedTerritoriesByGameIdTerritoryId[$this->game_id][$territoryId])) {
+                $cachedTerritoriesByGameIdTerritoryId[$this->game_id][$territoryId] = $this->territories()->find($territoryId);
+            }
+
+            return $cachedTerritoriesByGameIdTerritoryId[$this->game_id][$territoryId];
+        }
+
         return $this->territories()->find($territoryId);
     }
 
@@ -237,16 +247,16 @@ class Game extends Model
 
                 // Attacks.
                 $divisionsByOwnerAndDestinationTerritory = $this->activeDivisionsInTurn($currentTurn)->get()
-                    ->filter(fn (Division $d) => $d->getDetail($currentTurn)->isAttacking())
+                    ->filter(fn (Division $d) => $d->getDetail($currentTurn)->isEngaging())
                     ->groupBy([
-                        fn (Division $d) => $d->getNation()->getId() . '-' . $d->getDetail($currentTurn)->getOrder()->getDestinationTerritory()->getId()
+                        fn (Division $d) => $d->getNation()->getId() . '-' . $d->getDetail($currentTurn)->getOrder()->getTargetTerritory()->getId()
                     ])
                     ->shuffle();
                 foreach ($divisionsByOwnerAndDestinationTerritory as $attackingDivisions) {
                     $destinationTerritoryId = Division::notNull($attackingDivisions->first())
                         ->getDetail($currentTurn)
                         ->getOrder()
-                        ->getDestinationTerritory()
+                        ->getTargetTerritory()
                         ->getId();
                     $destinationTerritory = $this->getTerritoryWithId($destinationTerritoryId);
                     Battle::resolveBattle($destinationTerritory, $currentTurn, $nextTurn, $attackingDivisions);

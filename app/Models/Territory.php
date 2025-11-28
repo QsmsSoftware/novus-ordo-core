@@ -228,11 +228,17 @@ class Territory extends Model
     }
 
     public static function getTerritoryConnections(Game $game): Collection {
-        return DB::table('territory_connections')
-        ->where('game_id', $game->getId())
-        ->get()
-        ->map(fn ($c) => new TerritoryConnection($c->territory_id, $c->connected_territory_id, $c->is_connected_by_land))
-        ->groupBy(fn (TerritoryConnection $c) => $c->territoryId);
+        static $connectionsByGameId = [];
+
+        if (!isset($connectionsByGameId[$game->getId()])) {
+            $connectionsByGameId[$game->getId()] = DB::table('territory_connections')
+                ->where('game_id', $game->getId())
+                ->get()
+                ->map(fn ($c) => new TerritoryConnection($c->territory_id, $c->connected_territory_id, $c->is_connected_by_land))
+                ->groupBy(fn (TerritoryConnection $c) => $c->territoryId);
+        }
+
+        return $connectionsByGameId[$game->getId()];
     }
 
     public static function exportAllBasePublicInfo(Game $game): array {

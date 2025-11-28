@@ -53,7 +53,7 @@ class DivisionController extends Controller
                 return $detail->isHostileTerritory($game->getTerritoryWithId($mo->destination_territory_id));
             })
             ->map(fn (SentMoveOrder $mo) => $detail->getActiveDivisionWithId($mo->division_id))
-            ->filter(fn (Division $d) => !$d->getDetail()->isAttacking())
+            ->filter(fn (Division $d) => !$d->getDetail()->isOperating())
             ->map(fn (Division $d) => $d->getDivisionType());
 
         if (!$nation->getDetail()->canAffordCosts(DivisionType::calculateTotalAttackCostsByResourceType(...$startAttackingTypes))) {
@@ -66,7 +66,7 @@ class DivisionController extends Controller
             assert($order instanceof SentMoveOrder);
             $division = $detail->getActiveDivisionWithId($order->division_id);
             $destination = $game->getTerritoryWithId($order->destination_territory_id);
-            if (!$division->getDetail()->canReach($destination)) {
+            if (!$division->getDetail()->canMoveTo($destination, ...collect($order->path_territory_ids)->map(fn (int $territoryId) => $game->getTerritoryWithId($territoryId, true)))) {
                 abort(HttpStatusCode::UnprocessableContent, "Division ID {$order->division_id} can't reach Territory ID {$order->destination_territory_id}.");
             }
         }
@@ -75,7 +75,7 @@ class DivisionController extends Controller
             assert($order instanceof SentMoveOrder);
             $division = $detail->getActiveDivisionWithId($order->division_id);
             $destination = $game->getTerritoryWithId($order->destination_territory_id);
-            $sentOrders[] = $division->sendMoveAttackOrder($destination);
+            $sentOrders[] = $division->sendMoveAttackOrder($destination, ...collect($order->path_territory_ids)->map(fn (int $territoryId) => $game->getTerritoryWithId($territoryId, true)));
         };
         
         return response()->json(['data' => array_map(fn (Order $o) => $o->exportForOwner(), $sentOrders)], HttpStatusCode::Created);
