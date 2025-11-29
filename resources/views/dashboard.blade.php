@@ -108,6 +108,8 @@
 
         let ownNation = @json($own_nation);
         var readyStatus = @json($ready_status);
+        var selectedBattleLogTurnNumber = readyStatus.turn_number;
+        let battleLogsByTurnNumber = new Map([[readyStatus.turn_number, allBattleLogs]]);
         var forcingNextTurn = false;
         var refreshReadyStatusInterval = null;
         var updatingTimeRemainingInterval = null;
@@ -197,7 +199,7 @@
         }
 
         function getTerritoryIdsWithBattles() {
-            return [...new Set(allBattleLogs.map(l => l.territory_id))];
+            return [...new Set(battleLogsByTurnNumber.get(selectedBattleLogTurnNumber).map(l => l.territory_id))];
         }
 
         function battlesHighlightMapLayer(ctx, md) {
@@ -362,6 +364,10 @@
             return parseIntOrNull(sessionStorage.getItem(StorageKey.SelectedTerritoryId));
         }
 
+        function updateBattleLogsDetailsPane() {
+            updateBattleLogsPane(battleLogsByTurnNumber.get(selectedBattleLogTurnNumber).filter(b => b.territory_id == selectedTerritory.territory_id), $('#battle-logs-details'));
+        }
+
         function selectTerritory(tid) {
             let territory = territoriesById.get(tid);
             selectedTerritory = territory;
@@ -370,7 +376,7 @@
             updateOwnerPane();
             updateDivisionsPane();
             updateTerritoryDeployments();
-            updateBattleLogsPane(allBattleLogs.filter(b => b.territory_id == selectedTerritory.territory_id), $('#battle-logs-details'));
+            updateBattleLogsDetailsPane();
             selectDetailsPane(selectedDetailsTab ? selectedDetailsTab : 'Info');
         }
 
@@ -620,13 +626,36 @@
             );
         }
 
+        async function selectBattleLogTurn(turnNumber) {
+            if (!battleLogsByTurnNumber.has(turnNumber)) {
+                battleLogsByTurnNumber.set(turnNumber, await services.getNationBattleLogs({turn_number: turnNumber}));
+            }
+
+            selectedBattleLogTurnNumber = turnNumber;
+            updateBattleLogsDetailsPane();
+            updateBattleLogsMainPane();
+            mapDisplay.refresh();
+        }
+
         function updateBattleLogsPane(battleLogs, component) {
+            let changeTurnLinks = [];
+            
+            if (selectedBattleLogTurnNumber > 1) {
+                changeTurnLinks.push(renderActionLink('previous turn', `selectBattleLogTurn(${selectedBattleLogTurnNumber - 1})`));
+            }
+            
+            if (selectedBattleLogTurnNumber < readyStatus.turn_number) {
+                changeTurnLinks.push(renderActionLink('next turn', `selectBattleLogTurn(${selectedBattleLogTurnNumber + 1})`));
+            }
+            
+
             if (battleLogs.length == 0) {
-                component.html("<p>We didn't participate in any battle this turn.</p>");
+                component.html(`<p>We didn't participate in any battle in turn ${selectedBattleLogTurnNumber}. ${changeTurnLinks.join(" ")}</p>`);
             }
             else {
                 component.html(
-                    battleLogs.map(battleLog => {
+                    `<p>We participated in ${battleLogs.length} battles in turn ${selectedBattleLogTurnNumber}. ${changeTurnLinks.join(" ")}</p>`
+                    + battleLogs.map(battleLog => {
                         let targetTerritory = territoriesById.get(battleLog.territory_id);
                         let targetTerritoryLink = renderActionLink(targetTerritory.name, `selectTerritory(${targetTerritory.territory_id})`);
                         var summary;
@@ -1725,6 +1754,10 @@
             document.title = windowTitle;
         }
 
+        function updateBattleLogsMainPane() {
+            updateBattleLogsPane(battleLogsByTurnNumber.get(selectedBattleLogTurnNumber), $('#battle-logs-display'));
+        }
+
         window.addEventListener("load", function() {
             let selectedTerritoryIdFromStorage = getSelectedTerritoryIdFromStorage();
             let selectedMainTabFromStorage = getSelectedMainTabFromStorage();
@@ -1744,7 +1777,7 @@
             $('#own-nation-demographics').html(renderDemography(ownNation.stats));
             updateVictoryPane();
             updateBudgetPane();
-            updateBattleLogsPane(allBattleLogs, $('#battle-logs-display'));
+            updateBattleLogsMainPane();
             updateDeploymentsPane();
             $("#details").hide();
             selectMainTab(null);

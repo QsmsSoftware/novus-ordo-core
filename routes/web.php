@@ -73,7 +73,7 @@ Route::middleware('auth')->group(function () {
         ->name('ajax.get-nation-info');
     Route::get('/nation/budget', [NationController::class, 'budgetInfo'])
         ->name('ajax.get-nation-budget');
-    Route::get('/nation/battle-logs/', [NationController::class, 'lastTurnBattleLogs'])
+    Route::get('/nation/battle-logs', [NationController::class, 'nationBattleLogs'])
         ->name('ajax.get-nation-battle-logs');
     Route::middleware(EnsureGameIsNotUpkeeping::class)->group(function () {
         Route::post('/nation', [NationController::class, 'createNation'])

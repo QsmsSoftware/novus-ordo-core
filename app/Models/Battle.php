@@ -391,7 +391,7 @@ class Battle extends Model
     public function exportForParticipant(): ParticipantBattleLog {
         return new ParticipantBattleLog(
             battle_id: $this->getId(),
-            turn_number: $this->getTurn()->getId(),
+            turn_number: $this->getTurn()->getNumber(),
             territory_id: $this->getTerritory()->getId(),
             attacker_nation_id: $this->getAttacker()->getId(),
             defender_nation_id: $this->getDefenderOrNull()?->getId(),
