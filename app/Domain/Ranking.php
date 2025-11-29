@@ -42,12 +42,19 @@ readonly class Ranking {
         return $rankings;
     }
 
+    private static function guessScaleAndApproximate(float $value): int {
+        $scale = pow(10, max(1, floor(log($value, 10))));
+
+        return round($value / $scale) * $scale;
+    }
+
     public static function getRankings(): array {
         return [
             new Ranking('Land area', fn (NationDetail $d) => Metacache::remember($d->getUsableLandKm2(...)), SORT_DESC, StatUnit::Km2),
             new Ranking('Number of territories', fn (NationDetail $d) => $d->territories()->count(), SORT_DESC, StatUnit::WholeNumber),
             new Ranking('Population', fn (NationDetail $d) => $d->getPopulationSize(), SORT_DESC, StatUnit::WholeNumber),
             new Ranking('Army size (number of divisions)', fn (NationDetail $d) => $d->activeDivisions()->count(), SORT_DESC, StatUnit::ApproximateNumber, valuePostProcessing: fn (int $count) => Division::approximateNumberOfDivisions($count)),
+            new Ranking('Wealth (capital reserves)', fn (NationDetail $d) => $d->getStockpiledQuantity(ResourceType::Capital), SORT_DESC, StatUnit::ApproximateNumber, valuePostProcessing: fn (float $reserves) => Ranking::guessScaleAndApproximate($reserves)),
         ];
     }
 }

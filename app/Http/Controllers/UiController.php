@@ -207,7 +207,7 @@ class UiController extends Controller
     private function generateNotEnoughTerritoriesResponse(GameHasNotEnoughFreeTerritories $error) :Response {
         return new Response("Unable to create nation: There are not enough free territories remaining. {$error->required} required, {$error->remaining} remaining.");
     }
-    public function createNation(LoggedInGameContext $context) : View|Response {
+    public function createNation(JavascriptStaticServicesGenerator $staticServices, LoggedInGameContext $context) : View|Response {
         if (Nation::getForUserOrNull($context->getGame(), $context->getUser()) !== null) {
             return response("User already has a nation (you should not have landed on this page).");
         }
@@ -217,15 +217,9 @@ class UiController extends Controller
             return $this->generateNotEnoughTerritoriesResponse($enoughTerritoryValidation);
         }
 
-        $territoriesByRowThenColumn = [];
-
-        $context->getGame()->territories()->get()->each(function (Territory $t) use (&$territoriesByRowThenColumn) {
-            $territoriesByRowThenColumn[$t->getY()][$t->getX()] = $t;
-        });
-
         return view('new_nation', [
+            'static_js_services' => $staticServices->getStaticJsServices(),
             'static_js_territories_base_info' => Territory::getAllTerritoriesBaseInfoClientResource($context->getGame()),
-            'territories_by_row_column' => $territoriesByRowThenColumn,
             'number_of_home_territories' => Game::NUMBER_OF_STARTING_TERRITORIES,
             'suitable_as_home_ids' => $context->getGame()->freeSuitableTerritoriesInTurn()->pluck('id'),
             'already_taken_ids' => $context->getGame()->alreadyTakenTerritoriesInTurn()->pluck('id'),

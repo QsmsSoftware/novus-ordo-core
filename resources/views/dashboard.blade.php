@@ -816,11 +816,11 @@
             
             if (divisionsInTerritory.length < 1) {
                 if (selectedTerritory.owner_nation_id == ownNation.nation_id) {
-                    html += `<p>There is no divisions in this territory.${remainingDefensePower > 0 ? ` Total remaining defense power: ${remainingDefensePower} ${deployedDefensePower > 0 ? `(of which ${deployedDefensePower} is from deployments)` : ""}` : ""}</p>`;
+                    html += `<p>There is no divisions in this territory.${remainingDefensePower > 0 ? ` Total projected defense power: ${remainingDefensePower} ${deployedDefensePower > 0 ? `(of which ${deployedDefensePower} is from deployments)` : ""}` : ""}</p>`;
                 }
             }
             else {
-                html += `<p>Divisions in territory (remaining defense power: ${remainingDefensePower}${deployedDefensePower > 0 ? `, of which ${deployedDefensePower} is from deployments` : ""}):<br><span id="select-divisions-by-type-links"></span></p>`;
+                html += `<p>Divisions in territory (projected defense power: ${remainingDefensePower}${deployedDefensePower > 0 ? `, of which ${deployedDefensePower} is from deployments` : ""}):<br><span id="select-divisions-by-type-links"></span></p>`;
                 html += `<span id="send-order-link">&nbsp;</span>`
                 html += '<div id="territory-division-list"><ul>'
                     + divisionsInTerritory.map(d => {

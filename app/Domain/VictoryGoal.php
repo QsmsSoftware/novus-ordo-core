@@ -71,12 +71,6 @@ readonly class VictoryGoal {
         return $progressions;
     }
 
-    private static function guessScaleAndApproximate(int $value): int {
-        $scale = pow(10, max(1, floor(log($value, 10))));
-
-        return round($value / $scale) * $scale;
-    }
-
     public static function getGoals(Game $game, Turn $turn): array {
         return [
             new VictoryGoal(
