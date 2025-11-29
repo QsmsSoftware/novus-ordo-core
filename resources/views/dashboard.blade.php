@@ -627,22 +627,23 @@
             else {
                 component.html(
                     battleLogs.map(battleLog => {
-                        let destinationTerritory = territoriesById.get(battleLog.territory_id);
+                        let targetTerritory = territoriesById.get(battleLog.territory_id);
+                        let targetTerritoryLink = renderActionLink(targetTerritory.name, `selectTerritory(${targetTerritory.territory_id})`);
                         var summary;
                         if (ownNation.nation_id == battleLog.attacker_nation_id) {
                             if (ownNation.nation_id == battleLog.winner_nation_id) {
-                                summary = `<span style="color: green">We conquered ${destinationTerritory.name}!</span>`;
+                                summary = `<span style="color: green">We conquered ${targetTerritoryLink}!</span>`;
                             }
                             else {
-                                summary = `<span style="color: red">The attack on ${destinationTerritory.name} was repelled!</span>`;
+                                summary = `<span style="color: red">The attack on ${targetTerritoryLink} was repelled!</span>`;
                             }
                         }
                         else {
                             if (ownNation.nation_id == battleLog.winner_nation_id) {
-                                summary = `<span style="color: orange">We repelled an attack from ${nationsById.get(battleLog.attacker_nation_id).usual_name} on ${destinationTerritory.name}!</span>`;
+                                summary = `<span style="color: orange">We repelled an attack from ${nationsById.get(battleLog.attacker_nation_id).usual_name} on ${targetTerritoryLink}!</span>`;
                             }
                             else {
-                                summary = `<span style="color: red">We were defeated on ${destinationTerritory.name} and ${nationsById.get(battleLog.attacker_nation_id).usual_name} annexed the territory!</span>`;
+                                summary = `<span style="color: red">We were defeated on ${targetTerritoryLink} and ${nationsById.get(battleLog.attacker_nation_id).usual_name} annexed the territory!</span>`;
                             }
                         }
 
