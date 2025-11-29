@@ -647,6 +647,10 @@
             if (selectedBattleLogTurnNumber < readyStatus.turn_number) {
                 changeTurnLinks.push(renderActionLink('next turn', `selectBattleLogTurn(${selectedBattleLogTurnNumber + 1})`));
             }
+
+            if (selectedBattleLogTurnNumber != readyStatus.turn_number) {
+                changeTurnLinks.push(renderActionLink('current turn', `selectBattleLogTurn(${readyStatus.turn_number})`));
+            }
             
 
             if (battleLogs.length == 0) {
