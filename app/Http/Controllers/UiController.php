@@ -42,8 +42,8 @@ use Illuminate\View\View;
 class CreateNationUiRequest extends FormRequest {
     use MapsValidatedDataToFormRequest;
 
-    public string $name;
-    public ?string $formal_name;
+    public string $nation_name;
+    public ?string $nation_formal_name;
     public readonly array $territory_ids;
 
     public function __construct(
@@ -54,7 +54,7 @@ class CreateNationUiRequest extends FormRequest {
     }
 
     public function getFlagFileOrNull(): ?UploadedFile {
-        $fileOrFiles = $this->file('flag');
+        $fileOrFiles = $this->file('nation_flag');
 
         return match(true) {
             is_array($fileOrFiles) => reset($fileOrFiles),
@@ -73,14 +73,14 @@ class CreateNationUiRequest extends FormRequest {
     public function rules(): array
     {
         return [
-            'name' => [
+            'nation_name' => [
                 'required',
                 'string',
                 'min:2',
                 'max:100',
                 NewNation::createRuleNoNationWithSameNameInGameUnlessItsOwner($this->context->getGame(), $this->context->getUser())
             ],
-            'formal_name' => [
+            'nation_formal_name' => [
                 'nullable',
                 'string',
                 'min:2',
@@ -159,14 +159,14 @@ class UiController extends Controller
 
         $newNationOrNull = NewNation::getForUserOrNull($game, $user);
         if (is_null($newNationOrNull)) {
-            $newNation = NewNation::notNull(NewNation::tryCreate($game, $user, $request->name));
+            $newNation = NewNation::notNull(NewNation::tryCreate($game, $user, $request->nation_name));
         }
         else {
             $newNation = $newNationOrNull;
-            $newNation->rename($request->name);
+            $newNation->rename($request->nation_name);
         }
 
-        $formalNameOrNull = empty($request->formal_name) ? null : $request->formal_name;
+        $formalNameOrNull = empty($request->nation_formal_name) ? null : $request->nation_formal_name;
 
         $flagFileOrNull = $request->getFlagFileOrNull();
         $flagSrcOrNull = null;

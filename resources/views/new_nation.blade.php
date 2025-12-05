@@ -56,7 +56,7 @@
 
         function validate() {
             let selectionCompleted = selectedTerritoriesIds.length == numberOfHomeTerritories;
-            let valid = selectionCompleted && document.getElementById("name").value.length >= 2
+            let valid = selectionCompleted && document.getElementById("nation-name").value.length >= 2
 
             document.getElementById("submit").disabled = !valid;
         }
@@ -89,7 +89,7 @@
 
         $(document).ready(function(){
             document.getElementById("submit").disabled = true;
-            document.getElementById("name").addEventListener('input', validate);
+            document.getElementById("nation-name").addEventListener('input', validate);
         });
 
         window.addEventListener("load", function() {
@@ -124,15 +124,15 @@
                 <table>
                     <tr>
                         <td>Nation's name:</td>
-                        <td><input type="text" id="name" name="name" class="form-control" value="{{ old('name') }}"></td>
+                        <td><input type="text" id="nation-name" name="nation_name" class="form-control" value="{{ old('name') }}"></td>
                     </tr>
                     <tr>
                         <td>Nation's formal name (a default one will be generated if left blank):</td>
-                        <td><input type="text" id="formal-name" name="formal_name" class="form-control" value="{{ old('formal_name') }}"></td>
+                        <td><input type="text" id="nation-formal-name" name="nation_formal_name" class="form-control" value="{{ old('formal_name') }}"></td>
                     </tr>
                     <tr>
                         <td>Nation's flag (a random flag will be assigned if not provided):</td>
-                        <td><input name="flag" type="file" class="form-control"></td>
+                        <td><input name="nation_flag" type="file" class="form-control"></td>
                     </tr>
                 </table>
                 <input type="hidden" name="territory_ids_as_json" id="territory_ids_as_json">

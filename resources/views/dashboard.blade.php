@@ -1086,6 +1086,7 @@
         function updateDeploymentsPane() {
             var html = "";
 
+            html += `<p>Maximum recruitment pool extension: ${budget.max_recruitement_pool_expansion}</p>`
             html += '<p>You can still deploy (select the type of division you want to deploy):<br><table>'
             html += '<tr><th>Quantity</th><th>Type</th><th>Attack Power</th><th>Defense Power</th><th>Moves</th><th>Production Cost</th><th>Attack Cost</th><th>Remarks</th></tr>'
             html += divisionTypeInfoByType.values().map(divisionTypeInfo => {
