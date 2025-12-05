@@ -76,6 +76,14 @@ class Nation extends Model
             ->update(['is_ready_for_next_turn' => false]);
     }
 
+    public function cancelDeployments(Deployment ...$deployments): void {
+        foreach ($deployments as $d) {
+            $d->cancel();
+        }
+
+        $this->getDetail()->onDeployment();
+    }
+
     public function deploy(DeploymentCommand ...$deploymentCommands): array {
         $detail = $this->getDetail();
 
@@ -87,11 +95,21 @@ class Nation extends Model
             throw new LogicException("Not enough resources for deployment.");
         }
 
+        $availableRecruitmentPool = $detail->getMaximumRecruitmentPoolExpansion();
+
+        $numberOfDeployments = count($deploymentCommands);
+
+        if ($availableRecruitmentPool < $numberOfDeployments) {
+            throw new LogicException("Can only expand recruitement pool for {$availableRecruitmentPool} new divisions, {$numberOfDeployments} requested.");
+        }
+
         foreach ($deploymentCommands as $d) {
             $territory = $detail->getTerritoryById($d->territoryId);
 
             $deployments[] = Deployment::Create($this, $d->divisionType, $territory);
         }
+
+        $detail->onDeployment();
 
         return $deployments;
     }
@@ -114,6 +132,10 @@ class Nation extends Model
         $newDetail->onNextTurn($currentDetail);
 
         $currentDetail->deployments()->get()->each(fn (Deployment $d) => $d->execute());
+    }
+
+    public function onTurnUpkeepEnding(Turn $currentTurn, Turn $nextTurn): void {
+        $this->getDetail($nextTurn)->onTurnUpkeepEnding();
     }
 
     public function equals(?Nation $otherNationOrNull): bool {

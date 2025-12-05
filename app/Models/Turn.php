@@ -35,6 +35,10 @@ class Turn extends Model
         return $this->game;
     }
 
+    public function getGameId(): int {
+        return $this->game_id;
+    }
+
     public function deployments(): HasMany {
         return $this->hasMany(Deployment::class);
     }

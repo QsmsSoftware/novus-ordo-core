@@ -6,6 +6,7 @@ use App\Http\Controllers\DevController;
 use App\Http\Controllers\DivisionController;
 use App\Http\Controllers\GameController;
 use App\Http\Controllers\NationController;
+use App\Http\Controllers\ProductionController;
 use App\Http\Controllers\TerritoryController;
 use App\Http\Controllers\UiController;
 use App\Http\Controllers\UserController;
@@ -75,6 +76,8 @@ Route::middleware('auth')->group(function () {
         ->name('ajax.get-nation-budget');
     Route::get('/nation/battle-logs', [NationController::class, 'nationBattleLogs'])
         ->name('ajax.get-nation-battle-logs');
+    Route::post('/nation/production-bids', [ProductionController::class, 'placeProductionBid'])
+        ->name('ajax.place-production-bid');
     Route::middleware(EnsureGameIsNotUpkeeping::class)->group(function () {
         Route::post('/nation', [NationController::class, 'createNation'])
             ->name('ajax.create-nation');
@@ -106,6 +109,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/nation/territories/turn-infos', [TerritoryController::class, 'nationTerritoriesTurnInfo'])
         ->name('ajax.get-nation-territories-turn-info');
 });
+
 // Division routes.
 Route::middleware('auth')->group(function () {
     Route::get('/nation/divisions', [DivisionController::class, 'allOwnedDivisions'])

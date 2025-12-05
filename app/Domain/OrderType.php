@@ -6,4 +6,8 @@ enum OrderType :int {
     case Disband = 1;
     case Attack = 2;
     case Raid = 3;
+
+    public static function getEngagingTypes(): array {
+        return [ OrderType::Attack->value, OrderType::Raid->value];
+    }
 }

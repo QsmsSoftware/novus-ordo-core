@@ -1,5 +1,6 @@
 @php
     use App\Http\Middleware\EnsureWhenRunningInDevelopmentOnly;
+    use App\Domain\LaborPoolConstants;
 @endphp
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
@@ -47,6 +48,21 @@
         .division-resource-icon {
             width: 16px;
             height: 16px;
+        }
+        .production-table-total {
+            font-weight: bold;
+        }
+        .production-table-unused {
+            font-style: italic;
+        }
+        .resource-short-input {
+            text-align: center;
+        }
+        .resource-short-input input {
+            width: 40px;
+        }
+        .disabled-action-link {
+            color: grey;
         }
     </style>
     {!! $static_js_services->renderAsTag() !!}
@@ -105,6 +121,7 @@
         let divisionTypeInfoByType = mapExportedArray(allDivisionTypes, dt => dt.division_type);
         let terrainTypeInfoByType = mapExportedArray(allTerrainTypes, tt => tt.terrain_type);
         var budget = @json($budget);
+        let productionBidsByResourceType = mapExportedArray(@json($production_bids), b => b.resource_type);
 
         let ownNation = @json($own_nation);
         var readyStatus = @json($ready_status);
@@ -125,6 +142,7 @@
             Deployments: 'Deployments',
             Rankings: 'Rankings',
             Goals: 'Goals',
+            Production: 'Production',
         };
         
         var selectedDetailsTab = null;
@@ -340,6 +358,11 @@
             return !isNaN(parsedValue) && String(parsedValue) === String(strValue).trim() ? parsedValue : null;
         }
 
+        function parseNumberOrNull(strValue) {
+            let parsedValue = parseFloat(strValue);
+            return !isNaN(parsedValue) ? parsedValue : null;
+        }
+
         function notEmptyStringOrNull(value) {
             if (typeof value !== 'string') {
                 return null;
@@ -417,6 +440,9 @@
                 case 'Goals':
                     $("#goals-display").show();
                     break;
+                case 'Production':
+                    $("#production-display").show();
+                    break;
                 case null:
                     if (selectedTerritory) {
                         $("#details").show();
@@ -472,12 +498,292 @@
                 + '</table></div>';
         }
 
-        function renderProduction(territory) {
+        function renderTerritoryProduction(territory) {
             let ownerLoyalty = territory.owner_nation_id ? territory.loyalties.find(l => l.nation_id == territory.owner_nation_id) : null;
+            let loyalPopulation = ownerLoyalty ? ownerLoyalty.loyalty_ratio * territory.stats.find(s => s.title == TerritoryStat.Population).value : 0;
             return '<div><h2>Production</h2><table>'
-                + '<tr><th>Base production</th><th>Loyal population (M)</th><th>Production</th></th>'
-                + resourceTypeInfoByType.keys().map(resourceType => `<tr><td class="stat-value">${resourceTypeInfoByType.get(resourceType).base_production_by_terrain_type[territory.terrain_type].toFixed(2)}x</td><td class="stat-value">${formatValue(ownerLoyalty ? ownerLoyalty.loyalty_ratio * territory.stats.find(s => s.title == TerritoryStat.Population).value / 1_000_000 : 0, StatUnit.DecimalNumber)}</td><td class="stat-value">${territory.owner_production ? territory.owner_production[resourceType].toFixed(2) : ""}x</td><td>${renderProductionResourceIcon(resourceType)}</td></tr>`).toArray().join("")
+                + '<tr><th>Productivity</th><th>Loyal population (M)</th><th>Maximum production</th><th></th></tr>'
+                + resourceTypeInfoByType.keys().map(resourceType => {
+                    return `<tr><td class="stat-value">${resourceTypeInfoByType.get(resourceType).base_production_by_terrain_type[territory.terrain_type].toFixed(2)}x</td><td class="stat-value">${formatValue(loyalPopulation / LaborPoolConstants.LABOR_PER_UNIT_OF_PRODUCTION, StatUnit.DecimalNumber)}</td><td class="stat-value">${territory.owner_production ? territory.owner_production[resourceType].toFixed(2) : ""}x</td><td>${renderProductionResourceIcon(resourceType)}</td></tr>`;
+                }).toArray().join("")
                 + '</table></div>';
+        }
+
+        function renderTerritoryProductionForOwner(territory) {
+            let allocationsByResourceType = mapExportedArray(budget.labor_facility_allocations.filter(lp => lp.territory_id == selectedTerritory.territory_id), lp => lp.resource_type);
+            let ownerLoyalty = territory.owner_nation_id ? territory.loyalties.find(l => l.nation_id == territory.owner_nation_id) : null;
+            let loyalPopulation = ownerLoyalty ? ownerLoyalty.loyalty_ratio * territory.stats.find(s => s.title == TerritoryStat.Population).value : 0;
+            return '<div><h2>Production</h2><table>'
+                + '<tr><th>Productivity</th><th>Loyal population (M)</th><th>Maximum production</th><th>Allocated labor</th><th>%</th><th>Production</th><th><th></tr>'
+                + resourceTypeInfoByType.keys().map(resourceType => {
+                    let allocation = allocationsByResourceType.has(resourceType) ? allocationsByResourceType.get(resourceType).allocation : 0;
+                    let production = allocationsByResourceType.has(resourceType) ? allocationsByResourceType.get(resourceType).production : 0;
+                    let allocationPercent = loyalPopulation > 0 ? allocation / loyalPopulation : 0;
+                    return `<tr><td class="stat-value">${resourceTypeInfoByType.get(resourceType).base_production_by_terrain_type[territory.terrain_type].toFixed(2)}x</td><td class="stat-value">${formatValue(loyalPopulation / LaborPoolConstants.LABOR_PER_UNIT_OF_PRODUCTION, StatUnit.DecimalNumber)}</td><td class="stat-value">${territory.owner_production ? territory.owner_production[resourceType].toFixed(2) : ""}x</td><td class="stat-value">${formatValue(allocation / LaborPoolConstants.LABOR_PER_UNIT_OF_PRODUCTION, StatUnit.DecimalNumber)}</td><td>${formatValue(allocationPercent, StatUnit.Percent)}</td><td class="stat-value">${formatValue(production / LaborPoolConstants.LABOR_PER_UNIT_OF_PRODUCTION, StatUnit.DecimalNumber)}x</td><td>${renderProductionResourceIcon(resourceType)}</td></tr>`;
+                }).toArray().join("")
+                + '</table></div>';
+        }
+
+        function productivityToLaborPerUnit(productivity) {
+            return productivity > 0 ? Math.ceil(LaborPoolConstants.LABOR_PER_UNIT_OF_PRODUCTION / productivity) : ProductionBidConstants.MAX_LABOR_PER_UNIT_LIMIT;
+        }
+
+        function laborPerUnitToProductivity(laborPerUnit) {
+            return Math.round(LaborPoolConstants.LABOR_PER_UNIT_OF_PRODUCTION / laborPerUnit * 1_000) / 1_000;
+        }
+
+
+        async function placeProductionBid(resourceType, maxQuantity, maxLaborPerUnit) {
+            let newBids = await services.placeProductionBid({
+                resource_type: resourceType,
+                max_quantity: maxQuantity,
+                max_labor_allocation_per_unit: maxLaborPerUnit,
+            });
+
+            patchBids(newBids.data);
+        }
+
+        function renderProductionRemainingCapacityDetails(resourceType) {
+            let info = resourceTypeInfoByType.get(resourceType);
+            if (resourceType == ResourceType.Capital) {
+                return `<i>Labor not allocated to upkeep or production of resources is automatically assigned to production of ${info.description}.</i>`;
+            }
+            else if (resourceType == ResourceType.RecruitmentPool) {
+                return `<i>Labor required for ${info.description} is automatically assigned.</i>`;
+            }
+            else {
+                let mustProduceQuantity = Math.max(0, budget.upkeep[resourceType] - budget.stockpiles[resourceType]);
+
+                html = mustProduceQuantity > 0
+                    ? `<i>Stockpiles can't entirely cover the upkeep, required labor had been assigned to produce ${formatValue(mustProduceQuantity, StatUnit.DecimalNumber)}x ${info.description}.</i>`
+                    : "";
+
+                let remainingFreeLaborByPoolId = new Map();
+
+                for (const lp of budget.labor_pools) {
+                    remainingFreeLaborByPoolId.set(lp.labor_pool_id, lp.free_labor);
+                }
+
+                let facilities = budget.labor_facility_allocations
+                    .filter(a => a.resource_type == resourceType && a.allocation < a.capacity)
+                    .toSorted((a, b) => b.productivity - a.productivity);
+                var cumulatedProduction = 0;
+                var cumulatedCapacity = 0;
+
+                html += `<table><thead><tr><th>Territory</th><th>Productivity</th><th>Remaining capacity</th><th>Maximum extra production</th><th>Remaining capacity (cumulated)</th><th>Remaning production</th><th>(cumulated)</th><th></th></tr></thead>`
+
+                for (const a of facilities) {
+                    let poolFreeLabor = remainingFreeLaborByPoolId.get(a.labor_pool_id);
+
+                    if (poolFreeLabor <= 0) {
+                        continue;
+                    }
+
+                    let territory = territoriesById.get(a.territory_id);
+                    let remainingCapacity = poolFreeLabor;
+                    let maxProduction = remainingCapacity * a.productivity;
+
+                    let remainingProduction = remainingCapacity * a.productivity;
+                    
+                    remainingFreeLaborByPoolId.set(a.labor_pool_id, poolFreeLabor - remainingCapacity);
+                    cumulatedCapacity += remainingCapacity;
+                    cumulatedProduction += maxProduction;
+
+                    html += '<tr>'
+                        + `<td>${renderActionLink(territory.name, `selectTerritory(${territory.territory_id})`)}</td>`
+                        + `<td>${formatValue(a.productivity, StatUnit.DecimalNumber)}</td>`
+                        + `<td>${formatValue(remainingCapacity / LaborPoolConstants.LABOR_PER_UNIT_OF_PRODUCTION, StatUnit.DecimalNumber)}</td>`
+                        + `<td>${formatValue(maxProduction / LaborPoolConstants.LABOR_PER_UNIT_OF_PRODUCTION, StatUnit.DecimalNumber)}</td>`
+                        + `<td>${formatValue(cumulatedCapacity / LaborPoolConstants.LABOR_PER_UNIT_OF_PRODUCTION, StatUnit.DecimalNumber)}</td>`
+                        + `<td>${formatValue(remainingProduction / LaborPoolConstants.LABOR_PER_UNIT_OF_PRODUCTION, StatUnit.DecimalNumber)}</td>`
+                        + `<td>${formatValue(cumulatedProduction / LaborPoolConstants.LABOR_PER_UNIT_OF_PRODUCTION, StatUnit.DecimalNumber)}x</td>`
+                        + `<td class="stat-value">${renderProductionResourceIcon(resourceType)}</td>`
+                        + '</tr>';
+                }
+
+                html += '</table>';
+
+                return html;
+            }
+        }
+
+        function getResourceQuantityInputId(resourceType) {
+            return `${resourceType}_quantity`;
+        }
+
+        function getResourceEfficiencyInputId(resourceType) {
+            return `${resourceType}_efficiency`;
+        }
+
+        function getBidInput(resourceType) {
+            const InvalidBidInput = {
+                valid: false,
+            };
+            if (!document.getElementById(getResourceQuantityInputId(resourceType))) {
+                return InvalidBidInput;
+            }
+
+            let maxQuantityValue = document.getElementById(getResourceQuantityInputId(resourceType)).value;
+            let maxQuantityUnitsOrNull = maxQuantityValue == "" ? 0 : parseNumberOrNull(maxQuantityValue);
+            let efficiencyValue = document.getElementById(getResourceEfficiencyInputId(resourceType)).value;
+            let efficiencyOrNull = efficiencyValue == "" ? 0 : parseNumberOrNull(efficiencyValue);
+
+            let validBid = maxQuantityUnitsOrNull !== null && efficiencyOrNull !== null;
+
+            if (validBid) {
+                var maxQuantity = maxQuantityUnitsOrNull * LaborPoolConstants.LABOR_PER_UNIT_OF_PRODUCTION;
+                let maxLaborPerUnit = productivityToLaborPerUnit(efficiencyOrNull);
+
+                let currentBidOrNull = productionBidsByResourceType.has(resourceType) ? productionBidsByResourceType.get(resourceType) : null;
+
+                let noCurrentBidAndZeroQuantity = maxQuantity == 0 && !productionBidsByResourceType.has(resourceType);
+
+                let bidChanged = !noCurrentBidAndZeroQuantity && (
+                    !productionBidsByResourceType.has(resourceType)
+                    || currentBidOrNull.max_quantity != maxQuantity
+                    || currentBidOrNull.max_labor_allocation_per_unit != maxLaborPerUnit
+                );
+
+                return {
+                    valid: true,
+                    bidChanged: bidChanged,
+                    maxQuantity: maxQuantity,
+                    maxLaborPerUnit: maxLaborPerUnit,
+                };
+            }
+
+            return InvalidBidInput;
+        }
+
+        async function cancelAllBids() {
+            for (const resourceType of resourceTypeInfoByType.keys()) {
+                let canPlaceBidForResource = document.getElementById(getResourceQuantityInputId(resourceType));
+                if (canPlaceBidForResource && productionBidsByResourceType.has(resourceType) && productionBidsByResourceType.get(resourceType).max_quantity != 0) {
+                    await placeProductionBid(resourceType, 0, ProductionBidConstants.MAX_LABOR_PER_UNIT_LIMIT);
+                }
+            }
+
+            await refreshBudget();
+        }
+
+        function anyBidToCancel() {
+            return resourceTypeInfoByType.keys().some(resourceType => {
+                let canPlaceBidForResource = document.getElementById(getResourceQuantityInputId(resourceType));
+                return canPlaceBidForResource && productionBidsByResourceType.has(resourceType) && productionBidsByResourceType.get(resourceType).max_quantity != 0;
+            });
+        }
+
+        async function placeBids() {
+            for (const resourceType of resourceTypeInfoByType.keys()) {
+                let input = getBidInput(resourceType);
+
+                if (input.valid && input.bidChanged) {
+                    await placeProductionBid(resourceType, input.maxQuantity, input.maxLaborPerUnit);
+                }
+            }
+
+            await refreshBudget();
+        }
+
+        function updateUpdateBidsLink() {
+            let cancelAllBidsLink = anyBidToCancel() ? renderActionLink('cancel all bids', 'cancelAllBids()') : '<span class="disabled-action-link">cancel all bids</span>';
+
+            if (resourceTypeInfoByType.keys().some(resourceType => {
+                let input = getBidInput(resourceType);
+                return input.valid && input.bidChanged
+            })) {
+                $("#update-bids-links").html(`${cancelAllBidsLink} - ` + renderActionLink('update bids', 'placeBids()'));
+            }
+            else {
+                $("#update-bids-links").html(`${cancelAllBidsLink} - <span class="disabled-action-link">update bids</span>`);
+            }
+        }
+
+        function renderProduction() {
+            html = '<h2>Production bids</h2>'
+                // + 'Necessary labor is automatically allocated to cover population and divisions\' upkeep (Food and Recruitement pool). '
+                // + 'Remaining labor (free labor) can be used to extract resource or produce Capital. '
+                // + 'To produce a type of resource, place a bid. Request the quantity you\'d like and the minimum efficiency you require. '
+                // + 'Labor that remains unassigned will be automatically assigned to produce Capital.'
+                + `<p>Free labor: ${formatValue(budget.free_labor / LaborPoolConstants.LABOR_PER_UNIT_OF_PRODUCTION, StatUnit.DecimalNumber)}</p>`
+                + '<table>'
+                + '<tr><th>Resource</th><th></th><th>Requested quantity</th><th>Required efficiency (minimum productivity)</th></tr>'
+                + resourceTypeInfoByType.values().map(resourceInfo => {
+                    if ([ResourceType.Capital, ResourceType.RecruitmentPool].includes(resourceInfo.resource_type)) {
+                        return;
+                    }
+
+                    let bidOrNull = productionBidsByResourceType.has(resourceInfo.resource_type) ? productionBidsByResourceType.get(resourceInfo.resource_type) : null;
+
+                    let currentQuantity = bidOrNull ? bidOrNull.max_quantity / LaborPoolConstants.LABOR_PER_UNIT_OF_PRODUCTION : 0;
+                    let currentEfficiency = bidOrNull ? laborPerUnitToProductivity(bidOrNull.max_labor_allocation_per_unit) : 0;
+
+                    return '<tr>'
+                        + `<td>${resourceInfo.description}</td>`
+                        + `<td>${renderProductionResourceIcon(resourceInfo.resource_type)}</td>`
+                        + `<td class="resource-short-input"><input type="text" id="${getResourceQuantityInputId(resourceInfo.resource_type)}" name="${getResourceQuantityInputId(resourceInfo.resource_type)}" value="${currentQuantity || ""}"></td>`
+                        + `<td class="resource-short-input"><input type="text" id="${getResourceEfficiencyInputId(resourceInfo.resource_type)}" name="${getResourceEfficiencyInputId(resourceInfo.resource_type)}" value="${currentEfficiency || ""}"></td>`
+                        + '</tr>';
+                }).toArray().join("")
+                + '</table>'
+                + ' <span id="update-bids-links"></span>'
+                + renderProductionDetails();
+            
+            return html;
+        }
+
+        function renderProductionDetails() {
+            return '<h2>Details</h2>'
+                + resourceTypeInfoByType.keys().map(resourceType => {
+                    let resourceInfo = resourceTypeInfoByType.get(resourceType);
+                    let resourceAllocations = budget.labor_facility_allocations.filter(lp => lp.resource_type == resourceType);
+                    let sum = {
+                        capacity: 0,
+                        maxProduction: 0,
+                        allocation: 0,
+                        production: 0,
+                    };
+                    return `<h3>${resourceInfo.description}</h3>`
+                        + `<table><thead><tr><th>Territory</th><th>Productivity</th><th>Capacity</th><th>Maximum production</th><th>Allocated labor</th><th>%</th><th>Production</th><th><th></tr></thead>`
+                        + resourceAllocations.map(a => {
+                            let territory = territoriesById.get(a.territory_id);
+                            let capacity = a.capacity / LaborPoolConstants.LABOR_PER_UNIT_OF_PRODUCTION;
+                            sum.capacity += capacity;
+                            let maxProduction = capacity * a.productivity;
+                            sum.maxProduction += maxProduction;
+                            let allocation = a.allocation / LaborPoolConstants.LABOR_PER_UNIT_OF_PRODUCTION;
+                            sum.allocation += allocation;
+                            let allocationPercent = capacity > 0 ? allocation / capacity : 0;
+                            let production = a.production / LaborPoolConstants.LABOR_PER_UNIT_OF_PRODUCTION;
+                            sum.production += production;
+
+                            return production > 0
+                                ? '<tr>'
+                                    + `<td>${renderActionLink(territory.name, `selectTerritory(${territory.territory_id})`)}</td>`
+                                    + `<td>${formatValue(a.productivity, StatUnit.DecimalNumber)}</td>`
+                                    + `<td>${formatValue(capacity, StatUnit.DecimalNumber)}</td>`
+                                    + `<td>${formatValue(maxProduction, StatUnit.DecimalNumber)}</td>`
+                                    + `<td>${formatValue(allocation, StatUnit.DecimalNumber)}</td>`
+                                    + `<td class="stat-value">${formatValue(allocationPercent, StatUnit.Percent)}</td>`
+                                    + `<td class="stat-value">${formatValue(production, StatUnit.DecimalNumber)}x</td>`
+                                    + `<td>${renderProductionResourceIcon(resourceType)}</td>`
+                                    + '</tr>'
+                                : "";
+                        }).join("")
+                        + '<tfoot>'
+                        + '<tr class="production-table-total">'
+                        + `<td>TOTAL</td>`
+                        + `<td>-</td>`
+                        + `<td>${formatValue(sum.capacity, StatUnit.DecimalNumber)}</td>`
+                        + `<td>${formatValue(sum.maxProduction, StatUnit.DecimalNumber)}</td>`
+                        + `<td>${formatValue(sum.allocation, StatUnit.DecimalNumber)}</td>`
+                        + `<td class="stat-value">${formatValue(sum.capacity > 0 ? sum.allocation / sum.capacity : 0, StatUnit.Percent)}</td>`
+                        + `<td class="stat-value">${formatValue(sum.production, StatUnit.DecimalNumber)}x</td>`
+                        + `<td>${renderProductionResourceIcon(resourceType)}</td>`
+                        + '</tr>'
+                        + '</tfoot></table>'
+                        + '<p>' + renderProductionRemainingCapacityDetails(resourceType) + '</p>'
+                }).toArray().join("");
         }
 
         function renderLoyalties(loyalties) {
@@ -542,7 +848,9 @@
                 + `<span id="territory-info-owner">` + (selectedTerritory.owner_nation_id != null ? `<p>Owned by ${nationsById.get(selectedTerritory.owner_nation_id).usual_name}</p>` : '') + "</span>"
             );
 
-            $("#info-details").html(renderDemography(selectedTerritory.stats) + renderProduction(selectedTerritory) + renderLoyalties(selectedTerritory.loyalties));
+            let isOwned = selectedTerritory.owner_nation_id == ownNation.nation_id;
+
+            $("#info-details").html(renderDemography(selectedTerritory.stats) + (isOwned ? renderTerritoryProductionForOwner(selectedTerritory) : renderTerritoryProduction(selectedTerritory)) + renderLoyalties(selectedTerritory.loyalties));
         }
 
         function updateOwnerPane() {
@@ -573,6 +881,19 @@
             $('#rankings-display').html(allRankings.map(ranking => renderRanking(ranking)).join(""));
         }
 
+        function updateProductionPane() {
+            $('#production-bids').html(renderProduction());
+            updateUpdateBidsLink();
+            for(const resourceType of resourceTypeInfoByType.keys()) {
+                let maxQuantityInput = document.getElementById(getResourceQuantityInputId(resourceType));
+
+                if (maxQuantityInput) {
+                    maxQuantityInput.addEventListener('input', updateUpdateBidsLink);
+                    document.getElementById(getResourceEfficiencyInputId(resourceType)).addEventListener('input', updateUpdateBidsLink);
+                }
+            }
+        }
+
         function updateNationPane(nation, component) {
             if (nation !== undefined) {
                 component.html(
@@ -585,7 +906,7 @@
             }
         }
 
-        function updateBudgetPane() {
+        function updateBudgetAndProductionPanes() {
             $('#budget-details').html(
                 '<table>'
                 + budgetItems.keys().toArray().map(key => {
@@ -608,6 +929,8 @@
                     + `${budget.available_production[key].toFixed(2)} <img class="resource-icon" src="res/bundled/icons/resource_${key.toLowerCase()}.png" title="${resourceTypeInfo.description}&#10;&#10;Production: ${budget.production[key].toFixed(2)}&#10;Stockpile: ${formattedStockpile}&#10;Upkeep: -${budget.upkeep[key].toFixed(2)}&#10;Expenses: -${budget.expenses[key].toFixed(2)}&#10;Available: ${budget.available_production[key].toFixed(2)}"> ${formattedBalance}`
                     + '</div>'
             }));
+
+            updateProductionPane();
         }
 
         function renderVictorIcon() {
@@ -713,7 +1036,15 @@
             return html;
         }
 
-        function getRemainingDeployments(typeToDeploy) {
+        function getBaseMaxDeployments(typeToDeploy) {
+            let availableResources = { ...budget.available_production };
+
+            divisionType = divisionTypeInfoByType.get(typeToDeploy);
+
+            return Object.keys(divisionType.deployment_costs).reduce((min, resource) => Math.min(Math.floor(availableResources[resource] / divisionType.deployment_costs[resource]), min), Number.MAX_SAFE_INTEGER);
+        }
+
+        function getBaseRemainingDeployments(typeToDeploy) {
             let availableResources = { ...budget.available_production };
 
             pendingDeployments.forEach(d => {
@@ -724,6 +1055,18 @@
             divisionType = divisionTypeInfoByType.get(typeToDeploy);
 
             return Object.keys(divisionType.deployment_costs).reduce((min, resource) => Math.min(Math.floor(availableResources[resource] / divisionType.deployment_costs[resource]), min), Number.MAX_SAFE_INTEGER);
+        }
+
+        function getMaxDeployments(typeToDeploy) {
+            let maxRecruitementPoolExpansion = Math.floor(budget.max_recruitement_pool_expansion);
+
+            return Math.min(getBaseMaxDeployments(typeToDeploy), maxRecruitementPoolExpansion);
+        }
+
+        function getRemainingDeployments(typeToDeploy) {
+            let maxRecruitementPoolExpansion = Math.floor(budget.max_recruitement_pool_expansion) - pendingDeployments.length;
+
+            return Math.min(getBaseRemainingDeployments(typeToDeploy), maxRecruitementPoolExpansion);
         }
 
         function renderDivisionTypeRemarks(divisionTypeInfo) {
@@ -745,19 +1088,23 @@
 
             html += '<p>You can still deploy (select the type of division you want to deploy):<br><table>'
             html += '<tr><th>Quantity</th><th>Type</th><th>Attack Power</th><th>Defense Power</th><th>Moves</th><th>Production Cost</th><th>Attack Cost</th><th>Remarks</th></tr>'
-            html += divisionTypeInfoByType.values().map(divisionTypeInfo => '<tr>'
-                + `<td>${getRemainingDeployments(divisionTypeInfo.division_type)}x</td>`
-                + `<td>${renderActionLink(divisionTypeInfo.description, `startDeploying('${divisionTypeInfo.division_type}')`, divisionTypeInfo.division_type == selectedDivisionType)}</td>`
-                + `<td class="stat-value">${formatValue(divisionTypeInfo.attack_power / 100, StatUnit.Percent)}</td>`
-                + `<td class="stat-value">${formatValue(divisionTypeInfo.defense_power / 100, StatUnit.Percent)}</td>`
-                + `<td>${formatValue(divisionTypeInfo.moves, StatUnit.WholeNumber)}</td>`
-                + `<td>${renderResourceCosts(mapExportedObject(divisionTypeInfo.deployment_costs))}</td>`
-                + `<td class="stat-value">${renderResourceCosts(mapExportedObject(divisionTypeInfo.attack_costs))}</td>`
-                + `<td>${renderDivisionTypeRemarks(divisionTypeInfo)}</td>`
-                + '</tr>')
+            html += divisionTypeInfoByType.values().map(divisionTypeInfo => {
+                let remainingDeployments = getRemainingDeployments(divisionTypeInfo.division_type);
+                
+                return '<tr>'
+                    + `<td>${getMaxDeployments(divisionTypeInfo.division_type) < getBaseMaxDeployments(divisionTypeInfo.division_type) ? '*' : ''}${remainingDeployments}x</td>`
+                    + `<td>${renderActionLink(divisionTypeInfo.description, `startDeploying('${divisionTypeInfo.division_type}')`, divisionTypeInfo.division_type == selectedDivisionType)}</td>`
+                    + `<td class="stat-value">${formatValue(divisionTypeInfo.attack_power / 100, StatUnit.Percent)}</td>`
+                    + `<td class="stat-value">${formatValue(divisionTypeInfo.defense_power / 100, StatUnit.Percent)}</td>`
+                    + `<td>${formatValue(divisionTypeInfo.moves, StatUnit.WholeNumber)}</td>`
+                    + `<td>${renderResourceCosts(mapExportedObject(divisionTypeInfo.deployment_costs))}</td>`
+                    + `<td class="stat-value">${renderResourceCosts(mapExportedObject(divisionTypeInfo.attack_costs))}</td>`
+                    + `<td>${renderDivisionTypeRemarks(divisionTypeInfo)}</td>`
+                    + '</tr>';
+                })
                 .toArray()
                 .join("")
-            html += '</table></p>';
+            html += '</table><i>*: limited by recruitement pool expansion</i></p>';
 
 
             if (pendingDeployments.length > 0) {
@@ -1180,6 +1527,7 @@
             let selectedDivisions = getAllSelectedDivisionsInTerritory();
             services.sendDisbandOrders({orders: selectedDivisions.map(d => ({ division_id: d.division_id }))})
                 .then(response => patchOrders(response.data))
+                .then(updateDivisionsPane)
                 .catch(error => {
                     $("#error_messages").html(`<li style="color: crimson">${JSON.stringify(error.responseJSON)}}</li>`);
                 });
@@ -1196,6 +1544,7 @@
                     return ({ division_id: d.division_id, destination_territory_id: tid, path_territory_ids: findPathBetween(territoriesById.get(d.territory_id), territoriesById.get(tid), info.moves, info.can_fly) })
                 })})
                 .then(response => patchOrders(response.data))
+                .then(updateDivisionsPane)
                 .then(refreshBudget)
                 .then(() => mapDisplay.refresh())
                 .catch(error => {
@@ -1382,13 +1731,16 @@
                     budget = data;
                 })
                 .then(() => {
-                    updateBudgetPane();
+                    updateBudgetAndProductionPanes();
                 });
+        }
+
+        function patchBids(newBids) {
+            newBids.forEach(bid => productionBidsByResourceType.set(bid.resource_type, bid));
         }
 
         function patchOrders(newOrders) {
             newOrders.forEach(order => divisionsById.get(order.division_id).order = order);
-            updateDivisionsPane();
         }
 
         function cancelAllPendingDeployment() {
@@ -1433,7 +1785,7 @@
                                     Defended: "⛊",
                                     Lost: "☠️", // "☠",
                                     Conquered: "⚔️", // "⚔",
-                                    WasRepelled: "⛊",
+                                    WasRepelled: "🝙",
                                 };
                                 
                                 territoryIdsWithBattles.forEach(tid => {
@@ -1612,6 +1964,11 @@
                 );
         }
 
+        function patchReadyStatus(newReadyStatus) {
+            readyStatus = newReadyStatus;
+            ownNation.is_ready_for_next_turn = readyStatus.ready_for_next_turn_nation_ids.includes(ownNation.nation_id);
+        }
+
         function readyForNextTurn() {
             ownNation.is_ready_for_next_turn = true;
             readyStatus.ready_for_next_turn_nation_ids.push(ownNation.nation_id);
@@ -1620,7 +1977,7 @@
             services.readyForNextTurn({ turn_number: ownNation.turn_number })
                 .then(
                     data => {
-                        readyStatus = data;
+                        patchReadyStatus(data);
                         if (nextTurnHasArrived()) {
                             window.location.reload();
                         }
@@ -1645,7 +2002,7 @@
             refreshReadyStatusInterval = setInterval(() => {
                 services.getGameReadyStatus()
                     .then(
-                        data => readyStatus = data,
+                        data => patchReadyStatus(data),
                         reloadWhenPageIsExpired
                     )
                     .then(() => {
@@ -1731,7 +2088,12 @@
             }
             else if (ownNation.is_ready_for_next_turn) {
                 $("#force-next-turn-section").show();
-                $("#ready-for-next-turn-status").html(`${readyStatus.ready_for_next_turn_nation_ids.length} out of ${readyStatus.nation_count} are ready for next turn: ${nationsById.values().map(n => `<span class="${readyStatus.ready_for_next_turn_nation_ids.includes(n.nation_id) ? "ready-nation" : "not-ready-nation"}">${n.usual_name}</span>`).toArray().join(", ")}`);
+                $("#ready-for-next-turn-status").html(`${readyStatus.ready_for_next_turn_nation_ids.length} out of ${readyStatus.nation_count} are ready for next turn: ${nationsById.values().map(n => {
+                    let nationIsReady = readyStatus.ready_for_next_turn_nation_ids.includes(n.nation_id);
+                    let readyClass = nationIsReady ? "ready-nation" : "not-ready-nation";
+                    let readyIcon = nationIsReady ? "✅" : "☐";
+                    return `<span class="${readyClass}">${readyIcon}${n.usual_name}</span>`
+                }).toArray().join(", ")}`);
                 $("#ready-for-next-turn-status").show();
             }
             else {
@@ -1780,7 +2142,7 @@
             $('#own-nation-flag').html(renderNationFlagSection(ownNation));
             $('#own-nation-demographics').html(renderDemography(ownNation.stats));
             updateVictoryPane();
-            updateBudgetPane();
+            updateBudgetAndProductionPanes();
             updateBattleLogsMainPane();
             updateDeploymentsPane();
             $("#details").hide();
@@ -1880,6 +2242,29 @@
             <div id="goals-display">
                 <div id="victory-details">
                 victory
+                </div>
+            </div>
+            <div id="production-display">
+                <h2>Labor Allocation Rules</h2>
+                <ul>
+                    <li>
+                    <strong>Automatic upkeep:</strong> A portion of labor is always reserved to sustain your population and divisions (Food and Recruitment Pool).
+                    </li>
+                    <li>
+                    <strong>Free labor:</strong> Any remaining labor can be directed toward extracting resources or generating Capital.
+                    </li>
+                    <li>
+                    <strong>Producing resources:</strong>
+                    <ul>
+                        <li>Place a bid to produce a resource.</li>
+                        <li>Specify the amount you want and the minimum efficiency (productivity) you’ll accept.</li>
+                    </ul>
+                    </li>
+                    <li>
+                    <strong>Unassigned labor:</strong> Any labor you do not allocate is automatically assigned to produce Capital.
+                    </li>
+                </ul>
+                <div id="production-bids">
                 </div>
             </div>
         </div>

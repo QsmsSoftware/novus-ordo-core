@@ -54,7 +54,7 @@ class Order extends Model
         $attackingTypes = DB::table('orders')
             ->where('orders.nation_id', $nation->getId())
             ->where('orders.turn_id', $turn->getId())
-            ->where('orders.type', OrderType::Attack->value)
+            ->whereIn('orders.type', OrderType::getEngagingTypes())
             ->whereNull('orders.deleted_at')
             ->join('divisions', 'orders.division_id', '=', 'divisions.id')
             ->pluck('divisions.division_type')

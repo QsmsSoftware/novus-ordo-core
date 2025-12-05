@@ -26,8 +26,8 @@ class DeploymentController extends Controller
         $nation = $context->getNation();
 
         $foundDeployments = $nation->deploymentByIds(...$cancelRequest->deployment_ids)->get();
-        
-        $foundDeployments->each(fn (Deployment $d) => $d->cancel());
+
+        $nation->cancelDeployments(...$foundDeployments);
         
         return response()->json(null, HttpStatusCode::NoContent);
     }
@@ -71,6 +71,14 @@ class DeploymentController extends Controller
         if (!$nation->getDetail()->canAffordCosts(DivisionType::calculateTotalDeploymentCostsByResourceType(...$deployedTypes))) {
             abort(HttpStatusCode::UnprocessableContent, "Nation doesn't have enough resources to afford deployment costs.");
         }
+
+        $availableRecruitmentPool = $nationDetail->getMaximumRecruitmentPoolExpansion();
+
+        $numberOfDeployments = count($deploymentCommands);
+
+        // if ($availableRecruitmentPool < $numberOfDeployments) {
+        //     abort(HttpStatusCode::UnprocessableContent, "Nation cannot expand recruitement pool for that many deployments.");
+        // }
 
         $deployments = array_map(
             fn (Deployment $d) => $d->export(),

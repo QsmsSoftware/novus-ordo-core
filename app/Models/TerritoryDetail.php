@@ -61,7 +61,19 @@ class TerritoryDetail extends Model
     }
 
     public function getOwnerOrNull(): ?Nation {
-        return $this->owner;
+        return Nation::withoutGlobalScopes()->find($this->owner_nation_id);
+    }
+
+    public function getGameId(): int {
+        return $this->game_id;
+    }
+
+    public function getOwnerNationId(): int {
+        return $this->owner_nation_id;
+    }
+    
+    public function getTurnId(): int {
+        return $this->turn_id;
     }
 
     public function allLoyalties(): Builder {
@@ -244,6 +256,21 @@ class TerritoryDetail extends Model
         );
     }
 
+    public function resetLaborPool(): void {
+        Option::fromValue($this->getOwnerOrNull())->forAll(function (Nation $owner) {
+            $turn = $this->getTurn();
+            $ownerLoyalty = NationTerritoryLoyalty::getLoyaltyRatioForNation($owner, $this->getTerritory(), $turn);
+
+            $laborPoolOrNull = LaborPool::getLaborPool($owner->getDetail($turn), $this);
+
+            if (!is_null($laborPoolOrNull)) {
+                $laborPoolOrNull->delete();
+            }
+
+            LaborPool::create($this, floor($this->population_size * $ownerLoyalty));
+        });
+    }
+
     public function onNextTurn(TerritoryDetail $current): void {
         $this->setPopulationSize($this->getPopulationSize() * (1 + $current->getPopulationGrowthRate()));
         $this->save();
@@ -251,6 +278,7 @@ class TerritoryDetail extends Model
         assert($loyalties instanceof Collection);
         $totalLoyalty = $loyalties->sum(fn (NationTerritoryLoyalty $l) => $l->getLoyaltyRatio());
         $loyalties->each(fn (NationTerritoryLoyalty $l) => $l->replicateForTurn($this->getTurn())->onNextTurn($l, $totalLoyalty));
+        $this->resetLaborPool();
     }
 
     public static function create(Territory $territory): TerritoryDetail {
@@ -260,6 +288,7 @@ class TerritoryDetail extends Model
         $details->turn_id = Turn::getCurrentForGame($territory->getGame())->getId();
         $details->population_size = TerritoryDetail::DEFAULT_POPULATION_SIZE;
         $details->save();
+        $details->resetLaborPool();
 
         return $details;
     }

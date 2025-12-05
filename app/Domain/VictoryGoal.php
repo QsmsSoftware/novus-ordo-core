@@ -81,8 +81,8 @@ readonly class VictoryGoal {
                 unit: StatUnit::Km2,
             ),
             new VictoryGoal(
-                title: 'Largest population',
-                valueGetter: fn (NationDetail $d) => Metacache::remember($d->getPopulationSize(...)),
+                title: 'Largest (loyal) population',
+                valueGetter: fn (NationDetail $d) => Metacache::remember($d->getLoyalPopulationSize(...)),
                 sortOrder: SORT_DESC,
                 goal: floor(Metacache::remember($turn->getPopulationSize(...)) / 2) + 1,
                 unit: StatUnit::WholeNumber,

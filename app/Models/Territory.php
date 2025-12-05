@@ -121,7 +121,7 @@ class Territory extends Model
     public function isSuitableAsHome(): bool {
         return $this->terrain_type != TerrainType::Water->value && !$this->getDetail()->isOwnedByNation();
     }
-
+    
     public function onNextTurn(Turn $currentTurn, Turn $nextTurn): void {
         $currentDetail = $this->getDetail($currentTurn);
         $newDetail = $currentDetail->replicateForTurn($nextTurn);

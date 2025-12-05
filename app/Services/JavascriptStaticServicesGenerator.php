@@ -2,8 +2,10 @@
 namespace App\Services;
 
 use App\Domain\DivisionType;
+use App\Domain\LaborPoolConstants;
 use App\Domain\MapData;
 use App\Domain\OrderType;
+use App\Domain\ProductionBidConstants;
 use App\Domain\ResourceType;
 use App\Domain\StatUnit;
 use App\Domain\TerrainType;
@@ -27,6 +29,8 @@ class JavascriptStaticServicesGenerator {
                 $this->servicesGenerator->generateClientEnum(StatUnit::class, true),
                 $this->servicesGenerator->generateClientEnum(TerritoryStat::class, true),
                 $this->servicesGenerator->generateClientEnum(VictoryStatus::class, true),
+                $this->servicesGenerator->generateClientConstants(LaborPoolConstants::class),
+                $this->servicesGenerator->generateClientConstants(ProductionBidConstants::class),
                 $this->servicesGenerator->generateClientService("NovusOrdoServices", "ajax"),
                 "const allResourceTypes = " . json_encode(ResourceType::exportMetas()) . ";",
                 "const allDivisionTypes = " . json_encode(DivisionType::exportMetas()) . ";",

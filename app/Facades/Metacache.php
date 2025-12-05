@@ -34,16 +34,20 @@ final class Metacache {
     }
 
     public static function expireAllForGame(Game $game): void {
-        StaticJavascriptResource::expireAllForGame($game);
         DB::table('cache')
-            ->where('key', 'like', config('cache.prefix') . "-game_{$game->getId()}-%")
+            ->where('key', 'like', config('cache.prefix') . "%-game_{$game->getId()}-%")
             ->delete();
     }
 
     public static function expireAllforTurn(Turn $turn): void {
-        StaticJavascriptResource::expireAllForTurn($turn);
         DB::table('cache')
-            ->where('key', 'like', config('cache.prefix') . "-turn_{$turn->getId()}-%")
+            ->where('key', 'like', config('cache.prefix') . "%-game_{$turn->getGameId()}-turn_{$turn->getId()}-%")
+            ->delete();
+    }
+
+    public static function expireAllforNationDetail(NationDetail $nationDetail): void {
+        DB::table('cache')
+            ->where('key', 'like', config('cache.prefix') . "%-game_{$nationDetail->getGameId()}-nation_{$nationDetail->getNationId()}-turn_{$nationDetail->getTurnId()}-%")
             ->delete();
     }
 

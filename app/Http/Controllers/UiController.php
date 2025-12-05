@@ -9,6 +9,8 @@ use App\Models\Game;
 use App\Models\Nation;
 use App\Models\NewNation;
 use App\Models\GameHasNotEnoughFreeTerritories;
+use App\Models\LaborPoolAllocation;
+use App\Models\ProductionBid;
 use App\Models\Territory;
 use App\Models\TerritoryDetail;
 use App\Models\Turn;
@@ -262,6 +264,7 @@ class UiController extends Controller
             'victory_status' => $game->exportVictoryStatus(),
             'budget' => $nationDetail->exportBudget(),
             'budget_items' => ['production' => new Asset('Production'), 'stockpiles' => new Asset('Reserves'), 'upkeep' => new Liability('Upkeep'), 'expenses' => new Liability('Expenses'), 'available_production' => new Asset('Available Production')],
+            'production_bids' => ProductionBid::getAllCommandBids($nationDetail)->map(fn (ProductionBid $b) => $b->exportForOwner()),
             'battle_logs' => $nationDetail
                     ->getAllBattlesWhereParticipant()
                     ->map(fn (Battle $b) => $b->exportForParticipant()),

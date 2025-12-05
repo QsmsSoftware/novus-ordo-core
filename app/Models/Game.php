@@ -265,6 +265,8 @@ class Game extends Model
 
                 $this->activeDivisionsInTurn($currentTurn)->get()->each(fn (Division $d) => $d->afterBattlePhase($currentTurn, $nextTurn));
 
+                $this->nations()->get()->each(fn (Nation $n) => $n->onTurnUpkeepEnding($currentTurn, $nextTurn));
+
                 $this->updateVictoryStatus($nextTurn);
 
                 $this->save();

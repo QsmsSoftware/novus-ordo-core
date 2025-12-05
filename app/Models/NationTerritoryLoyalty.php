@@ -36,10 +36,10 @@ class NationTerritoryLoyalty extends Model
     }
 
     public static function getLoyaltyRatioForNation(Nation $nation, Territory $territory, Turn $turn): float {
-        return NationTerritoryLoyalty::where('nation_id', $nation->getId())
+        return (NationTerritoryLoyalty::where('nation_id', $nation->getId())
             ->where('territory_id', $territory->getId())
             ->where('turn_id', $turn->getId())
-            ->value('loyalty') / 100;
+            ->value('loyalty') ?? 0) / 100;
     }
 
     public function getLoyaltyRatio(): float {

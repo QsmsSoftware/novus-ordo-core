@@ -85,13 +85,6 @@ class NewNation extends Model
                 }
             });
 
-            $homeTerritories->each(function (Territory $territory) use ($nation) {
-                $territory->getDetail()->assignHomeToOwner($nation);
-                $territory->getDetail()->setPopulationSize(NewNation::HOME_TERRITORY_POPULATION);
-            });
-
-            $nation->nation_setup_status = NationSetupStatus::FinishedSetup;
-
             if (is_null($flagSrc)) {
                 $flagSrc = $nation->getGame()->availableSharedAssetsOfType(SharedAssetType::Flag)
                     ->inRandomOrder()->first();
@@ -100,7 +93,19 @@ class NewNation extends Model
             $formalName = $formalName ?? "Empire of {$nation->getInternalName()}";
 
             NationDetail::create($nation, $formalName, $flagSrc);
+
+            $homeTerritories->each(function (Territory $territory) use ($nation) {
+                $detail = $territory->getDetail();
+                $detail->assignHomeToOwner($nation);
+                $detail->setPopulationSize(NewNation::HOME_TERRITORY_POPULATION);
+                $detail->resetLaborPool();
+            });
+
+            $nation->nation_setup_status = NationSetupStatus::FinishedSetup;
+
             $nation->save();
+
+            $nation->getDetail()->finalizeNationCreation();
 
             Metacache::expireAllforTurn($nation->getGame()->getCurrentTurn());
 

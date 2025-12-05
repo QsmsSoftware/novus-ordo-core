@@ -2,8 +2,12 @@
 namespace App\Domain;
 
 use App\ReadModels\ResourceTypeInfo;
+use App\Utils\ParsableFromCaseName;
+use Illuminate\Support\Collection;
 
-enum ResourceType :int {    
+enum ResourceType :int {
+    use ParsableFromCaseName;
+
     case Capital = 0;
     case RecruitmentPool = 1;
     case Food = 2;
@@ -13,13 +17,17 @@ enum ResourceType :int {
 
     public static function getMeta(ResourceType $resourceType): ResourceTypeMeta {
         return match($resourceType) {
-            ResourceType::Capital => new ResourceTypeMeta(description: "Capital (money)", canBeStocked: true, startingStock: 10),
-            ResourceType::RecruitmentPool => new ResourceTypeMeta(description: "Recruitement pool", canBeStocked: false, startingStock: 0),
-            ResourceType::Food => new ResourceTypeMeta(description: "Food", canBeStocked: true, startingStock: 0),
+            ResourceType::Capital => new ResourceTypeMeta(description: "Capital (money)", canBeStocked: true, startingStock: 10, canPlaceCommand: false),
+            ResourceType::RecruitmentPool => new ResourceTypeMeta(description: "Recruitement pool", canBeStocked: false, startingStock: 0, upkeepBidPriority: UpkeepBidPriority::AfterCommandBids, canPlaceCommand: false),
+            ResourceType::Food => new ResourceTypeMeta(description: "Food", canBeStocked: true, startingStock: 0, upkeepBidPriority: UpkeepBidPriority::Lowest),
             ResourceType::Material => new ResourceTypeMeta(description: "Raw materials", canBeStocked: true, startingStock: 0),
             ResourceType::Ore => new ResourceTypeMeta(description: "Ores", canBeStocked: true, startingStock: 10),
             ResourceType::Oil => new ResourceTypeMeta(description: "Oil", canBeStocked: true, startingStock: 10),
         };
+    }
+
+    public static function getMetas(): Collection {
+        return collect(ResourceType::cases())->mapWithKeys(fn (ResourceType $resourceType) => [$resourceType->value => ResourceType::getMeta($resourceType)]);
     }
 
     public static function exportMetas(): array {

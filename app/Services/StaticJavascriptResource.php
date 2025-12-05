@@ -72,18 +72,6 @@ class StaticJavascriptResource {
             ->delete();
     }
 
-    public static function expireAllForGame(Game $game): void {
-        DB::table('cache')
-            ->where('key', 'like', config('cache.prefix') . "static_js_file:%-game_{$game->getId()}-%")
-            ->delete();
-    }
-
-    public static function expireAllforTurn(Turn $turn): void {
-        DB::table('cache')
-            ->where('key', 'like', config('cache.prefix') . "static_js_file:%-game_{$turn->getGame()->getId()}-turn_{$turn->getId()}-%")
-            ->delete();
-    }
-
     private static function hashValue(string $value): string {
         return hash('xxh128', $value, false);
     }

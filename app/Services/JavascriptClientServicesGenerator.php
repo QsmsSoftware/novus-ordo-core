@@ -15,13 +15,13 @@ use Illuminate\Support\Facades\Route;
 use LogicException;
 use ReflectionAttribute;
 use ReflectionClass;
+use ReflectionClassConstant;
 use ReflectionEnum;
 use ReflectionEnumBackedCase;
 use ReflectionMethod;
 use ReflectionParameter;
 use ReflectionProperty;
 use ReflectionType;
-use ReflectionUnionType;
 
 class JavascriptClientServicesGenerator {
     public function generateClientEnum(string $enumClassName, bool $caseNamesAsValues = false) {
@@ -42,6 +42,24 @@ class JavascriptClientServicesGenerator {
             else {
                 $js .= "    $name: " . json_encode($case->getValue()->value) . "," . PHP_EOL;
             }
+        }
+
+        $js .= "};" . PHP_EOL;
+
+        return $js;
+    }
+
+    public function generateClientConstants(string $className) {
+        if (!class_exists($className)) {
+            throw new LogicException("Not a class: $className");
+        }
+
+        $classInfo = new ReflectionClass($className);
+        
+        $js = "const {$classInfo->getShortName()} = {" . PHP_EOL;
+
+        foreach($classInfo->getConstants(ReflectionClassConstant::IS_PUBLIC) as $name => $value) {
+            $js .= "    $name: " . json_encode($value) . "," . PHP_EOL;
         }
 
         $js .= "};" . PHP_EOL;
