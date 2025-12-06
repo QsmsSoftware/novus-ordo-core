@@ -830,6 +830,10 @@
             return `<img class="full-sized-flag" src="${flag.src}" title="Flag of the ${nation.formal_name}" alt="Flag of the ${nation.formal_name}">`;
         }
 
+        function renderShowAssetInfoLink(src) {
+            return `<a href="javascript:void(0)" title="About this picture" onclick="showAssetInfo('${getRelativeUri(src)}', 'popover_target')">i</a>`;
+        }
+
         function renderNationFlagSection(nation) {
             let flag = getNationFlagImgOrNull(nation.nation_id);
 
@@ -837,7 +841,7 @@
 
             if (flag) {
                 html += renderNationFlagFullSize(nation)
-                    + ` <a href="javascript:void(0)" title="About this picture" onclick="showAssetInfo('${getRelativeUri(flag.src)}', 'popover_target_flag_${nation.nation_id}')">i</a>`;
+                    + ' ' + renderShowAssetInfoLink(flag.src);
             }
             else {
                 html += 'This nation has no official flag yet.';
@@ -863,7 +867,8 @@
 
             let pictureSrc = leader.picture_src ? leader.picture_src : getPlaceholderPictureSrc(nation.nation_id);
             
-            html += `<img src="${pictureSrc}" class="leader-picture"><br>`;
+            html += `<img src="${pictureSrc}" class="leader-picture" title="Picture of ${leader.name}, ${leader.title}">`
+                + ' ' + renderShowAssetInfoLink(pictureSrc) + '<br>';
 
             html += `${leader.name}, ${leader.title} of the ${nation.formal_name}`;
 
@@ -954,17 +959,17 @@
                 + '</div>';
         }
 
-        function renderRecruitmentPoolResourceBox(key) {
-            let resourceTypeInfo = resourceTypeInfoByType.get(key);
-            let balance = resourceTypeInfo.can_be_stocked ? budget.balances[key] : -budget.expenses[key];
-            let availableProduction = budget.max_recruitement_pool_expansion;
-            let formattedBalance = balance < 0
-                    ? `(<span class="deficit-balance">${balance.toFixed(2)}</span>)`
-                    : `(<span class="surplus-balance">+${balance.toFixed(2)}</span>)`;
-            return '<div class="resource-box">'
-                + `${formatValue(availableProduction, StatUnit.DecimalNumber)} <img class="resource-icon" src="res/bundled/icons/resource_${key.toLowerCase()}.png" title="${resourceTypeInfo.description}"> ${formattedBalance}`
-                + '</div>';
-        }
+        // function renderRecruitmentPoolResourceBox(key) {
+        //     let resourceTypeInfo = resourceTypeInfoByType.get(key);
+        //     let balance = resourceTypeInfo.can_be_stocked ? budget.balances[key] : -budget.expenses[key];
+        //     let availableProduction = budget.max_recruitement_pool_expansion;
+        //     let formattedBalance = balance < 0
+        //             ? `(<span class="deficit-balance">${balance.toFixed(2)}</span>)`
+        //             : `(<span class="surplus-balance">+${balance.toFixed(2)}</span>)`;
+        //     return '<div class="resource-box">'
+        //         + `${formatValue(availableProduction, StatUnit.DecimalNumber)} <img class="resource-icon" src="res/bundled/icons/resource_${key.toLowerCase()}.png" title="${resourceTypeInfo.description}"> ${formattedBalance}`
+        //         + '</div>';
+        // }
 
         function updateBudgetAndProductionPanes() {
             $('#budget-details').html(
@@ -978,8 +983,10 @@
                 + '</table>'
             );
 
-            $('#resource-bar').html(Object.keys(budget.stockpiles).map(key => key == ResourceType.RecruitmentPool ? renderRecruitmentPoolResourceBox(key) : renderDefaultResourceBox(key)));
+            //$('#resource-bar').html(Object.keys(budget.stockpiles).map(key => key == ResourceType.RecruitmentPool ? renderRecruitmentPoolResourceBox(key) : renderDefaultResourceBox(key)));
+            $('#resource-bar').html(Object.keys(budget.stockpiles).map(key => renderDefaultResourceBox(key)));
 
+            
             updateProductionPane();
         }
 

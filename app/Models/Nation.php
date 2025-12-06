@@ -95,14 +95,6 @@ class Nation extends Model
             throw new LogicException("Not enough resources for deployment.");
         }
 
-        $availableRecruitmentPool = $detail->getMaximumRecruitmentPoolExpansion();
-
-        $numberOfDeployments = count($deploymentCommands);
-
-        if ($availableRecruitmentPool < $numberOfDeployments) {
-            throw new LogicException("Can only expand recruitement pool for {$availableRecruitmentPool} new divisions, {$numberOfDeployments} requested.");
-        }
-
         foreach ($deploymentCommands as $d) {
             $territory = $detail->getTerritoryById($d->territoryId);
 

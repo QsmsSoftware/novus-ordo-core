@@ -224,11 +224,14 @@ class NationDetail extends Model
     }
 
     private function getProduction(ResourceType $resourceType): float {
-        return LaborPoolAllocation::getProduction($this, $resourceType) / LaborPoolConstants::LABOR_PER_UNIT_OF_PRODUCTION;
+        return $this->getProductionRaw($resourceType) / LaborPoolConstants::LABOR_PER_UNIT_OF_PRODUCTION;
     }
 
-    private function getProductionRaw(ResourceType $resourceType): float {
-        return LaborPoolAllocation::getProduction($this, $resourceType);
+    private function getProductionRaw(ResourceType $resourceType): int {
+        return match($resourceType) {
+            ResourceType::RecruitmentPool => $this->getRecruitmentPoolRaw(),
+            default => LaborPoolAllocation::getProduction($this, $resourceType),
+        };
     }
 
     public function getStockpiledQuantity(ResourceType $resourceType): float {
@@ -251,7 +254,6 @@ class NationDetail extends Model
                 ResourceType::Food => $this->getPopulationSize(),
                 default => 0,
             };
-        
     }
 
     private function getUpkeep(ResourceType $resourceType): float {
@@ -296,11 +298,17 @@ class NationDetail extends Model
         return LaborPoolAllocation::getFreeLabor($this, ResourceType::Capital);
     }
 
+    public function getRecruitmentPoolRaw(): int {
+        return floor(Metacache::remember($this->getLoyalPopulationSize(...)) / NationDetail::MAX_RECRUITMENT_POOL_PER_LABOR_UNIT);
+    }
+
     public function getMaximumRecruitmentPoolExpansion(): int {
-        return min(
-            floor($this->getFreeLabor() / LaborPoolConstants::LABOR_PER_UNIT_OF_PRODUCTION),
-            floor(Metacache::remember($this->getLoyalPopulationSize(...)) / NationDetail::MAX_RECRUITMENT_POOL_PER_LABOR_UNIT)
-        );
+        // return min(
+        //     floor($this->getFreeLabor() / LaborPoolConstants::LABOR_PER_UNIT_OF_PRODUCTION),
+        //     floor(Metacache::remember($this->getLoyalPopulationSize(...)) / NationDetail::MAX_RECRUITMENT_POOL_PER_LABOR_UNIT)
+        // );
+
+        return floor($this->getRecruitmentPoolRaw() / LaborPoolConstants::LABOR_PER_UNIT_OF_PRODUCTION) - $this->getNumberOfDivisions() - $this->deployments()->count();
     }
 
     private static function standardLogisticFunction(float $x): float
@@ -434,6 +442,10 @@ class NationDetail extends Model
         $demandRemainingByResourceType = [];
 
         foreach(ResourceType::cases() as $resourceType) {
+            if ($resourceType == ResourceType::RecruitmentPool) {
+                $demandRemainingByResourceType[$resourceType->value] = 0;
+                continue; // Temporary!
+            }
             $upkeep = $this->getUpkeepRaw($resourceType);
             $expenses = $this->getExpensesRaw($resourceType);
             $bidOrNull = ProductionBid::getCommandBidOrNull($this, $resourceType);

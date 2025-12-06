@@ -72,14 +72,6 @@ class DeploymentController extends Controller
             abort(HttpStatusCode::UnprocessableContent, "Nation doesn't have enough resources to afford deployment costs.");
         }
 
-        $availableRecruitmentPool = $nationDetail->getMaximumRecruitmentPoolExpansion();
-
-        $numberOfDeployments = count($deploymentCommands);
-
-        // if ($availableRecruitmentPool < $numberOfDeployments) {
-        //     abort(HttpStatusCode::UnprocessableContent, "Nation cannot expand recruitement pool for that many deployments.");
-        // }
-
         $deployments = array_map(
             fn (Deployment $d) => $d->export(),
             $nation->deploy(...$deploymentCommands)
