@@ -942,6 +942,30 @@
             }
         }
 
+        function renderDefaultResourceBox(key) {
+            let resourceTypeInfo = resourceTypeInfoByType.get(key);
+            let balance = resourceTypeInfo.can_be_stocked ? budget.balances[key] : -budget.expenses[key];
+            let formattedStockpile = resourceTypeInfo.can_be_stocked ? budget.stockpiles[key].toFixed(2) : "(can't be stockpiled)";
+            let formattedBalance = balance < 0
+                    ? `(<span class="deficit-balance">${balance.toFixed(2)}</span>)`
+                    : `(<span class="surplus-balance">+${balance.toFixed(2)}</span>)`;
+            return '<div class="resource-box">'
+                + `${budget.available_production[key].toFixed(2)} <img class="resource-icon" src="res/bundled/icons/resource_${key.toLowerCase()}.png" title="${resourceTypeInfo.description}&#10;&#10;Production: ${budget.production[key].toFixed(2)}&#10;Stockpile: ${formattedStockpile}&#10;Upkeep: -${budget.upkeep[key].toFixed(2)}&#10;Expenses: -${budget.expenses[key].toFixed(2)}&#10;Available: ${budget.available_production[key].toFixed(2)}"> ${formattedBalance}`
+                + '</div>';
+        }
+
+        function renderRecruitmentPoolResourceBox(key) {
+            let resourceTypeInfo = resourceTypeInfoByType.get(key);
+            let balance = resourceTypeInfo.can_be_stocked ? budget.balances[key] : -budget.expenses[key];
+            let availableProduction = budget.max_recruitement_pool_expansion;
+            let formattedBalance = balance < 0
+                    ? `(<span class="deficit-balance">${balance.toFixed(2)}</span>)`
+                    : `(<span class="surplus-balance">+${balance.toFixed(2)}</span>)`;
+            return '<div class="resource-box">'
+                + `${formatValue(availableProduction, StatUnit.DecimalNumber)} <img class="resource-icon" src="res/bundled/icons/resource_${key.toLowerCase()}.png" title="${resourceTypeInfo.description}"> ${formattedBalance}`
+                + '</div>';
+        }
+
         function updateBudgetAndProductionPanes() {
             $('#budget-details').html(
                 '<table>'
@@ -954,17 +978,7 @@
                 + '</table>'
             );
 
-            $('#resource-bar').html(Object.keys(budget.stockpiles).map(key => {
-                let resourceTypeInfo = resourceTypeInfoByType.get(key);
-                let balance = resourceTypeInfo.can_be_stocked ? budget.balances[key] : -budget.expenses[key];
-                let formattedStockpile = resourceTypeInfo.can_be_stocked ? budget.stockpiles[key].toFixed(2) : "(can't be stockpiled)";
-                let formattedBalance = balance < 0
-                        ? `(<span class="deficit-balance">${balance.toFixed(2)}</span>)`
-                        : `(<span class="surplus-balance">+${balance.toFixed(2)}</span>)`;
-                return '<div class="resource-box">'
-                    + `${budget.available_production[key].toFixed(2)} <img class="resource-icon" src="res/bundled/icons/resource_${key.toLowerCase()}.png" title="${resourceTypeInfo.description}&#10;&#10;Production: ${budget.production[key].toFixed(2)}&#10;Stockpile: ${formattedStockpile}&#10;Upkeep: -${budget.upkeep[key].toFixed(2)}&#10;Expenses: -${budget.expenses[key].toFixed(2)}&#10;Available: ${budget.available_production[key].toFixed(2)}"> ${formattedBalance}`
-                    + '</div>'
-            }));
+            $('#resource-bar').html(Object.keys(budget.stockpiles).map(key => key == ResourceType.RecruitmentPool ? renderRecruitmentPoolResourceBox(key) : renderDefaultResourceBox(key)));
 
             updateProductionPane();
         }
@@ -1254,12 +1268,15 @@
             }
 
             if (divisionsMovingToTerritory.length > 0) {
+                function isGoingThrough(division, territory) {
+                    return (!division.can_fly && division.order.rebase_territory_id == territory.territory_id)
+                }
                 let powerLabel = selectedTerritory.owner_nation_id == ownNation.nation_id
-                    ? 'cumulated defense power: ' + calculateTotalDefensePower(divisionsMovingToTerritory)
+                    ? 'cumulated defense power: ' + calculateTotalDefensePower(divisionsMovingToTerritory.filter(d => !isGoingThrough(d, selectedTerritory)))
                     : 'cumulated attack power: ' + calculateTotalAttackPower(divisionsMovingToTerritory);
                 html += `Divisions heading towards this territory (${powerLabel}): `
                     + '<ul>'
-                    + divisionsMovingToTerritory.map(d => `<li>${divisionTypeInfoByType.get(d.division_type).description} #${d.division_id} from ${renderActionLink(territoriesById.get(d.territory_id).name, `selectTerritory(${d.territory_id})`)} ${cancelOrderOf(d)}</li>`).join("")
+                    + divisionsMovingToTerritory.map(d => `<li>${divisionTypeInfoByType.get(d.division_type).description} #${d.division_id} from ${renderActionLink(territoriesById.get(d.territory_id).name, `selectTerritory(${d.territory_id})`)}${isGoingThrough(d, selectedTerritory) ? ` is going through this territory on its way to ${renderActionLink(territoriesById.get(d.order.target_territory_id).name, `selectTerritory(${d.order.target_territory_id})`)}` : ""} ${cancelOrderOf(d)}</li>`).join("")
                     + '</ul>';
             }
             

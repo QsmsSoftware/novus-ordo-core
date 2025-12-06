@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\ModelTraits\ReplicatesForTurns;
 use App\ReadModels\LeaderTurnPublicInfo;
 use App\Utils\ImageSource;
 use Illuminate\Database\Eloquent\Model;
@@ -9,10 +10,23 @@ use Illuminate\Support\Collection;
 
 class LeaderDetail extends Model
 {
+    use ReplicatesForTurns;
+
+    public function onNextTurn(LeaderDetail $current): void {
+        $this->save();
+    }
+
     public static function getAll(Turn $turn): Collection {
         return LeaderDetail::where('game_id', $turn->getGameId())
             ->where('turn_id', $turn->getId())
             ->get();
+    }
+
+    public static function getForNation(NationDetail $nationDetail): LeaderDetail {
+        return LeaderDetail::where('game_id', $nationDetail->getGameId())
+            ->where('nation_id', $nationDetail->getNationId())
+            ->where('turn_id', $nationDetail->getTurnId())
+            ->first();
     }
 
     public function export(): LeaderTurnPublicInfo {

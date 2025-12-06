@@ -527,6 +527,10 @@ class NationDetail extends Model
         $turn = $this->getTurn();
         $stockpiles = $current->getStockpiles();
 
+        $currentLeaderDetail = LeaderDetail::getForNation($current);
+        $newLeaderDetail = $currentLeaderDetail->replicateForTurn($turn);
+        $newLeaderDetail->onNextTurn($currentLeaderDetail);
+
         foreach (ResourceType::cases() as $resourceType) {
             $resourceInfo = ResourceType::getMeta($resourceType);
 
