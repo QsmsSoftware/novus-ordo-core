@@ -56,7 +56,9 @@
 
         function validate() {
             let selectionCompleted = selectedTerritoriesIds.length == numberOfHomeTerritories;
-            let valid = selectionCompleted && document.getElementById("nation-name").value.length >= 2
+            let valid = selectionCompleted
+                && document.getElementById("nation-name").value.length >= 2
+                && document.getElementById("leader-name").value.length >= 2;
 
             document.getElementById("submit").disabled = !valid;
         }
@@ -90,6 +92,7 @@
         $(document).ready(function(){
             document.getElementById("submit").disabled = true;
             document.getElementById("nation-name").addEventListener('input', validate);
+            document.getElementById("leader-name").addEventListener('input', validate);
         });
 
         window.addEventListener("load", function() {
@@ -109,30 +112,47 @@
             let previousSelectionOrEmpty = @json(old('territory_ids_as_json', ''));
             if (previousSelectionOrEmpty != '') {
                 JSON.parse(previousSelectionOrEmpty).forEach(tid => selectTerritory(tid));
+                validate();
             }
         });
     </script>
     <body>
         <div>
-        <b>Create your nation</b>
+        <h1>Create your nation</h1>
         </div>
         <br>
         <x-error />
         <div>
             <form method="post" enctype="multipart/form-data" action="{{route('nation.store')}}">
                 @csrf
+                <h2>Nation</h2>
                 <table>
                     <tr>
                         <td>Nation's name:</td>
-                        <td><input type="text" id="nation-name" name="nation_name" class="form-control" value="{{ old('name') }}"></td>
+                        <td><input type="text" id="nation-name" name="nation_name" class="form-control" value="{{ old('nation_name') }}"></td>
                     </tr>
                     <tr>
                         <td>Nation's formal name (a default one will be generated if left blank):</td>
-                        <td><input type="text" id="nation-formal-name" name="nation_formal_name" class="form-control" value="{{ old('formal_name') }}"></td>
+                        <td><input type="text" id="nation-formal-name" name="nation_formal_name" class="form-control" value="{{ old('nation_formal_name') }}"></td>
                     </tr>
                     <tr>
                         <td>Nation's flag (a random flag will be assigned if not provided):</td>
                         <td><input name="nation_flag" type="file" class="form-control"></td>
+                    </tr>
+                </table>
+                <h2>Leader</h2>
+                    <table>
+                    <tr>
+                        <td>Leader's name:</td>
+                        <td><input type="text" id="leader-name" name="leader_name" class="form-control" value="{{ old('leader_name') }}"></td>
+                    </tr>
+                    <tr>
+                        <td>Leader's title (Emperor will be used if left blank):</td>
+                        <td><input type="text" id="leader-title" name="leader_title" class="form-control" value="{{ old('leader_title') }}"></td>
+                    </tr>
+                    <tr>
+                        <td>Leader's picture (optional):</td>
+                        <td><input name="leader_picture" type="file" class="form-control"></td>
                     </tr>
                 </table>
                 <input type="hidden" name="territory_ids_as_json" id="territory_ids_as_json">
@@ -140,6 +160,7 @@
                 <button id="submit" class="btn btn-primary" type="submit">Create nation</button>
             </form>
         </div>
+
         <p>Select your home territory (<span id="pick-message"></span>) <a href="javascript:void(0)" onclick="clearSelection()">clear selection</a></p>
         <x-map-display id="map-display" />
     </body>

@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Facades\ImageProcessing;
+use App\Facades\ImageProcessingError;
 use App\Models\Battle;
 use App\Models\Deployment;
 use App\Models\Division;
@@ -9,7 +11,7 @@ use App\Models\Game;
 use App\Models\Nation;
 use App\Models\NewNation;
 use App\Models\GameHasNotEnoughFreeTerritories;
-use App\Models\LaborPoolAllocation;
+use App\Models\LeaderDetail;
 use App\Models\ProductionBid;
 use App\Models\Territory;
 use App\Models\TerritoryDetail;
@@ -25,10 +27,9 @@ use App\Services\LoggedInGameContext;
 use App\Services\NationContext;
 use App\Services\StaticJavascriptResource;
 use App\Utils\Annotations\Summary;
-use App\Utils\HttpStatusCode;
+use App\Utils\ImageSource;
 use App\Utils\MapsValidatedDataToFormRequest;
 use App\Utils\MapsValidatorToInstance;
-use GdImage;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -44,6 +45,8 @@ class CreateNationUiRequest extends FormRequest {
 
     public string $nation_name;
     public ?string $nation_formal_name;
+    public string $leader_name;
+    public ?string $leader_title;
     public readonly array $territory_ids;
 
     public function __construct(
@@ -54,13 +57,11 @@ class CreateNationUiRequest extends FormRequest {
     }
 
     public function getFlagFileOrNull(): ?UploadedFile {
-        $fileOrFiles = $this->file('nation_flag');
+        return ImageProcessing::getFileOrNull($this->file('nation_flag'));
+    }
 
-        return match(true) {
-            is_array($fileOrFiles) => reset($fileOrFiles),
-            $fileOrFiles instanceof UploadedFile => $fileOrFiles,
-            is_null($fileOrFiles) => null,
-        };
+    public function getLeaderPictureFileOrNull(): ?UploadedFile {
+        return ImageProcessing::getFileOrNull($this->file('leader_picture'));
     }
 
     protected function prepareForValidation(): void
@@ -85,7 +86,18 @@ class CreateNationUiRequest extends FormRequest {
                 'string',
                 'min:2',
                 'max:1024',
-                NewNation::createRuleNoNationWithSameNameInGameUnlessItsOwner($this->context->getGame(), $this->context->getUser())
+            ],
+            'leader_name' => [
+                'required',
+                'string',
+                'min:2',
+                'max:1024',
+            ],
+            'leader_title' => [
+                'nullable',
+                'string',
+                'min:2',
+                'max:1024',
             ],
             'territory_ids' => [
                 'required',
@@ -172,37 +184,52 @@ class UiController extends Controller
         $flagSrcOrNull = null;
 
         if (!is_null($flagFileOrNull)) {
-            $tmpFilePath = $flagFileOrNull->getRealPath();
-            if ($tmpFilePath === false) {
-                abort(HttpStatusCode::UnprocessableContent, 'Unable to read uploaded flag.');
+            $flagSrcOrError = ImageProcessing::cropFitToPublicImage(
+                imageFile: $flagFileOrNull,
+                targetImageWidthPixels: 300,
+                targetImageHeightPixels: 200,
+                destinationSrc: "var/game_{$context->getGame()->getId()}-nation_{$newNation->getId()}-initial_flag.png",
+            );
+
+            if ($flagSrcOrError instanceof ImageProcessingError) {
+                return back()->withErrors([
+                        'nation_flag' => $flagSrcOrError->message,
+                ])->withInput();
             }
-            $imageSize = getimagesize($tmpFilePath);
-            if ($imageSize === false) {
-                abort(HttpStatusCode::UnprocessableContent, 'Unable to read uploaded flag.');
-            }
-            list($originalWidthPixels, $originalHeightPixels) = $imageSize;
-            $originalImage = imagecreatefromstring($flagFileOrNull->getContent());
-            if ($originalImage === false) {
-                abort(HttpStatusCode::UnprocessableContent, 'Unable to read uploaded flag.');
-            }
-            $targetImageWidthPixels = 300;
-            $targetImageHeightPixels = 200;
-            $destinationImage = imagecreatetruecolor($targetImageWidthPixels, $targetImageHeightPixels);
-            asset($originalImage instanceof GdImage);
-            asset($destinationImage instanceof GdImage);
-            $resizeResult = imagecopyresampled($destinationImage, $originalImage, 0, 0, 0, 0, $targetImageWidthPixels, $targetImageHeightPixels, $originalWidthPixels, $originalHeightPixels);
-            if ($resizeResult === false) {
-                abort(HttpStatusCode::UnprocessableContent, 'Unable to resize uploaded flag.');
-            }
-            $flagSrc = "var/game_{$context->getGame()->getId()}-nation_{$newNation->getId()}-initial_flag.png";
-            $saveResult = imagepng($destinationImage, public_path($flagSrc));
-            if ($saveResult === false) {
-                abort(HttpStatusCode::UnprocessableContent, 'Unable to store uploaded flag.');
-            }
-            $flagSrcOrNull = $flagSrc;
+
+            $flagSrcOrNull = $flagSrcOrError;
         }
 
-        $newNation->finishSetup($request->territory_ids, flagSrc: $flagSrcOrNull, formalName: $formalNameOrNull);
+        $leaderPictureFileOrNull = $request->getLeaderPictureFileOrNull();
+        $leaderPictureSrcOrNull = null;
+
+        if (!is_null($leaderPictureFileOrNull)) {
+            $leaderPictureSrcOrError = ImageProcessing::cropFitToPublicImage(
+                imageFile: $leaderPictureFileOrNull,
+                targetImageWidthPixels: 200,
+                targetImageHeightPixels: 400,
+                destinationSrc: "var/game_{$context->getGame()->getId()}-nation_{$newNation->getId()}-initial_leader_picture.png",
+            );
+
+            if ($leaderPictureSrcOrError instanceof ImageProcessingError) {
+                return back()->withErrors([
+                        'nation_flag' => $leaderPictureSrcOrError->message,
+                ])->withInput();
+            }
+
+            $leaderPictureSrcOrNull = $leaderPictureSrcOrError;
+        }
+
+        $leaderTitleOrNull = empty($request->leader_title) ? null : $request->leader_title;
+
+        $newNation->finishSetup(
+            homeTerritoryIds: $request->territory_ids,
+            flagSrc: $flagSrcOrNull,
+            leaderName: $request->leader_name,
+            formalName: $formalNameOrNull,
+            leaderTitleOrNull: $leaderTitleOrNull,
+            leaderPictureSrcOrNull: $leaderPictureSrcOrNull,
+        );
 
         return redirect()->route('dashboard');
     }
@@ -250,6 +277,7 @@ class UiController extends Controller
             'own_territories_last_turn_info' => TerritoryDetail::exportAllTurnOwnerInfo($nation, $previousDetailTurn),
             'ready_status' => $game->exportReadyStatus(),
             'nations' => $nationsById->values(),
+            'leaders' => LeaderDetail::getAll($turn)->map(fn (LeaderDetail $leaderDetail) => $leaderDetail->export()),
             'deployments' => $nationDetail->deployments()->get()
                 ->map(fn (Deployment $d) => $d->export())
                 ->values(),

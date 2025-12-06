@@ -24,6 +24,11 @@
             width: 300px;
             height: 200px;
         }
+        .leader-picture {
+            outline: 1px solid black;
+            width: 200px;
+            height: 400px;
+        }
         .resource-bar {
             display: flex;
             width: 900px;
@@ -114,6 +119,7 @@
             mapExportedArray(ownTerritoriesLastTurnInfo, t => t.territory_id),
         );
         let nationsById = mapExportedArray(@json($nations), n => n.nation_id);
+        let leadersByNationId = mapExportedArray(@json($leaders), l => l.nation_id)
         let allBattleLogs = @json($battle_logs);
         var deploymentsById = mapExportedArray(@json($deployments), d => d.deployment_id);
         var divisionsById = mapExportedArray(@json($divisions), d => d.division_id);
@@ -827,14 +833,43 @@
         function renderNationFlagSection(nation) {
             let flag = getNationFlagImgOrNull(nation.nation_id);
 
+            var html = '<div><h2>Flag</h2>';
+
             if (flag) {
-                return '<div><h2>Flag</h2>'
-                    + renderNationFlagFullSize(nation)
-                    + ` <a href="javascript:void(0)" title="About this picture" onclick="showAssetInfo('${getRelativeUri(flag.src)}', 'popover_target_flag_${nation.nation_id}')">i</a>`
-                    + '</div>';
+                html += renderNationFlagFullSize(nation)
+                    + ` <a href="javascript:void(0)" title="About this picture" onclick="showAssetInfo('${getRelativeUri(flag.src)}', 'popover_target_flag_${nation.nation_id}')">i</a>`;
             }
+            else {
+                html += 'This nation has no official flag yet.';
+            }
+
+            html += '</div>';
             
-            return '<div>This nation has no official flag yet.<div>';
+            return html;
+        }
+
+        function getPlaceholderPictureSrc(nationId) {
+            const placeholderImages = [...document.getElementById('placeholder-leader-pictures').getElementsByTagName("img")];
+            //const randomIndex = Math.floor(Math.random() * placeholderImages.length);
+            const index = nationId % placeholderImages.length;
+            
+            return placeholderImages[index].src;
+        }
+
+        function renderNationLeaderSection(nation) {
+            let leader = leadersByNationId.get(nation.nation_id);
+
+            var html = '<div><h2>Leader</h2>';
+
+            let pictureSrc = leader.picture_src ? leader.picture_src : getPlaceholderPictureSrc(nation.nation_id);
+            
+            html += `<img src="${pictureSrc}" class="leader-picture"><br>`;
+
+            html += `${leader.name}, ${leader.title} of the ${nation.formal_name}`;
+
+            html += '</div>';
+            
+            return html;
         }
 
         function updateTerritoryInfo() {
@@ -860,6 +895,7 @@
                 html += `<h1>${nation.formal_name}</h1>`;
                 html += `<p>Usual name: ${nation.usual_name}<p>`;
                 html += renderNationFlagSection(nation);
+                html += renderNationLeaderSection(nation);
                 html += renderDemography(nation.stats);
                 $("#owner-details").html(html);
             }
@@ -2141,6 +2177,7 @@
             updateRankingsPane();
             updateNationPane(ownNation, $('#own-nation-details'));
             $('#own-nation-flag').html(renderNationFlagSection(ownNation));
+            $('#own-nation-leader').html(renderNationLeaderSection(ownNation));
             $('#own-nation-demographics').html(renderDemography(ownNation.stats));
             updateVictoryPane();
             updateBudgetAndProductionPanes();
@@ -2221,7 +2258,10 @@
                     own nation
                 </div>
                 <div id="own-nation-flag">
-                    demographics
+                    flag
+                </div>
+                <div id="own-nation-leader">
+                    leader
                 </div>
                 <div id="own-nation-demographics">
                     demographics
@@ -2300,6 +2340,10 @@
                 <img src="{{asset($n->flag_src)}}" id="img_flag_{{$n->nation_id}}">
                 @endif
             @endforeach
+            <div id="placeholder-leader-pictures">
+                <img src="res/bundled/placeholders/leaders/woman-306227_1280.png">
+                <img src="res/bundled/placeholders/leaders/silhouette-3265658_1280.png">
+            </div>
         </div>
         <div id="asset-info" popover>
             This is the content of the popover.

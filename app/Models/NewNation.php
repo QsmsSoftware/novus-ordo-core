@@ -6,6 +6,7 @@ use App\Domain\SharedAssetType;
 use App\Domain\NationSetupStatus;
 use App\Facades\Metacache;
 use App\Utils\GuardsForAssertions;
+use App\Utils\ImageSource;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -61,7 +62,14 @@ class NewNation extends Model
             ->exists();
     }
 
-    public function finishSetup(array $homeTerritoryIds, ?string $flagSrc = null, ?string $formalName = null): Nation {
+    public function finishSetup(
+        array $homeTerritoryIds,
+        string $leaderName,
+        ?ImageSource $flagSrc = null,
+        ?string $formalName = null,
+        ?string $leaderTitleOrNull = null,
+        ?ImageSource $leaderPictureSrcOrNull = null,
+    ): Nation {
         if (!is_null($formalName)) {
             $formalName = Str::trim($formalName);
 
@@ -74,7 +82,7 @@ class NewNation extends Model
             throw new LogicException("Parameter homeTerritoryIds: expecting " . Game::NUMBER_OF_STARTING_TERRITORIES . " IDs, " . count($homeTerritoryIds) . " specified");
         }
 
-        $nation = Cache::lock(NewNation::CRITICAL_SECTION_HOME_TERRITORIES_SELECT_CACHE_NAME, 10)->block(2, function () use ($flagSrc, $formalName, $homeTerritoryIds) {
+        $nation = Cache::lock(NewNation::CRITICAL_SECTION_HOME_TERRITORIES_SELECT_CACHE_NAME, 10)->block(2, function () use ($flagSrc, $formalName, $homeTerritoryIds, $leaderName, $leaderTitleOrNull, $leaderPictureSrcOrNull) {
             $nation = Nation::notNull(Nation::withoutGlobalScopes()->find($this->getId()));
             
             $homeTerritories = $nation->getGame()->freeSuitableTerritoriesInTurn()->whereIn('id', $homeTerritoryIds)->get();
@@ -92,7 +100,9 @@ class NewNation extends Model
 
             $formalName = $formalName ?? "Empire of {$nation->getInternalName()}";
 
-            NationDetail::create($nation, $formalName, $flagSrc);
+            $nationDetail = NationDetail::create($nation, $formalName, $flagSrc);
+
+            Leader::create($nationDetail, $leaderName, $leaderTitleOrNull, $leaderPictureSrcOrNull);
 
             $homeTerritories->each(function (Territory $territory) use ($nation) {
                 $detail = $territory->getDetail();

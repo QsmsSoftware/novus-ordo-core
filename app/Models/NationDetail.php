@@ -15,6 +15,7 @@ use App\ReadModels\DemographicStat;
 use App\ReadModels\NationTurnOwnerInfo;
 use App\ReadModels\NationTurnPublicInfo;
 use App\Utils\GuardsForAssertions;
+use App\Utils\ImageSource;
 use Closure;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -571,7 +572,7 @@ class NationDetail extends Model
     public static function create(
         Nation $nation,
         ?string $formalName = null,
-        string|GameSharedStaticAsset|null $flagSrcOrAsset = null,
+        ImageSource|GameSharedStaticAsset|null $flagSrcOrAsset = null,
     ): NationDetail {
         if ($flagSrcOrAsset instanceof GameSharedStaticAsset && !$flagSrcOrAsset->getType() == SharedAssetType::Flag) {
             throw new InvalidArgumentException("flagSrcOrAsset: expecting Flag asset, got " . $flagSrcOrAsset->getType());
@@ -586,7 +587,7 @@ class NationDetail extends Model
         $nation_details->usual_name = $nation->getInternalName();
         $nation_details->formal_name = is_null($formalName) ? $nation_details->usual_name : $formalName;
         $nation_details->flag_src = match(true) {
-            is_string($flagSrcOrAsset) => $flagSrcOrAsset,
+            $flagSrcOrAsset instanceof ImageSource => $flagSrcOrAsset->src,
             $flagSrcOrAsset instanceof GameSharedStaticAsset => $flagSrcOrAsset->getSrc(),
             is_null($flagSrcOrAsset) => null,
         };
