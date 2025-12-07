@@ -262,7 +262,6 @@ class NationDetail extends Model
 
     private function getExpensesRaw(ResourceType $resourceType): int {
         $deploymentExpenses = Deployment::getTotalCostsByResourceType($this->getNation(), $this->getTurn());
-        $deploymentExpenses[ResourceType::RecruitmentPool->value] += $this->deployments()->count();
         $orderExpenses = Order::getTotalCostsByResourceType($this->getNation(), $this->getTurn());
 
         return ($deploymentExpenses[$resourceType->value] + $orderExpenses[$resourceType->value]) * LaborPoolConstants::LABOR_PER_UNIT_OF_PRODUCTION;
@@ -441,10 +440,13 @@ class NationDetail extends Model
         $remainingFacilityCapacitiesByFacilityId = $facilitiesById->mapWithKeys(fn (LaborPoolFacility $f) => [ $f->getId() => $f->getCapacity() ])->all();
         $demandRemainingByResourceType = [];
 
+        $resourceInfosByType = ResourceType::getMetas();
+
         foreach(ResourceType::cases() as $resourceType) {
             if ($resourceType == ResourceType::RecruitmentPool) {
+                // Temporary!
                 $demandRemainingByResourceType[$resourceType->value] = 0;
-                continue; // Temporary!
+                continue; 
             }
             $upkeep = $this->getUpkeepRaw($resourceType);
             $expenses = $this->getExpensesRaw($resourceType);
@@ -466,7 +468,8 @@ class NationDetail extends Model
             ProductionBid::setUpkeepBid($this, ResourceType::from($resourceType), $quantity);
         }
 
-        $reservedLabor = $demandRemainingByResourceType[ResourceType::RecruitmentPool->value];
+        ProductionBid::setUpkeepBid($this, ResourceType::Capital, $this->getUpkeepRaw(ResourceType::Capital));
+        $reservedLabor = $this->getUpkeepRaw(ResourceType::Capital);
         $usableLabor = max(0, $laborPoolsById->sum(fn (LaborPool $lp) => $lp->getSize()) - $reservedLabor);
 
         ProductionBid::setCommandBid($this, ResourceType::Capital, ProductionBidConstants::MAX_QUANTITY_LIMIT, ProductionBidConstants::MAX_LABOR_PER_UNIT_LIMIT, ProductionBidConstants::LOWEST_COMMAND_BID_PRIORITY - 1);
@@ -517,7 +520,7 @@ class NationDetail extends Model
                     $capacityUsage = min($capacityUsage, $usableLabor);
                 }
 
-                if ($resourceType != ResourceType::RecruitmentPool) {
+                if ($resourceType != ResourceType::Capital) {
                     $usableLabor -= $capacityUsage;
                 }
 

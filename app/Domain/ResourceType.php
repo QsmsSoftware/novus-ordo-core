@@ -17,7 +17,7 @@ enum ResourceType :int {
 
     public static function getMeta(ResourceType $resourceType): ResourceTypeMeta {
         return match($resourceType) {
-            ResourceType::Capital => new ResourceTypeMeta(description: "Capital (money)", canBeStocked: true, startingStock: 10, canPlaceCommand: false),
+            ResourceType::Capital => new ResourceTypeMeta(description: "Capital (money)", canBeStocked: true, startingStock: 20, upkeepBidPriority: UpkeepBidPriority::AfterCommandBids, canPlaceCommand: false),
             ResourceType::RecruitmentPool => new ResourceTypeMeta(description: "Recruitement pool", canBeStocked: false, startingStock: 0, upkeepBidPriority: UpkeepBidPriority::AfterCommandBids, canPlaceCommand: false),
             ResourceType::Food => new ResourceTypeMeta(description: "Food", canBeStocked: true, startingStock: 0, upkeepBidPriority: UpkeepBidPriority::Lowest),
             ResourceType::Material => new ResourceTypeMeta(description: "Raw materials", canBeStocked: true, startingStock: 0),

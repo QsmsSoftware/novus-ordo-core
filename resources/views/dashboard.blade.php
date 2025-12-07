@@ -923,6 +923,12 @@
         }
 
         function updateProductionPane() {
+            function placeOrderOnEnter(event) {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    placeBids();
+                }
+            }
             $('#production-bids').html(renderProduction());
             updateUpdateBidsLink();
             for(const resourceType of resourceTypeInfoByType.keys()) {
@@ -930,7 +936,9 @@
 
                 if (maxQuantityInput) {
                     maxQuantityInput.addEventListener('input', updateUpdateBidsLink);
+                    maxQuantityInput.addEventListener('keydown', placeOrderOnEnter);
                     document.getElementById(getResourceEfficiencyInputId(resourceType)).addEventListener('input', updateUpdateBidsLink);
+                    document.getElementById(getResourceEfficiencyInputId(resourceType)).addEventListener('keydown', placeOrderOnEnter);
                 }
             }
         }
@@ -1524,7 +1532,7 @@
                 }
 
                 $("#send-order-link").html([MapMode.SelectMoveDestinationTerritory, MapMode.SelectAttackTargetTerritory].includes(currentMapMode)
-                    ? `Select the destination territory to move to attack with the ${numberOfSelectedDivisions} selected divisions or <a href="javascript:void(0)" onclick="cancelSelectDestinationForDivisions()">cancel</a>`
+                    ? `Select the destination territory to move or attack with the ${numberOfSelectedDivisions} selected divisions or <a href="javascript:void(0)" onclick="cancelSelectDestinationForDivisions()">cancel</a>`
                     : `With ${numberOfSelectedDivisions} selected divisions (selected attack power: ${calculateTotalAttackPower(getAllSelectedDivisionsInTerritory())}, remaining defense power: ${calculateTotalDefensePower(getRemainingUnselectedDivisions())}, max range: ${getSelectedDivisionsMoves()}): <a href="javascript:void(0)" onclick="selectMoveDestinationForDivisions()">move</a> - ${attackLink} - <a href="javascript:void(0)" onclick="sendDisbandOrdersToSelectedDivisions()">disband</a>`
                 );
             }
