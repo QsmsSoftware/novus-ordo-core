@@ -246,6 +246,10 @@ class NationDetail extends Model
         return NationResourceStockpile::notNull($stockpileOrNull)->getAvailableQuantity();
     }
 
+    public function getStockpiledQuantityRaw(ResourceType $resourceType): int {
+        return floor($this->getStockpiledQuantity($resourceType) * LaborPoolConstants::LABOR_PER_UNIT_OF_PRODUCTION);
+    }
+
     private function getUpkeepRaw(ResourceType $resourceType): int {
         $divisionUpkeepCosts = DivisionDetail::getTotalUpkeepCostsByResourceType($this->getNation(), $this->getTurn());
 
@@ -272,7 +276,11 @@ class NationDetail extends Model
     }
 
     private function getAvailableProduction(ResourceType $resourceType): float {
-        return max(0, $this->getStockpiledQuantity($resourceType) + $this->getBalance($resourceType));
+        return floor($this->getAvailableProductionRaw($resourceType) / LaborPoolConstants::LABOR_PER_UNIT_OF_PRODUCTION * 10_000) / 10_000;
+    }
+
+    private function getAvailableProductionRaw(ResourceType $resourceType): int {
+        return max(0, $this->getStockpiledQuantityRaw($resourceType) + $this->getBalanceRaw($resourceType));
     }
 
     private function getBalance(ResourceType $resourceType): float {
@@ -294,7 +302,8 @@ class NationDetail extends Model
     }
 
     public function getFreeLabor(): int {
-        return LaborPoolAllocation::getFreeLabor($this, ResourceType::Capital);
+        $production = $this->getProductionRaw(ResourceType::Capital);
+        return min($production, max(0, $this->getBalanceRaw(ResourceType::Capital) + $this->getStockpiledQuantity(ResourceType::Capital)));
     }
 
     public function getRecruitmentPoolRaw(): int {
@@ -434,6 +443,14 @@ class NationDetail extends Model
     }
 
     private function allocateLabor(): void {
+        $this->attemptAllocateLabor(true);
+
+        if ($this->getStockpiledQuantityRaw(ResourceType::Capital) < -$this->getBalanceRaw(ResourceType::Capital)) {
+            $this->attemptAllocateLabor(false);
+        }
+    }
+
+    private function attemptAllocateLabor(bool $maintainReserveIfActiveCommand): void {
         $laborPoolsById = LaborPool::getLaborPools($this)->mapWithKeys(fn (LaborPool $lp) => [ $lp->getId() => $lp ]);
         $laborPoolSizesByPoolId = $laborPoolsById->mapWithKeys(fn (LaborPool $lp) => [ $lp->getId() => $lp->getSize() ])->all();
         $facilitiesById = LaborPoolFacility::getFacilities($this)->mapWithKeys(fn (LaborPoolFacility $f) => [ $f->getId() => $f ]);
@@ -451,12 +468,12 @@ class NationDetail extends Model
             $upkeep = $this->getUpkeepRaw($resourceType);
             $expenses = $this->getExpensesRaw($resourceType);
             $bidOrNull = ProductionBid::getCommandBidOrNull($this, $resourceType);
-            $activeProductionBidForResource = !is_null($bidOrNull) && $bidOrNull->getMaxQuantity() > 0;
-            if ($activeProductionBidForResource) {
+            $activeProductionBidForResource = !is_null($bidOrNull) && $bidOrNull->getMaxQuantity() > 0 && $resourceInfosByType[$resourceType->value]->canPlaceCommand;
+            if ($activeProductionBidForResource && $maintainReserveIfActiveCommand) {
                 $demandRemainingByResourceType[$resourceType->value] = $upkeep;
             }
             else {
-                $reserves = floor($this->getStockpiledQuantity($resourceType) * LaborPoolConstants::LABOR_PER_UNIT_OF_PRODUCTION);
+                $reserves = $this->getStockpiledQuantityRaw($resourceType);
                 $surplus = $reserves - $expenses - $upkeep;
                 $demandRemainingByResourceType[$resourceType->value] = $surplus < 0 ? -$surplus : 0;
             }
@@ -468,8 +485,9 @@ class NationDetail extends Model
             ProductionBid::setUpkeepBid($this, ResourceType::from($resourceType), $quantity);
         }
 
-        ProductionBid::setUpkeepBid($this, ResourceType::Capital, $this->getUpkeepRaw(ResourceType::Capital));
-        $reservedLabor = $this->getUpkeepRaw(ResourceType::Capital);
+        //ProductionBid::setUpkeepBid($this, ResourceType::Capital, $this->getUpkeepRaw(ResourceType::Capital));
+        //$reservedLabor = $this->getUpkeepRaw(ResourceType::Capital);
+        $reservedLabor = 0;
         $usableLabor = max(0, $laborPoolsById->sum(fn (LaborPool $lp) => $lp->getSize()) - $reservedLabor);
 
         ProductionBid::setCommandBid($this, ResourceType::Capital, ProductionBidConstants::MAX_QUANTITY_LIMIT, ProductionBidConstants::MAX_LABOR_PER_UNIT_LIMIT, ProductionBidConstants::LOWEST_COMMAND_BID_PRIORITY - 1);
@@ -519,10 +537,8 @@ class NationDetail extends Model
                 if ($bid->getBidType() != BidType::Upkeep) {
                     $capacityUsage = min($capacityUsage, $usableLabor);
                 }
-
-                if ($resourceType != ResourceType::Capital) {
-                    $usableLabor -= $capacityUsage;
-                }
+                
+                $usableLabor -= $capacityUsage;
 
                 if ($capacityUsage <= 0) {
                     continue;

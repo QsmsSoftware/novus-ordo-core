@@ -13,23 +13,13 @@ class LaborPoolAllocation extends Model
 {
     use GuardsForAssertions;
 
-    public static function getFreeLabor(NationDetail $detail): int {
-        return DB::table('labor_pool_facilities')
-            ->where('labor_pool_facilities.nation_id', $detail->getNationId())
-            ->where('labor_pool_facilities.turn_id', $detail->getTurnId())
-            ->where('labor_pool_facilities.resource_type', ResourceType::Capital->value)
-            ->join('labor_pool_allocations', 'labor_pool_facilities.id', '=', 'labor_pool_allocations.labor_pool_facility_id')
-            ->selectRaw('SUM(allocation) as free_labor')
-            ->value('free_labor') ?? 0;
-    }
-
     public static function getProduction(NationDetail $detail, ResourceType $resourceType): int {
         return DB::table('labor_pool_facilities')
             ->where('labor_pool_facilities.nation_id', $detail->getNationId())
             ->where('labor_pool_facilities.turn_id', $detail->getTurnId())
             ->where('labor_pool_facilities.resource_type', $resourceType->value)
             ->join('labor_pool_allocations', 'labor_pool_facilities.id', '=', 'labor_pool_allocations.labor_pool_facility_id')
-            ->selectRaw('SUM(productivity_pct / 100 * allocation) as total_production')
+            ->selectRaw('SUM(labor_pool_facilities.productivity_pct / 100 * labor_pool_allocations.allocation) as total_production')
             ->value('total_production') ?? 0;
     }
 

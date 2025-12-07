@@ -1106,7 +1106,7 @@
 
             divisionType = divisionTypeInfoByType.get(typeToDeploy);
 
-            return Object.keys(divisionType.deployment_costs).reduce((min, resource) => Math.min(Math.floor(availableResources[resource] / divisionType.deployment_costs[resource]), min), Number.MAX_SAFE_INTEGER);
+            return Object.keys(divisionType.deployment_costs).filter(resourceType => resourceType != ResourceType.RecruitmentPool).reduce((min, resource) => Math.min(Math.floor(availableResources[resource] / divisionType.deployment_costs[resource]), min), Number.MAX_SAFE_INTEGER);
         }
 
         function getBaseRemainingDeployments(typeToDeploy) {
@@ -1170,7 +1170,7 @@
                 })
                 .toArray()
                 .join("")
-            html += '</table><i>*: limited by recruitement pool expansion</i></p>';
+            html += '</table><i>*: limited by recruitment pool expansion</i></p>';
 
 
             if (pendingDeployments.length > 0) {
