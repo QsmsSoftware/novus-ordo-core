@@ -707,13 +707,9 @@
 
         function renderProduction() {
             html = '<h2>Production bids</h2>'
-                // + 'Necessary labor is automatically allocated to cover population and divisions\' upkeep (Food and Recruitement pool). '
-                // + 'Remaining labor (free labor) can be used to extract resource or produce Capital. '
-                // + 'To produce a type of resource, place a bid. Request the quantity you\'d like and the minimum efficiency you require. '
-                // + 'Labor that remains unassigned will be automatically assigned to produce Capital.'
                 + `<p>Free labor: ${formatValue(budget.free_labor / LaborPoolConstants.LABOR_PER_UNIT_OF_PRODUCTION, StatUnit.DecimalNumber)}</p>`
                 + '<table>'
-                + '<tr><th>Resource</th><th></th><th>Requested quantity</th><th>Required efficiency (minimum productivity)</th></tr>'
+                + '<tr><th>Resource</th><th></th><th>Requested quantity</th><th>Requested productivity</th><th>Highest productivity available</th><th>Allocated labor</th><th>Production</th><th></th></tr>'
                 + resourceTypeInfoByType.values().map(resourceInfo => {
                     if ([ResourceType.Capital, ResourceType.RecruitmentPool].includes(resourceInfo.resource_type)) {
                         return;
@@ -724,11 +720,19 @@
                     let currentQuantity = bidOrNull ? bidOrNull.max_quantity / LaborPoolConstants.LABOR_PER_UNIT_OF_PRODUCTION : 0;
                     let currentEfficiency = bidOrNull ? laborPerUnitToProductivity(bidOrNull.max_labor_allocation_per_unit) : 0;
 
+                    let highestProductivity = budget.labor_facility_allocations.filter(f => f.resource_type == resourceInfo.resource_type).reduce((max, f) => f.productivity > max ? f.productivity : max, 0);
+                    let allocatedLabor =  budget.labor_facility_allocations.filter(f => f.resource_type == resourceInfo.resource_type).reduce((sum, f) => sum + f.allocation, 0) / LaborPoolConstants.LABOR_PER_UNIT_OF_PRODUCTION;
+                    let production =  budget.labor_facility_allocations.filter(f => f.resource_type == resourceInfo.resource_type).reduce((sum, f) => sum + f.production, 0) / LaborPoolConstants.LABOR_PER_UNIT_OF_PRODUCTION;
+
                     return '<tr>'
                         + `<td>${resourceInfo.description}</td>`
                         + `<td>${renderProductionResourceIcon(resourceInfo.resource_type)}</td>`
                         + `<td class="resource-short-input"><input type="text" id="${getResourceQuantityInputId(resourceInfo.resource_type)}" name="${getResourceQuantityInputId(resourceInfo.resource_type)}" value="${currentQuantity || ""}"></td>`
                         + `<td class="resource-short-input"><input type="text" id="${getResourceEfficiencyInputId(resourceInfo.resource_type)}" name="${getResourceEfficiencyInputId(resourceInfo.resource_type)}" value="${currentEfficiency || ""}"></td>`
+                        + `<td>${formatValue(highestProductivity, StatUnit.DecimalNumber)}</td>`
+                        + `<td>${formatValue(allocatedLabor, StatUnit.DecimalNumber)}</td>`
+                        + `<td class="stat-value">${formatValue(production, StatUnit.DecimalNumber)}x</td>`
+                        + `<td>${renderProductionResourceIcon(resourceInfo.resource_type)}</td>`
                         + '</tr>';
                 }).toArray().join("")
                 + '</table>'
@@ -742,6 +746,12 @@
             return '<h2>Details</h2>'
                 + resourceTypeInfoByType.keys().map(resourceType => {
                     let resourceInfo = resourceTypeInfoByType.get(resourceType);
+                    
+                    if (resourceType == ResourceType.RecruitmentPool) {
+                        return `<h3>${resourceInfo.description}</h3>`
+                            + '<i>Recruitment pool depends on population size (1 unit / 1M population).</i>';
+                    }
+                    
                     let resourceAllocations = budget.labor_facility_allocations.filter(lp => lp.resource_type == resourceType);
                     let sum = {
                         capacity: 0,
@@ -2321,20 +2331,22 @@
                 <h2>Labor Allocation Rules</h2>
                 <ul>
                     <li>
-                    <strong>Automatic upkeep:</strong> A portion of labor is always reserved to sustain your population and divisions (Food and Recruitment Pool).
+                    <strong>Automatic upkeep:</strong> A portion of labor is always reserved to sustain your population and divisions (Food and Capital).
                     </li>
                     <li>
-                    <strong>Free labor:</strong> Any remaining labor can be directed toward extracting resources or generating Capital.
-                    </li>
-                    <li>
-                    <strong>Producing resources:</strong>
+                    <strong>Free labor:</strong> Any remaining labor can be directed toward extracting resources or generating extra Capital.
                     <ul>
-                        <li>Place a bid to produce a resource.</li>
-                        <li>Specify the amount you want and the minimum efficiency (productivity) you’ll accept.</li>
+                        <li>
+                        <strong>Producing resources:</strong>
+                        <ul>
+                            <li>Place a bid to produce a resource.</li>
+                            <li>Specify the amount you want and the minimum efficiency (productivity) you’ll accept.</li>
+                        </ul>
+                        </li>
+                        <li>
+                        <strong>Unassigned labor:</strong> Any labor you do not allocate is automatically assigned to produce Capital.
+                        </li>
                     </ul>
-                    </li>
-                    <li>
-                    <strong>Unassigned labor:</strong> Any labor you do not allocate is automatically assigned to produce Capital.
                     </li>
                 </ul>
                 <div id="production-bids">

@@ -38,7 +38,7 @@ class LaborPoolAllocation extends Model
             ->where('labor_pools.nation_id', $detail->getNationId())
             ->where('labor_pools.turn_id', $turn->getId())
             ->join('labor_pool_facilities', 'labor_pools.id', '=', 'labor_pool_facilities.labor_pool_id')
-            ->join('labor_pool_allocations', 'labor_pool_facilities.id', '=', 'labor_pool_allocations.labor_pool_facility_id')
+            ->leftJoin('labor_pool_allocations', 'labor_pool_facilities.id', '=', 'labor_pool_allocations.labor_pool_facility_id')
             ->select(
                 'labor_pools.nation_id',
                 'labor_pools.turn_id',
@@ -54,7 +54,7 @@ class LaborPoolAllocation extends Model
                 'resource_type' => ResourceType::from($row->resource_type)->name,
                 'productivity' => $row->productivity_pct / 100,
                 'allocation' => $row->allocation ?? 0,
-                'production' => $row->allocation * $row->productivity_pct / 100,
+                'production' => ($row->allocation ?? 0) * $row->productivity_pct / 100,
             ]))
             ->all();
     }

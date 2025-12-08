@@ -29,9 +29,16 @@ class LaborPool extends Model
         return DB::table('labor_pools')
             ->where('labor_pools.nation_id', $detail->getNationId())
             ->where('labor_pools.turn_id', $turn->getId())
-            ->join('labor_pool_allocations', 'labor_pool_allocations.labor_pool_id', '=', 'labor_pools.id')
-            ->whereNot('labor_pool_allocations.resource_type', ResourceType::Capital->value)
-            ->selectRaw('labor_pools.id, labor_pools.nation_id, labor_pools.turn_id, labor_pools.territory_id, labor_pools.size, labor_pools.size - sum(labor_pool_allocations.allocation) as free_labor')
+            // ->leftJoin('labor_pool_allocations', 'labor_pool_allocations.labor_pool_id', '=', 'labor_pools.id')
+            // ->selectRaw('labor_pools.id, labor_pools.nation_id, labor_pools.turn_id, labor_pools.territory_id, labor_pools.size, labor_pools.size - sum(labor_pool_allocations.allocation) as free_labor')
+            ->select([
+                'labor_pools.id',
+                'labor_pools.nation_id',
+                'labor_pools.turn_id',
+                'labor_pools.territory_id',
+                'labor_pools.size',
+                DB::raw('labor_pools.size - (SELECT SUM(labor_pool_allocations.allocation) FROM labor_pool_allocations WHERE labor_pool_allocations.labor_pool_id = labor_pools.id AND labor_pool_allocations.resource_type != ' . ResourceType::Capital->value . ') as free_labor')
+            ])
             ->groupBy(
                 'labor_pools.id',
                 'labor_pools.nation_id',
@@ -42,6 +49,7 @@ class LaborPool extends Model
             ->get()
             ->map(fn (object $row) => LaborPoolInfo::fromObject($row, [
                 'labor_pool_id' => $row->id,
+                'free_labor' => $row->free_labor ?? 0,
             ]))
             ->all();
     }
