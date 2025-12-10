@@ -12,6 +12,7 @@ use App\Models\Nation;
 use App\Models\NewNation;
 use App\Models\GameHasNotEnoughFreeTerritories;
 use App\Models\LeaderDetail;
+use App\Models\News;
 use App\Models\ProductionBid;
 use App\Models\Territory;
 use App\Models\TerritoryDetail;
@@ -296,6 +297,7 @@ class UiController extends Controller
             'battle_logs' => $nationDetail
                     ->getAllBattlesWhereParticipant()
                     ->map(fn (Battle $b) => $b->exportForParticipant()),
+            'news' => News::getAllForTurn($turn)->map(fn (News $n) => $n->export()),
         ]);
     }
 

@@ -6,6 +6,7 @@ use App\Http\Controllers\DevController;
 use App\Http\Controllers\DivisionController;
 use App\Http\Controllers\GameController;
 use App\Http\Controllers\NationController;
+use App\Http\Controllers\NewsController;
 use App\Http\Controllers\ProductionController;
 use App\Http\Controllers\TerritoryController;
 use App\Http\Controllers\UiController;
@@ -67,6 +68,8 @@ Route::get('/game/victory-status', [GameController::class, 'victoryStatus'])
     ->name('ajax.get-game-victory-status');
 Route::get('/game/rankings', [GameController::class, 'rankings'])
     ->name('ajax.get-game-rankings');
+Route::get('/game/news', [NewsController::class, 'news'])
+    ->name('ajax.get-game-news');
 
 // Nation routes.
 Route::middleware('auth')->group(function () {

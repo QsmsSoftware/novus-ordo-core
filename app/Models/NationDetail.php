@@ -136,6 +136,10 @@ class NationDetail extends Model
         return $this->stockpiles->mapWithKeys(fn (NationResourceStockpile $stockpile) => [$stockpile->getResourceType()->value => $stockpile]);
     }
 
+    public function getLeaderDetail(): LeaderDetail {
+        return LeaderDetail::getForNation($this);
+    }
+
     public function getPopulationGrowthRate(): float {
         $turn = $this->getTurn();
         $nationPopulation = Metacache::remember($this->getPopulationSize(...));
@@ -423,6 +427,7 @@ class NationDetail extends Model
     }
 
     public function finalizeNationCreation(): void {
+        News::create($this->getTurn(), "The people of " . News::getNationUsualNameTag($this) . "  <b>proclames</b> the " . News::getNationFormalNameTag($this) . ". " . News::getLeaderNameTag($this->getLeaderDetail()) . " will serve as its first " . News::getLeaderTitleTag($this->getLeaderDetail()) . ".");
         $this->allocateLabor();
     }
 

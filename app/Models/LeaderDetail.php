@@ -12,6 +12,10 @@ class LeaderDetail extends Model
 {
     use ReplicatesForTurns;
 
+    public function getLeaderId(): int {
+        return $this->leader_id;
+    }
+
     public function onNextTurn(LeaderDetail $current): void {
         $this->save();
     }
@@ -31,6 +35,7 @@ class LeaderDetail extends Model
 
     public function export(): LeaderTurnPublicInfo {
         return new LeaderTurnPublicInfo(
+            leader_id: $this->leader_id,
             nation_id: $this->nation_id,
             name: $this->name,
             title: $this->title,

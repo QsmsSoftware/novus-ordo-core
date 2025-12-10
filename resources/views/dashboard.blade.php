@@ -76,6 +76,10 @@
     {!! $static_js_rankings->renderAsTag() !!}
     @if(EnsureWhenRunningInDevelopmentOnly::isRunningInDevelopmentEnvironment())
     {!! $static_js_dev_services->renderAsTag() !!}
+    <script src="js/dashboard.js"></script>
+    <script>
+        var newsDisplayService;
+    </script>
     <script>
         let devServices = new DevServices(@json(url("")), @json(csrf_token()));
     </script>
@@ -128,6 +132,7 @@
         let terrainTypeInfoByType = mapExportedArray(allTerrainTypes, tt => tt.terrain_type);
         var budget = @json($budget);
         let productionBidsByResourceType = mapExportedArray(@json($production_bids), b => b.resource_type);
+        let allNews = @json($news);
 
         let ownNation = @json($own_nation);
         var readyStatus = @json($ready_status);
@@ -149,6 +154,7 @@
             Rankings: 'Rankings',
             Goals: 'Goals',
             Production: 'Production',
+            News: 'News',
         };
         
         var selectedDetailsTab = null;
@@ -448,6 +454,9 @@
                     break;
                 case 'Production':
                     $("#production-display").show();
+                    break;
+                case 'News':
+                    $("#news-display").show();
                     break;
                 case null:
                     if (selectedTerritory) {
@@ -2258,6 +2267,8 @@
             if (!document.hasFocus()) {
                 startFlash();
             }
+            newsDisplayService = new NewsDisplayService(allNews, nationsById, mapExportedArray(leadersByNationId.values(), l => l.leader_id));
+            newsDisplayService.updateNews(document.getElementById('news-display'));
         });
     </script>
     <body>
@@ -2351,6 +2362,9 @@
                 </ul>
                 <div id="production-bids">
                 </div>
+            </div>
+            <div id="news-display">
+                news
             </div>
         </div>
         <div id="details">
