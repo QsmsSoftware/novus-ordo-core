@@ -32,6 +32,10 @@ class Division extends Model
         return $this->nation;
     }
 
+    public function getNationId(): int {
+        return $this->nation_id;
+    }
+
     public function details(): HasMany {
         return $this->hasMany(DivisionDetail::class);
     }

@@ -245,6 +245,8 @@ class Game extends Model
                 // Move divisions.
                 $this->activeDivisionsInTurn($currentTurn)->get()->each(fn (Division $d) => $d->onMovePhase($currentTurn, $nextTurn));
 
+                $territoriesByAttackerNationId = [];
+
                 // Attacks.
                 $divisionsByOwnerAndDestinationTerritory = $this->activeDivisionsInTurn($currentTurn)->get()
                     ->filter(fn (Division $d) => $d->getDetail($currentTurn)->isEngaging())
@@ -253,14 +255,41 @@ class Game extends Model
                     ])
                     ->shuffle();
                 foreach ($divisionsByOwnerAndDestinationTerritory as $attackingDivisions) {
-                    $destinationTerritoryId = Division::notNull($attackingDivisions->first())
+                    $firstDivision = Division::notNull($attackingDivisions->first());
+                    $destinationTerritoryId = $firstDivision
                         ->getDetail($currentTurn)
                         ->getOrder()
                         ->getTargetTerritory()
                         ->getId();
                     $destinationTerritory = $this->getTerritoryWithId($destinationTerritoryId);
+
+                    $territoriesByAttackerNationId[$firstDivision->getNationId()] ??= [];
+                    $territoriesByAttackerNationId[$firstDivision->getNationId()][] = $destinationTerritory;
+
                     Battle::resolveBattle($destinationTerritory, $currentTurn, $nextTurn, $attackingDivisions);
                     $attackingDivisions->each(fn (Division $d) => $d->getDetail($currentTurn)->getOrder()->onExecution());
+                }
+
+                foreach ($territoriesByAttackerNationId as $attackerNationId => $targets) {
+                    $conqueredTerritories = [];
+                    $repelledOnTerritoriees = [];
+
+                    foreach ($targets as $targetTerritory) {
+                        if ($targetTerritory->getDetail($nextTurn)->ownerIdEquals($attackerNationId)) {
+                            $conqueredTerritories[] = $targetTerritory;
+                        }
+                        else {
+                            $repelledOnTerritoriees[] = $targetTerritory;
+                        }
+                    }
+
+                    if (count($conqueredTerritories) > 0) {
+                        News::create($nextTurn, News::getNationUsualNameTag($this->getNationWithIdOrNull($attackerNationId)->getDetail($nextTurn)) . " conquered territories " . collect($conqueredTerritories)->map(fn (Territory $t) => News::getTerritoryNameTag($t))->join(", ") . ".");
+                    }
+
+                    if (count($repelledOnTerritoriees) > 0) {
+                        News::create($nextTurn, News::getNationUsualNameTag($this->getNationWithIdOrNull($attackerNationId)->getDetail($nextTurn)) . " was repelled on territories " . collect($repelledOnTerritoriees)->map(fn (Territory $t) => News::getTerritoryNameTag($t))->join(", ") . ".");
+                    }
                 }
 
                 $this->activeDivisionsInTurn($currentTurn)->get()->each(fn (Division $d) => $d->afterBattlePhase($currentTurn, $nextTurn));

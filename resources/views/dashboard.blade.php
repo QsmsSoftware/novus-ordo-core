@@ -469,7 +469,7 @@
         }
 
         function updateMainTabs() {
-            $("#main-tabs").html(Object.keys(MainTabs).map(tab => renderActionLink(MainTabs[tab], `selectMainTab('${tab}')`, tab == selectedMainTab)).join(" "));
+            $("#main-tabs").html(Object.keys(MainTabs).map(tab => ActionLinkHelper.renderActionLink(MainTabs[tab], `selectMainTab('${tab}')`, tab == selectedMainTab)).join(" "));
         }
 
         function renderTime(time_s) {
@@ -605,7 +605,7 @@
                     cumulatedProduction += maxProduction;
 
                     html += '<tr>'
-                        + `<td>${renderActionLink(territory.name, `selectTerritory(${territory.territory_id})`)}</td>`
+                        + `<td>${ActionLinkHelper.renderActionLink(territory.name, `selectTerritory(${territory.territory_id})`)}</td>`
                         + `<td>${formatValue(a.productivity, StatUnit.DecimalNumber)}</td>`
                         + `<td>${formatValue(remainingCapacity / LaborPoolConstants.LABOR_PER_UNIT_OF_PRODUCTION, StatUnit.DecimalNumber)}</td>`
                         + `<td>${formatValue(maxProduction / LaborPoolConstants.LABOR_PER_UNIT_OF_PRODUCTION, StatUnit.DecimalNumber)}</td>`
@@ -701,13 +701,13 @@
         }
 
         function updateUpdateBidsLink() {
-            let cancelAllBidsLink = anyBidToCancel() ? renderActionLink('cancel all bids', 'cancelAllBids()') : '<span class="disabled-action-link">cancel all bids</span>';
+            let cancelAllBidsLink = anyBidToCancel() ? ActionLinkHelper.renderActionLink('cancel all bids', 'cancelAllBids()') : '<span class="disabled-action-link">cancel all bids</span>';
 
             if (resourceTypeInfoByType.keys().some(resourceType => {
                 let input = getBidInput(resourceType);
                 return input.valid && input.bidChanged
             })) {
-                $("#update-bids-links").html(`${cancelAllBidsLink} - ` + renderActionLink('update bids', 'placeBids()'));
+                $("#update-bids-links").html(`${cancelAllBidsLink} - ` + ActionLinkHelper.renderActionLink('update bids', 'placeBids()'));
             }
             else {
                 $("#update-bids-links").html(`${cancelAllBidsLink} - <span class="disabled-action-link">update bids</span>`);
@@ -784,7 +784,7 @@
 
                             return production > 0
                                 ? '<tr>'
-                                    + `<td>${renderActionLink(territory.name, `selectTerritory(${territory.territory_id})`)}</td>`
+                                    + `<td>${ActionLinkHelper.renderActionLink(territory.name, `selectTerritory(${territory.territory_id})`)}</td>`
                                     + `<td>${formatValue(a.productivity, StatUnit.DecimalNumber)}</td>`
                                     + `<td>${formatValue(capacity, StatUnit.DecimalNumber)}</td>`
                                     + `<td>${formatValue(maxProduction, StatUnit.DecimalNumber)}</td>`
@@ -903,7 +903,7 @@
                     ? "Sea"
                     : (selectedTerritory.has_sea_access ? "Coastal" : "No sea access")
                 )
-                + (selectedTerritory.connected_land_territory_ids.length > 0 ? '. Land access to ' + selectedTerritory.connected_land_territory_ids.map(ctid => territoriesById.get(ctid)).map(t => renderActionLink(t.name, `selectTerritory(${t.territory_id})`)).join(', ') : '')
+                + (selectedTerritory.connected_land_territory_ids.length > 0 ? '. Land access to ' + selectedTerritory.connected_land_territory_ids.map(ctid => territoriesById.get(ctid)).map(t => ActionLinkHelper.renderActionLink(t.name, `selectTerritory(${t.territory_id})`)).join(', ') : '')
                 + `<span id="territory-info-owner">` + (selectedTerritory.owner_nation_id != null ? `<p>Owned by ${nationsById.get(selectedTerritory.owner_nation_id).usual_name}</p>` : '') + "</span>"
             );
 
@@ -1048,15 +1048,15 @@
             let changeTurnLinks = [];
             
             if (selectedBattleLogTurnNumber > 1) {
-                changeTurnLinks.push(renderActionLink('previous turn', `selectBattleLogTurn(${selectedBattleLogTurnNumber - 1})`));
+                changeTurnLinks.push(ActionLinkHelper.renderActionLink('previous turn', `selectBattleLogTurn(${selectedBattleLogTurnNumber - 1})`));
             }
             
             if (selectedBattleLogTurnNumber < readyStatus.turn_number) {
-                changeTurnLinks.push(renderActionLink('next turn', `selectBattleLogTurn(${selectedBattleLogTurnNumber + 1})`));
+                changeTurnLinks.push(ActionLinkHelper.renderActionLink('next turn', `selectBattleLogTurn(${selectedBattleLogTurnNumber + 1})`));
             }
 
             if (selectedBattleLogTurnNumber != readyStatus.turn_number) {
-                changeTurnLinks.push(renderActionLink('current turn', `selectBattleLogTurn(${readyStatus.turn_number})`));
+                changeTurnLinks.push(ActionLinkHelper.renderActionLink('current turn', `selectBattleLogTurn(${readyStatus.turn_number})`));
             }
             
 
@@ -1068,7 +1068,7 @@
                     `<p>We participated in ${battleLogs.length} battles in turn ${selectedBattleLogTurnNumber}. ${changeTurnLinks.join(" ")}</p>`
                     + battleLogs.map(battleLog => {
                         let targetTerritory = territoriesById.get(battleLog.territory_id);
-                        let targetTerritoryLink = renderActionLink(targetTerritory.name, `selectTerritory(${targetTerritory.territory_id})`);
+                        let targetTerritoryLink = ActionLinkHelper.renderActionLink(targetTerritory.name, `selectTerritory(${targetTerritory.territory_id})`);
                         var summary;
                         if (ownNation.nation_id == battleLog.attacker_nation_id) {
                             if (ownNation.nation_id == battleLog.winner_nation_id) {
@@ -1178,7 +1178,7 @@
                 
                 return '<tr>'
                     + `<td>${getMaxDeployments(divisionTypeInfo.division_type) < getBaseMaxDeployments(divisionTypeInfo.division_type) ? '*' : ''}${remainingDeployments}x</td>`
-                    + `<td>${renderActionLink(divisionTypeInfo.description, `startDeploying('${divisionTypeInfo.division_type}')`, divisionTypeInfo.division_type == selectedDivisionType)}</td>`
+                    + `<td>${ActionLinkHelper.renderActionLink(divisionTypeInfo.description, `startDeploying('${divisionTypeInfo.division_type}')`, divisionTypeInfo.division_type == selectedDivisionType)}</td>`
                     + `<td class="stat-value">${formatValue(divisionTypeInfo.attack_power / 100, StatUnit.Percent)}</td>`
                     + `<td class="stat-value">${formatValue(divisionTypeInfo.defense_power / 100, StatUnit.Percent)}</td>`
                     + `<td>${formatValue(divisionTypeInfo.moves, StatUnit.WholeNumber)}</td>`
@@ -1274,7 +1274,7 @@
             divisionsInTerritory = getDivisionsInSelectedTerritory();
 
             function cancelOrderOf(division) {
-                return renderActionLink('cancel order', `cancelOrder(${division.division_id})`);
+                return ActionLinkHelper.renderActionLink('cancel order', `cancelOrder(${division.division_id})`);
             }
 
             let deployedDefensePower = sumDeployedDefensePowerForTerritory(selectedTerritory);
@@ -1310,7 +1310,7 @@
                     : 'cumulated attack power: ' + calculateTotalAttackPower(divisionsMovingToTerritory);
                 html += `Divisions heading towards this territory (${powerLabel}): `
                     + '<ul>'
-                    + divisionsMovingToTerritory.map(d => `<li>${divisionTypeInfoByType.get(d.division_type).description} #${d.division_id} from ${renderActionLink(territoriesById.get(d.territory_id).name, `selectTerritory(${d.territory_id})`)}${isGoingThrough(d, selectedTerritory) ? ` is going through this territory on its way to ${renderActionLink(territoriesById.get(d.order.target_territory_id).name, `selectTerritory(${d.order.target_territory_id})`)}` : ""} ${cancelOrderOf(d)}</li>`).join("")
+                    + divisionsMovingToTerritory.map(d => `<li>${divisionTypeInfoByType.get(d.division_type).description} #${d.division_id} from ${ActionLinkHelper.renderActionLink(territoriesById.get(d.territory_id).name, `selectTerritory(${d.territory_id})`)}${isGoingThrough(d, selectedTerritory) ? ` is going through this territory on its way to ${ActionLinkHelper.renderActionLink(territoriesById.get(d.order.target_territory_id).name, `selectTerritory(${d.order.target_territory_id})`)}` : ""} ${cancelOrderOf(d)}</li>`).join("")
                     + '</ul>';
             }
             
@@ -1533,7 +1533,7 @@
             if (numberOfSelectedDivisions > 0) {
                 let renderedCosts = renderResourceCosts(calculateResourceAttackConsomption(getAllSelectedDivisionsInTerritory()));
                 let attackLink = canAffordAttackWithSelectedDivisions()
-                    ? `${renderActionLink('attack', 'selectAttackTargetForDivisions()')} ${renderedCosts.length > 0 ? `(${renderedCosts})` : ''}`
+                    ? `${ActionLinkHelper.renderActionLink('attack', 'selectAttackTargetForDivisions()')} ${renderedCosts.length > 0 ? `(${renderedCosts})` : ''}`
                     : `(too costly to attack: ${renderedCosts})`;
                 
                 let selectedDivisions = getAllSelectedDivisionsInTerritory();
@@ -1563,13 +1563,13 @@
                 $("#select-divisions-by-type-links").html("");
             }
             else {
-                $("#select-divisions-by-type-links").html(getDivisionsInSelectedTerritory().length > 0 ? "Select/unselect " + [renderActionLink('all', `selectAllDivisionsInTerritory(true)`), renderActionLink('none', `selectAllDivisionsInTerritory(false)`), renderActionLink('invert', `selectAllDivisionsInTerritory()`), renderActionLink('idle', `selectAllIdleDivisionsInTerritory()`), renderActionLink('busy', `selectAllBusyDivisionsInTerritory()`)].join(" ") + " " + (new Set([...getDivisionsInSelectedTerritory().map(d => d.division_type)])).values().map(divisionType => renderActionLink(divisionType, `selectAllDivisionsInTerritoryWithType('${divisionType}')`)).toArray().join(" ") : "");
+                $("#select-divisions-by-type-links").html(getDivisionsInSelectedTerritory().length > 0 ? "Select/unselect " + [ActionLinkHelper.renderActionLink('all', `selectAllDivisionsInTerritory(true)`), ActionLinkHelper.renderActionLink('none', `selectAllDivisionsInTerritory(false)`), ActionLinkHelper.renderActionLink('invert', `selectAllDivisionsInTerritory()`), ActionLinkHelper.renderActionLink('idle', `selectAllIdleDivisionsInTerritory()`), ActionLinkHelper.renderActionLink('busy', `selectAllBusyDivisionsInTerritory()`)].join(" ") + " " + (new Set([...getDivisionsInSelectedTerritory().map(d => d.division_type)])).values().map(divisionType => ActionLinkHelper.renderActionLink(divisionType, `selectAllDivisionsInTerritoryWithType('${divisionType}')`)).toArray().join(" ") : "");
             }
         }
 
         function renderDestinationLink(territoryId) {
             let destination = territoriesById.get(territoryId);
-            return renderActionLink(`${destination.name} (${destination.owner_nation_id ? nationsById.get(destination.owner_nation_id).usual_name : "neutral"})`, `selectTerritory(${destination.territory_id})`);
+            return ActionLinkHelper.renderTerritoryLink(destination);
         }
 
         function describeOrder(division, order) {
@@ -1735,11 +1735,7 @@
         }
 
         function updateDetailsTabs() {
-            $("#details-tabs").html(Object.keys(DetailsTabs).map(pane => renderActionLink(pane, `selectDetailsPane('${pane}')`, pane == selectedDetailsTab)).join(" "));
-        }
-
-        function renderActionLink(title, onclick, selected = false) {
-            return `<a class="${selected ? "selected-action-link" : "action-link"}" href="javascript:void(0)" onclick="${onclick}">${title}</a>`;
+            $("#details-tabs").html(Object.keys(DetailsTabs).map(pane => ActionLinkHelper.renderActionLink(pane, `selectDetailsPane('${pane}')`, pane == selectedDetailsTab)).join(" "));
         }
 
         function stopDeploying() {
@@ -2267,7 +2263,7 @@
             if (!document.hasFocus()) {
                 startFlash();
             }
-            newsDisplayService = new NewsDisplayService(allNews, nationsById, mapExportedArray(leadersByNationId.values(), l => l.leader_id));
+            newsDisplayService = new NewsDisplayService(allNews, nationsById, mapExportedArray(leadersByNationId.values(), l => l.leader_id), territoriesById);
             newsDisplayService.updateNews(document.getElementById('news-display'));
         });
     </script>

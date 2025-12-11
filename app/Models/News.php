@@ -28,6 +28,10 @@ class News extends Model
         return "##leader#{$leaderDetail->getLeaderId()}#title##";
     }
 
+    public static function getTerritoryNameTag(Territory $territory): string {
+        return "##territory#{$territory->getId()}#name##";
+    }
+
     public static function getAllForTurn(Turn $turn): Collection {
         return News::where('game_id', $turn->getGameId())
             ->where('turn_id', $turn->getId())

@@ -86,6 +86,10 @@ class TerritoryDetail extends Model
         return !is_null($this->owner);
     }
 
+    public function ownerIdEquals(int $nationId): bool {
+        return $this->owner_nation_id === $nationId;
+    }
+
     public function getPopulationSize(): int {
         return $this->population_size;
     }
