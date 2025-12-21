@@ -6,6 +6,7 @@ use App\Domain\BidType;
 use App\Domain\LaborPoolConstants;
 use App\Domain\ProductionBidConstants;
 use App\Domain\ResourceType;
+use App\Domain\ResourceTypeMeta;
 use App\Domain\SharedAssetType;
 use App\Domain\StatUnit;
 use App\Facades\Metacache;
@@ -464,16 +465,19 @@ class NationDetail extends Model
 
         $resourceInfosByType = ResourceType::getMetas();
 
+        $reservedLabor = 0;
         foreach(ResourceType::cases() as $resourceType) {
-            if ($resourceType == ResourceType::RecruitmentPool) {
-                // Temporary!
+            $info = $resourceInfosByType[$resourceType->value];
+            assert($info instanceof ResourceTypeMeta);
+
+            if (!$info->producedByLabor) {
                 $demandRemainingByResourceType[$resourceType->value] = 0;
                 continue; 
             }
             $upkeep = $this->getUpkeepRaw($resourceType);
             $expenses = $this->getExpensesRaw($resourceType);
             $bidOrNull = ProductionBid::getCommandBidOrNull($this, $resourceType);
-            $activeProductionBidForResource = !is_null($bidOrNull) && $bidOrNull->getMaxQuantity() > 0 && $resourceInfosByType[$resourceType->value]->canPlaceCommand;
+            $activeProductionBidForResource = !is_null($bidOrNull) && $bidOrNull->getMaxQuantity() > 0 && $info->canPlaceCommand;
             if ($activeProductionBidForResource && $maintainReserveIfActiveCommand) {
                 $demandRemainingByResourceType[$resourceType->value] = $upkeep;
             }
@@ -482,6 +486,10 @@ class NationDetail extends Model
                 $surplus = $reserves - $expenses - $upkeep;
                 $demandRemainingByResourceType[$resourceType->value] = $surplus < 0 ? -$surplus : 0;
             }
+
+            if ($info->reserveLaborForUpkeep) {
+                $reservedLabor += $demandRemainingByResourceType[$resourceType->value];
+            }
         }
 
         LaborPoolAllocation::resetAllocations($this);
@@ -489,10 +497,7 @@ class NationDetail extends Model
         foreach ($demandRemainingByResourceType as $resourceType => $quantity) {
             ProductionBid::setUpkeepBid($this, ResourceType::from($resourceType), $quantity);
         }
-
-        //ProductionBid::setUpkeepBid($this, ResourceType::Capital, $this->getUpkeepRaw(ResourceType::Capital));
-        //$reservedLabor = $this->getUpkeepRaw(ResourceType::Capital);
-        $reservedLabor = 0;
+        
         $usableLabor = max(0, $laborPoolsById->sum(fn (LaborPool $lp) => $lp->getSize()) - $reservedLabor);
 
         ProductionBid::setCommandBid($this, ResourceType::Capital, ProductionBidConstants::MAX_QUANTITY_LIMIT, ProductionBidConstants::MAX_LABOR_PER_UNIT_LIMIT, ProductionBidConstants::LOWEST_COMMAND_BID_PRIORITY - 1);
@@ -528,8 +533,6 @@ class NationDetail extends Model
                 $productivity = $facility->getProductivity();
 
                 if ($bid->getMaxLaborPerUnit() < LaborPoolConstants::LABOR_PER_UNIT_OF_PRODUCTION / $productivity) {
-                    // if ($resourceType == ResourceType::Oil)
-                    //     dd($facility);
                     break;
                 }
 

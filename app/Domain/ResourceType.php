@@ -17,12 +17,12 @@ enum ResourceType :int {
 
     public static function getMeta(ResourceType $resourceType): ResourceTypeMeta {
         return match($resourceType) {
-            ResourceType::Capital => new ResourceTypeMeta(description: "Capital (money)", canBeStocked: true, startingStock: 20, upkeepBidPriority: UpkeepBidPriority::Default, canPlaceCommand: false),
-            ResourceType::RecruitmentPool => new ResourceTypeMeta(description: "Recruitement pool", canBeStocked: false, startingStock: 0, upkeepBidPriority: UpkeepBidPriority::AfterCommandBids, canPlaceCommand: false),
-            ResourceType::Food => new ResourceTypeMeta(description: "Food", canBeStocked: true, startingStock: 0, upkeepBidPriority: UpkeepBidPriority::Highest),
-            ResourceType::Material => new ResourceTypeMeta(description: "Raw materials", canBeStocked: true, startingStock: 0),
-            ResourceType::Ore => new ResourceTypeMeta(description: "Ores", canBeStocked: true, startingStock: 10),
-            ResourceType::Oil => new ResourceTypeMeta(description: "Oil", canBeStocked: true, startingStock: 10),
+            ResourceType::Capital => new ResourceTypeMeta(description: "Capital (money)", startingStock: 20, upkeepBidPriority: UpkeepBidPriority::AfterCommandBids, canPlaceCommand: false, reserveLaborForUpkeep: true),
+            ResourceType::RecruitmentPool => new ResourceTypeMeta(description: "Recruitement pool", startingStock: 0, canBeStocked: false, canPlaceCommand: false, producedByLabor: false),
+            ResourceType::Food => new ResourceTypeMeta(description: "Food", startingStock: 0, upkeepBidPriority: UpkeepBidPriority::Highest),
+            ResourceType::Material => new ResourceTypeMeta(description: "Raw materials", startingStock: 0),
+            ResourceType::Ore => new ResourceTypeMeta(description: "Ores", startingStock: 10),
+            ResourceType::Oil => new ResourceTypeMeta(description: "Oil", startingStock: 10),
         };
     }
 
