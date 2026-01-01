@@ -78,7 +78,7 @@ class Turn extends Model
         $now = CarbonImmutable::now(config('novusordo.timezone_for_turn_expiration'));
         $startOfDay = $now->startOfDay();
         $minutesSinceStartOfDay = intval($startOfDay->diffInMinutes($now));
-        $minutesToNextExpiration = ceil($minutesSinceStartOfDay / $timeLimitMinutes) * $timeLimitMinutes;
+        $minutesToNextExpiration = (floor($minutesSinceStartOfDay / $timeLimitMinutes) + 1) * $timeLimitMinutes;
         $nextExpiration = $startOfDay->addMinutes($minutesToNextExpiration)->subSecond();
         
         $minimumDelaiMinutes = config('novusordo.minimum_delay_before_turn_expiration_minutes');
